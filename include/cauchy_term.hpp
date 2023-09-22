@@ -636,6 +636,7 @@ struct CauchyTerm
         cells_gtable_p = cells_gtable;
         gtable_p = gtable;
         gtable = NULL;
+        parent = NULL;
     }
 
 };

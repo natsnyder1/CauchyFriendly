@@ -38,7 +38,7 @@ bool INTEGRABLE_FLAG = true;
 // Differential Cell Enumeration Settings
 const int DCE_STORAGE_MULT = 4;
 const bool STABLE_SOLVE = true; // setting to false increases speed but uses a very weak condition number approximation
-const double GAMMA_PERTURB_EPS = 1; // Must be positive
+const double GAMMA_PERTURB_EPS = 1; // Must be positive (currently deprecated)
 const double PLU_EPS = 1e-15;
 const double COND_EPS = 1e12;
 

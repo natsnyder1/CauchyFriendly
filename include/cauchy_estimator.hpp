@@ -11,6 +11,8 @@
 #include "random_variables.hpp"
 #include "term_reduction.hpp"
 #include "flattening.hpp"
+#include "cpu_timer.hpp"
+#include <cstring>
 
 struct CauchyEstimator
 {
@@ -22,6 +24,9 @@ struct CauchyEstimator
     int current_estimation_step;
     int master_step; // when multiple measurements are in play, this keep track of the number of times msmt_update is called (child generation)
     CauchyTerm* terms; // terms of the cauchy estimator
+    double* A0_init;
+    double* p0_init;
+    double* b0_init;
     int num_gtable_chunks; 
     int num_btable_chunks;
     int* terms_per_shape;
@@ -64,6 +69,9 @@ struct CauchyEstimator
         memcpy(terms->A, _A0, d*d*sizeof(double));
         memcpy(terms->p, _p0, d*sizeof(double));
         memcpy(terms->b, _b0, d*sizeof(double));
+        A0_init = _A0;
+        p0_init = _p0;
+        b0_init = _b0;
 
         // Init Gtable helpers
         root_point = (double*) malloc( d * sizeof(double));
@@ -160,7 +168,8 @@ struct CauchyEstimator
     {
         double tmp_Gamma[d*cmcc];
         double tmp_beta[cmcc];
-        
+        CPUTimer tmr;
+        tmr.tic();
         // Transpose, normalize, and pre-coalign Gamma and beta
         int tmp_cmcc = precoalign_Gamma_beta(Gamma, beta, cmcc, d, tmp_Gamma, tmp_beta);
         memset(terms_per_shape, 0, shape_range * sizeof(int));
@@ -170,9 +179,13 @@ struct CauchyEstimator
             int m_new = terms[i].tp_coalign(tmp_Gamma, tmp_beta, tmp_cmcc);
             terms_per_shape[m_new]++;
         }
+        tmr.toc(false);
+        if(print_basic_info)
+            printf("TP/TPC Step %d/%d took %d ms\n", master_step+1, num_estimation_steps, tmr.cpu_time_used);
         // No need to update / build the Btables on the last step, if SKIP_LAST_STEP is true
         if(!skip_post_mu)
         {
+            tmr.tic();
             // Now build the new Btable after adding and possibly coaligning Gamma
             BYTE_COUNT_TYPE bytes_max_cells = 0;
             for(int i = 0; i < shape_range; i++)
@@ -209,10 +222,12 @@ struct CauchyEstimator
                 }
             }
             //printf("-------\n");
-            
             // Now swap btable memory locations and clear btables_p;
             // btable_ps are now pointed to by btables and memory in btables_p is unallocated
             gb_tables.swap_btables();
+            tmr.toc(false);
+            if(print_basic_info)
+                printf("TP Cell Enum Took %d ms\n", tmr.cpu_time_used);
         }
 
         if(print_basic_info)
@@ -235,6 +250,8 @@ struct CauchyEstimator
         }
         else
         {
+            CPUTimer tmr;
+            tmr.tic();
             // Get new maximum term count
             int Nt_alloc = 0;
             for(int i = 0; i < shape_range; i++)
@@ -253,10 +270,15 @@ struct CauchyEstimator
                 Nt_new += num_new_children;
                 terms_per_shape[terms[i].m] += num_new_children + 1;
             }
+            tmr.toc(false);
+
             if(print_basic_info)
+            {
+                printf("MU step %d/%d took %d ms:\n", master_step+1, num_estimation_steps, tmr.cpu_time_used);
                 for(int i = 0; i < shape_range; i++)
                     if(terms_per_shape[i] > 0)
-                        printf("MU step %d/%d: Shape %d now has %d terms\n", master_step+1, num_estimation_steps, i, terms_per_shape[i]);
+                        printf("MU: Shape %d now has %d terms\n", i, terms_per_shape[i]);
+            }
             Nt = Nt_new;
             //terms = (CauchyTerm*) realloc(terms,  Nt * sizeof(CauchyTerm) );
             //null_ptr_check(terms);
@@ -266,6 +288,7 @@ struct CauchyEstimator
             memset(terms_per_shape, 0, shape_range * sizeof(int) ); // reset term counts
             if(!skip_post_mu)
             {
+                tmr.tic();
                 for(int i = 0; i < Nt; i++)
                 {   
                     // No MUC for old terms 
@@ -279,10 +302,14 @@ struct CauchyEstimator
                         terms_per_shape[terms[i].mu_coalign()]++;
                     }
                 }
+                tmr.toc(false);
                 if(print_basic_info)
+                {
+                    printf("MUC took %d ms:\n", tmr.cpu_time_used);
                     for(int i = 0; i < shape_range; i++)
                         if(terms_per_shape[i] > 0)
-                            printf("MUC step %d/%d: Shape %d now has %d terms\n", master_step+1, num_estimation_steps, i, terms_per_shape[i]);
+                            printf("MUC: Shape %d now has %d terms\n", i, terms_per_shape[i]);
+                }
             }
         }
     }
@@ -363,6 +390,8 @@ struct CauchyEstimator
 
     void compute_moments(const bool before_ftr = true)
     {
+        CPUTimer tmr;
+        tmr.tic();
         bool first_step = (master_step == 0);
         C_COMPLEX_TYPE g_val;
         C_COMPLEX_TYPE yei[d];
@@ -398,10 +427,11 @@ struct CauchyEstimator
                 conditional_variance[i*d + j] = (conditional_variance[i*d+j] / fz) - conditional_mean[i] * conditional_mean[j];
             }
         }
+        tmr.toc(false);
         if( before_ftr && print_basic_info )
         {
             const int precision = 16;
-            printf("Moment Information (after MU) at step %d, MU %d/%d\n", (master_step+1) / p, (master_step % p)+1, p);
+            printf("Moment Information (after MU) at step %d, MU %d/%d (took %d ms)\n", (master_step+1) / p, (master_step % p)+1, p, tmr.cpu_time_used);
             printf("fz: %.*lf + %.*lfj\n", precision, creal(fz), precision, cimag(fz));
             printf("Conditional Mean:\n");
             print_cmat(conditional_mean, 1, d, precision);
@@ -411,7 +441,7 @@ struct CauchyEstimator
         if( (!before_ftr) && print_basic_info) 
         {
             const int precision = 16;
-            printf("Moment Information (after FTR) at step %d, MU %d/%d\n", (master_step+1) / p, (master_step % p)+1, p);
+            printf("Moment Information (after FTR) at step %d, MU %d/%d (took %d ms)\n", (master_step+1) / p, (master_step % p)+1, p, tmr.cpu_time_used);
             printf("fz: %.*lf + %.*lfj\n", precision, creal(fz), precision, cimag(fz));
             printf("Conditional Mean:\n");
             print_cmat(conditional_mean, 1, d, precision);
@@ -441,6 +471,8 @@ struct CauchyEstimator
             return;
         // bs[i] are the bs list (array) of all terms with i hyperplanes
         // shape_idxs[i][j] is the index of the "bs[i] + d*j" vector in the term list
+        CPUTimer tmr;
+        tmr.tic();
         double** bs;
         int** shape_idxs;
         get_contiguous_bs_from_term_list(&bs, &shape_idxs, terms, Nt, terms_per_shape, shape_range, d);
@@ -448,7 +480,9 @@ struct CauchyEstimator
         int max_Nt_shape = array_max<int>(terms_per_shape, shape_range);
         if(max_Nt_shape > ftr_helper.max_num_terms)
             ftr_helper.realloc_helpers(max_Nt_shape);
-
+        tmr.toc(false);
+        if(print_basic_info)
+            printf("[FTR/Gtables step %d/%d:] Preprocessing took %d ms\n", master_step+1, num_estimation_steps, tmr.cpu_time_used);
         int Nt_reduced = 0; // Total number of terms after term reduction has finished
         int Nt_removed = 0; // Total number of terms removed after term approximation
         bool* F_removed = (bool*) malloc(Nt * sizeof(bool)); // boolean flag of terms that are removed after FTR
@@ -458,6 +492,7 @@ struct CauchyEstimator
         {
             if(terms_per_shape[m] > 0)
             {
+                tmr.tic();
                 int Nt_shape = terms_per_shape[m];
                 memcpy(ftr_helper.F_TR, ftr_helper.F, Nt_shape * sizeof(int) );
                 int* shape_idx = shape_idxs[m]; 
@@ -479,10 +514,14 @@ struct CauchyEstimator
                     ftr_helper.forward_map, 
                     ftr_helper.backward_map,
                     REDUCTION_EPS, Nt_shape, m, d);
-                
                 // Build the term reduction lists: 
                 // example ffa.Fs[3] = [7,9,11] means terms at indices 7,9,11 reduce with the term at index 3
                 ForwardFlagArray ffa(ftr_helper.F_TR, Nt_shape);
+                tmr.toc(false);
+                if(print_basic_info)
+                    printf("[FTR Shape %d:], %d/%d terms remain (Took %d ms)\n", m, ffa.num_terms_after_reduction, Nt_shape, tmr.cpu_time_used);
+
+                tmr.tic();
                 int max_Nt_reduced_shape = ffa.num_terms_after_reduction; // Max number of terms after reduction (before term approximation)
                 int Nt_reduced_shape = 0;
                 int Nt_removed_shape = 0;
@@ -662,21 +701,20 @@ struct CauchyEstimator
                             Nt_removed_shape++;
                     }
                 }
-                
                 // After term reduction and g-evaluation 
                 Nt_reduced += Nt_reduced_shape;
                 Nt_removed += Nt_removed_shape;
                 terms_per_shape[m] = Nt_reduced_shape;
-
+                tmr.toc(false);
                 if(print_basic_info)
-                {
-                    printf("[FTR Shape %d:], %d/%d terms remain\n", m, max_Nt_reduced_shape, Nt_shape);
-                    if(WITH_TERM_APPROXIMATION)
+                    printf("[Eval Gtables shape %d:] Took %d ms\n", m, tmr.cpu_time_used);
+    
+                if(print_basic_info && WITH_TERM_APPROXIMATION)
                         printf("[Term Approx Shape %d:] %d/%d (%d were removed)\n", m, Nt_reduced_shape, max_Nt_reduced_shape, Nt_removed_shape);
-                }
             }
         }
         // For all terms not reduced out or approximated out, keep these terms 
+        tmr.tic();
         CauchyTerm* terms_after_reduction = (CauchyTerm*) malloc(Nt_reduced * sizeof(CauchyTerm));
         int count = 0;
         for(int i = 0; i < Nt; i++)
@@ -700,14 +738,19 @@ struct CauchyEstimator
         free(bs);
         free(shape_idxs);
         free(F_removed);
-
+        tmr.toc(false);
         // Compute moments after FTR
         if(print_basic_info)
+        {
+            printf("Deallocating memory after FTR took %d ms\n", tmr.cpu_time_used);
             compute_moments(false);
+        }
     }
 
     void step(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma)
     {
+        CPUTimer tmr;
+        tmr.tic();
         skip_post_mu = SKIP_LAST_STEP && (master_step == (num_estimation_steps-1)); 
         if(master_step == 0)
         {
@@ -722,6 +765,38 @@ struct CauchyEstimator
             fast_term_reduction_and_create_gtables();
         }
         master_step++;
+        tmr.toc(false);
+        printf("Step %d took %d ms\n", master_step, tmr.cpu_time_used);
+    }
+
+    void reset()
+    {
+        ftr_helper.deinit();
+        dce_helper.deinit();
+        gb_tables.deinit(); // g and b-tables
+        // Deallocate terms 
+        for(int i = 0; i < Nt; i++)
+            terms[i].deinit();
+        free(terms);
+
+        terms = (CauchyTerm*) malloc( (d+1)*sizeof(CauchyTerm) );
+        null_ptr_check(terms);
+        memset(terms_per_shape, 0, shape_range * sizeof(int));
+        Nt = 1;
+        master_step = 0;
+
+        // Re-init first term
+        terms->init(d, d);
+        memcpy(terms->A, A0_init, d*d*sizeof(double));
+        memcpy(terms->p, p0_init, d*sizeof(double));
+        memcpy(terms->b, b0_init, d*sizeof(double));
+
+        //Re-init helpers
+        ftr_helper.init(d, 1<<d);
+        dce_helper.init(shape_range-1, d, DCE_STORAGE_MULT, cmcc);
+        BYTE_COUNT_TYPE gb_init_bytes = (BYTE_COUNT_TYPE)((d+1) * GTABLE_SIZE_MULTIPLIER * (1<<d) * sizeof(GTABLE_TYPE));
+        int start_pages = (gb_init_bytes + GB_TABLE_STORAGE_PAGE_SIZE - 1) / GB_TABLE_STORAGE_PAGE_SIZE;
+        gb_tables.init(start_pages, GB_TABLE_STORAGE_PAGE_SIZE, GB_TABLE_ALLOC_METHOD);
     }
 
     ~CauchyEstimator()
