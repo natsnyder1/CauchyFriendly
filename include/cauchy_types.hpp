@@ -16,7 +16,6 @@
 #define HASHTABLE_STORAGE true // Sets the gtables to be stored in hashtables
 #define BINSEARCH_STORAGE false // Sets the gtables to be stored in arrays using binary search 
 #define DENSE_STORAGE false // Sets the gtables to be stored in arrays with all possible 2^m sign vectors evaluated
-#define GTABLE_SIZE_MULTIPLIER 1.5f
 // Sets whether only half of the gtable sign-vectors are stored in the gtable
 // This has no effect when the dense storage method is selected
 #define FULL_STORAGE false
@@ -26,7 +25,6 @@
 // Helper declarations that are automatically set
 #define HALF_STORAGE (!FULL_STORAGE)
 #define DISCARD_BTABLES (!KEEP_BTABLES)
-#define MIN_HASHTABLE_MULTIPLIER 1.0f
 
 #if HASHTABLE_STORAGE
     typedef KeyCValue GTABLE_TYPE;

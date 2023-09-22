@@ -4,6 +4,7 @@
 #include "cauchy_types.hpp"
 #include "eval_gs.hpp"
 #include "cpu_linalg.hpp"
+#include "gtable.hpp"
 
 struct CauchyTerm
 {
@@ -35,7 +36,7 @@ struct CauchyTerm
         m = _m;
         m_alloc = _m;
         d = _d;
-        A = (double*) malloc(m*d*sizeof(double));
+        A = (double*) malloc(m * d * sizeof(double));
         null_ptr_check(A);
         p = (double*) malloc(m * sizeof(double));
         null_ptr_check(p);
@@ -53,7 +54,7 @@ struct CauchyTerm
     void reinit(const int _m)
     {
         m_alloc = _m;
-        A = (double*) realloc(A, _m *d *sizeof(double));
+        A = (double*) realloc(A, _m * d * sizeof(double));
         null_ptr_check(A);
         p = (double*) realloc(p, _m * sizeof(double));
         null_ptr_check(p);
@@ -94,6 +95,8 @@ struct CauchyTerm
         memcpy(mu, A, m*d*sizeof(double));
         memcpy(rho, p, m*sizeof(double));
         rho[m] = gamma;
+        memset(mu + m*d, 0, d*sizeof(double));
+        F_integrable[m] = true;
         for(int l = 0; l < m; l++)
         {
             const int ld = l*d;
@@ -153,6 +156,7 @@ struct CauchyTerm
                 {
                     // Set helper variables for children
                     child->gtable_p = gtable_p;
+                    child->cells_gtable_p = cells_gtable_p;
                     child->phc = phc;
                     child->z = t;
                 }
@@ -194,6 +198,7 @@ struct CauchyTerm
         // If this is not the first estimation step, update the parent B using sign_AH 
         if(!first_update)
         {
+            enc_lhp = 0;
             for(int l = 0; l < phc; l++)
                 if(sign_AH[l] == -1)
                     enc_lhp |= (1 << l);
@@ -246,8 +251,8 @@ struct CauchyTerm
 
         if(first_update)
         {
-            g_num_p = CMPLX(1,0);
-            g_num_m = CMPLX(1,0);
+            g_num_p = 1 + 0*I; //CMPLX(1,0);
+            g_num_m = 1 + 0*I; //CMPLX(1,0);
         }
         else
         {
@@ -276,19 +281,17 @@ struct CauchyTerm
                     k++;
                 }
             }
-            
             // Change key enc_lp and enc_lm by enc_lhp
             int size_gtable_p = GTABLE_SIZE_MULTIPLIER * cells_gtable_p;
-            g_num_p = g_num_hashtable(enc_lp ^ enc_lhp, phc, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, true);
-            g_num_m = g_num_hashtable(enc_lm ^ enc_lhp, phc, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
+            g_num_p = g_num_hashtable(enc_lp ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, true);
+            g_num_m = g_num_hashtable(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
         }
         // Compute G and add complex part to yei
-        g_val = g_num_p / CMPLX(ygi+d_val, c_val) -  g_num_m / CMPLX(ygi-d_val, c_val);
-        //*g = g_num_p / (ygi+d_val + I*c_val) - g_num_m / (ygi-d_val + I*c_val);
+        //g_val = g_num_p / CMPLX(ygi+d_val, c_val) -  g_num_m / CMPLX(ygi-d_val, c_val);
+        g_val = g_num_p / (ygi+d_val + I*c_val) - g_num_m / (ygi-d_val + I*c_val);
         g_val *= RECIPRICAL_TWO_PI;
         for(int j = 0; j < d; j++)
-            yei[j] = CMPLX(-tmp_yei[j], b[j]);
-            // yei[j] = -tmp_yei[j] + I*b[j];
+            yei[j] = -tmp_yei[j] + I*b[j]; //yei[j] = CMPLX(-tmp_yei[j], b[j]);
 
         return g_val;
     }
@@ -307,13 +310,13 @@ struct CauchyTerm
                 enc_sv |= 1<<l;
         } 
         // overloading g_num_hashtable lookup here for gtable
+        // gtable is located in gtable_p after FTR (due to pointer swap for next step)
         const int two_to_m_minus1 = 1<<(m-1);
         const int rev_mask = (1<<m)-1;
-        C_COMPLEX_TYPE g_val = g_num_hashtable(enc_sv, m, two_to_m_minus1, rev_mask, gtable, cells_gtable * GTABLE_SIZE_MULTIPLIER, true);
+        C_COMPLEX_TYPE g_val = g_num_hashtable(enc_sv, two_to_m_minus1, rev_mask, gtable_p, cells_gtable_p * GTABLE_SIZE_MULTIPLIER, true);
 
         for(int j = 0; j < d; j++)
-            yei[j] = CMPLX(-tmp_yei[j], b[j]);
-            // yei[j] = -tmp_yei[j] + I*b[j];
+            yei[j] = -tmp_yei[j] + I*b[j]; //yei[j] = CMPLX(-tmp_yei[j], b[j]);
 
         return g_val;
     }
@@ -348,6 +351,7 @@ struct CauchyTerm
     {
         normalize_hps(false);
         bool F[cmcc];
+        memset(F, 1, cmcc * sizeof(bool));
         for(int j = 0; j < cmcc; j++)
         {
             double* Gam_root = Gamma_T + j*d;
@@ -380,16 +384,21 @@ struct CauchyTerm
             }
         }
         int new_shape = m;
-        for(int i = 0; i < m; i++)
+        for(int i = 0; i < cmcc; i++)
             new_shape += F[i];
 
         // If m_alloc is smaller than m, need to grow memory
         // If were at last step, no need to grow coalign maps
-        if(WITH_COALIGN_REALLOC)
-            reinit(new_shape);
+        if(WITH_COALIGN_REALLOC) 
+        {
+            if(new_shape > m) // only reinit if new_shape != m
+                reinit(new_shape);
+        }   
         else
+        {
             if(m_alloc < new_shape)
                 reinit(new_shape);
+        }
         deinit_maps();
 
         if(new_shape > m)
@@ -626,7 +635,6 @@ struct CauchyTerm
         phc = m;
         cells_gtable_p = cells_gtable;
         gtable_p = gtable;
-        cells_gtable = 0;
         gtable = NULL;
     }
 

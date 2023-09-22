@@ -2,8 +2,10 @@
 #define _CAUCHY_UTIL_HPP_
 
 #include <assert.h>
+#include <math.h>
 #include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
+#include "cauchy_types.hpp"
 
 double normalize_l1(double* x, const int n)
 {
@@ -421,10 +423,10 @@ struct ChunkedPackedTableStorage
 		chunked_btable_ps = (BKEYS*) malloc(pages_at_start * sizeof(BKEYS));
 		for(uint page_idx = 0; page_idx < pages_at_start; page_idx++)
 		{
-			chunked_gtable_ps[page_idx] = (GTABLE) page_alloc();	
-			chunked_gtables[page_idx] = (GTABLE) page_alloc();
-			chunked_btables[page_idx] = (BKEYS) page_alloc();
-			chunked_btable_ps[page_idx] = (BKEYS) page_alloc();
+			chunked_gtable_ps[page_idx] = (GTABLE) malloc(page_size_bytes); //page_alloc();	
+			chunked_gtables[page_idx] = (GTABLE) malloc(page_size_bytes); //page_alloc();
+			chunked_btables[page_idx] = (BKEYS) malloc(page_size_bytes); //page_alloc();
+			chunked_btable_ps[page_idx] = (BKEYS) malloc(page_size_bytes); //page_alloc();
 		}
 	}
 
@@ -456,10 +458,11 @@ struct ChunkedPackedTableStorage
 	}
 
 	// extends the gtable pages and the btable pages
-	// Computed as table_bytes = HALF_STORE / 2 * s_c(m, d) * GTABLE_MULTIPLIER * terms_of_shape_after_reduction * sizeof(GTABLE_TYPE)
+	// Computed as table_bytes = max_cells_cen_shape * GTABLE_MULTIPLIER * terms_of_shape_after_reduction * sizeof(GTABLE_TYPE)
+	// max_cells_cen_shape is brought in as s_c(m,d) / (1 + HALF_STORAGE)
 	void extend_gtables(BYTE_COUNT_TYPE max_cells_cen_shape, BYTE_COUNT_TYPE terms_in_shape_after_reduction)
 	{
-		BYTE_COUNT_TYPE bytes_table = (BYTE_COUNT_TYPE)(GTABLE_SIZE_MULTIPLIER / (1 + HALF_STORAGE) * max_cells_cen_shape * sizeof(GTABLE_TYPE) + 1);
+		BYTE_COUNT_TYPE bytes_table = ((BYTE_COUNT_TYPE) (GTABLE_SIZE_MULTIPLIER * max_cells_cen_shape)) * sizeof(GTABLE_TYPE);
 		BYTE_COUNT_TYPE req_table_bytes = bytes_table * terms_in_shape_after_reduction;
 
 		// find how many bytes are left in the current gtable page
@@ -469,7 +472,7 @@ struct ChunkedPackedTableStorage
 			bytes_remaining = 0;
 		else
 		{
-			bytes_remaining = page_size_bytes - used_elems_per_page[0][page_idx] * sizeof(GTABLE_TYPE);
+			bytes_remaining = page_size_bytes - (used_elems_per_page[0][page_idx] * sizeof(GTABLE_TYPE));
 			// find how many bytes are left in the available pages
 			BYTE_COUNT_TYPE bytes_upper = (page_limits[0] - (page_idx+1)) * page_size_bytes;
 			bytes_remaining += bytes_upper;
@@ -482,20 +485,25 @@ struct ChunkedPackedTableStorage
 		uint num_new_total_pages = additional_pages + page_limits[0];
 		// extend page limits by additional pages 
 		chunked_gtables = (GTABLE*) realloc(chunked_gtables, num_new_total_pages * sizeof(GTABLE));
+		null_dptr_check((void**)chunked_gtables);
 		used_elems_per_page[0] = (BYTE_COUNT_TYPE*) realloc(used_elems_per_page[0], num_new_total_pages * sizeof(BYTE_COUNT_TYPE));
+		null_ptr_check(used_elems_per_page[0]);
+		
 		for(uint new_page_idx = page_limits[0]; new_page_idx < num_new_total_pages; new_page_idx++)
 		{
-			chunked_gtables[new_page_idx] = (GTABLE) page_alloc();
+			chunked_gtables[new_page_idx] = (GTABLE) malloc(page_size_bytes); //page_alloc();
+			null_ptr_check(chunked_gtables[new_page_idx]);
 			used_elems_per_page[0][new_page_idx] = 0;
 		}
 		page_limits[0] = num_new_total_pages;
 	}
 	
 	// extends the btable pages and the btable pages
-	// Computed as btable_bytes = HALF_STORE / 2 * s_c(m, d) * terms_of_shape_after_reduction * sizeof(BKEYS)
+	// Computed as btable_bytes = max_cells_cen_shape * terms_of_shape_after_reduction * sizeof(BKEYS_TYPE)
+	// max_cells_cen_shape is brought in as s_c(m,d) / (1 + HALF_STORAGE)
 	void extend_btables(BYTE_COUNT_TYPE max_cells_cen_shape, BYTE_COUNT_TYPE terms_in_shape_after_reduction)
 	{
-		BYTE_COUNT_TYPE bytes_table = (BYTE_COUNT_TYPE)(max_cells_cen_shape / (1 + HALF_STORAGE) * sizeof(BKEYS_TYPE) + 1);
+		BYTE_COUNT_TYPE bytes_table = (BYTE_COUNT_TYPE)(max_cells_cen_shape * sizeof(BKEYS_TYPE) );
 		BYTE_COUNT_TYPE req_table_bytes = bytes_table * terms_in_shape_after_reduction;
 
 		// find how many bytes are left in the current btable page
@@ -505,7 +513,7 @@ struct ChunkedPackedTableStorage
 			bytes_remaining = 0;
 		else
 		{
-			bytes_remaining = page_size_bytes - used_elems_per_page[2][page_idx] * sizeof(BKEYS_TYPE);
+			bytes_remaining = page_size_bytes - (used_elems_per_page[2][page_idx] * sizeof(BKEYS_TYPE));
 			// find how many bytes are left in the available pages
 			BYTE_COUNT_TYPE bytes_upper = (page_limits[2] - (page_idx+1)) * page_size_bytes;
 			bytes_remaining += bytes_upper;
@@ -517,18 +525,21 @@ struct ChunkedPackedTableStorage
 		uint additional_pages = (req_table_bytes - bytes_remaining + page_size_bytes - 1) / page_size_bytes;
 		uint num_new_total_pages = additional_pages + page_limits[2];
 		// extend page limits by additional pages 
-		chunked_btables = (BKEYS*) realloc(chunked_gtables, num_new_total_pages * sizeof(BKEYS));
+		chunked_btables = (BKEYS*) realloc(chunked_btables, num_new_total_pages * sizeof(BKEYS));
+		null_dptr_check((void**)chunked_btables);
 		used_elems_per_page[2] = (BYTE_COUNT_TYPE*) realloc(used_elems_per_page[2], num_new_total_pages * sizeof(BYTE_COUNT_TYPE));
+		null_ptr_check(used_elems_per_page[2]);
 		for(uint new_page_idx = page_limits[2]; new_page_idx < num_new_total_pages; new_page_idx++)
 		{
-			chunked_btables[new_page_idx] = (BKEYS) page_alloc();
+			chunked_btables[new_page_idx] = (BKEYS) malloc(page_size_bytes); //page_alloc();
+			null_ptr_check(chunked_btables[new_page_idx]);
 			used_elems_per_page[2][new_page_idx] = 0;
 		}
 		page_limits[2] = num_new_total_pages;
 	}
 
 	// extends the btable pages and the btable pages
-	// Computed as btable_bytes = HALF_STORE / 2 * s_c(m, d) * terms_of_shape_after_reduction * sizeof(BKEYS)
+	// Compute req_btable_bytes = HALF_STORE / 2 * s_c(m, d) * terms * sizeof(BKEYS_TYPE)
 	void extend_bp_tables(BYTE_COUNT_TYPE req_table_bytes)
 	{
 		// find how many bytes are left in the current btable page
@@ -538,7 +549,7 @@ struct ChunkedPackedTableStorage
 			bytes_remaining = 0;
 		else
 		{
-			bytes_remaining = page_size_bytes - used_elems_per_page[3][page_idx] * sizeof(BKEYS_TYPE);
+			bytes_remaining = page_size_bytes - (used_elems_per_page[3][page_idx] * sizeof(BKEYS_TYPE));
 			// find how many bytes are left in the available pages
 			BYTE_COUNT_TYPE bytes_upper = (page_limits[3] - (page_idx+1)) * page_size_bytes;
 			bytes_remaining += bytes_upper;
@@ -550,11 +561,14 @@ struct ChunkedPackedTableStorage
 		uint additional_pages = (req_table_bytes - bytes_remaining + page_size_bytes - 1) / page_size_bytes;
 		uint num_new_total_pages = additional_pages + page_limits[3];
 		// extend page limits by additional pages 
-		chunked_btables = (BKEYS*) realloc(chunked_gtables, num_new_total_pages * sizeof(BKEYS));
+		chunked_btable_ps = (BKEYS*) realloc(chunked_btable_ps, num_new_total_pages * sizeof(BKEYS));
+		null_dptr_check((void**)chunked_btable_ps);
 		used_elems_per_page[3] = (BYTE_COUNT_TYPE*) realloc(used_elems_per_page[3], num_new_total_pages * sizeof(BYTE_COUNT_TYPE));
+		null_ptr_check(used_elems_per_page[3]);
 		for(uint new_page_idx = page_limits[3]; new_page_idx < num_new_total_pages; new_page_idx++)
 		{
-			chunked_btables[new_page_idx] = (BKEYS) page_alloc();
+			chunked_btable_ps[new_page_idx] = (BKEYS) malloc(page_size_bytes); //page_alloc();
+			null_ptr_check(chunked_btable_ps[new_page_idx]);
 			used_elems_per_page[3][new_page_idx] = 0;
 		}
 		page_limits[3] = num_new_total_pages;
@@ -607,7 +621,7 @@ struct ChunkedPackedTableStorage
 			elems_used_in_page = 0; // should be zero, we are incrementing to next page
 			assert(used_elems_per_page[3][page_idx] == 0); // REMOVE
 		}
-		*bp_table = chunked_btables[page_idx] + elems_used_in_page;
+		*bp_table = chunked_btable_ps[page_idx] + elems_used_in_page;
 		if(mem_ptr_incr)
 			used_elems_per_page[3][page_idx] += cells_gtable;
 	}
@@ -665,6 +679,7 @@ struct ChunkedPackedTableStorage
 				free(chunked_gtables[page_idx]);
 			current_page_idxs[0] = 0;
 			used_elems_per_page[0] = (BYTE_COUNT_TYPE*)realloc(used_elems_per_page[0], sizeof(BYTE_COUNT_TYPE));
+			null_ptr_check(used_elems_per_page[0]);
 		  	used_elems_per_page[0][0] = 0;
 			page_limits[0] = 0;
 
@@ -673,6 +688,7 @@ struct ChunkedPackedTableStorage
 				free(chunked_gtable_ps[page_idx]);
 		  	page_limits[1] = current_page_idxs[1]+1;
 		  	used_elems_per_page[1] = (BYTE_COUNT_TYPE*)realloc(used_elems_per_page[1], page_limits[1]*sizeof(BYTE_COUNT_TYPE));
+			null_ptr_check(used_elems_per_page[1]);
 			// keep current_page_idxs[1] as is
 		}
 		// Otherwise, keep the allocated memory area and simply reset the counters and memory counts
@@ -697,17 +713,19 @@ struct ChunkedPackedTableStorage
 		if(WITH_GB_TABLE_REALLOC)
 		{
 			for(uint page_idx = 0; page_idx < page_limits[3]; page_idx++)
-				free(chunked_gtables[page_idx]);
+				free(chunked_btable_ps[page_idx]);
 			current_page_idxs[3] = 0;
 			used_elems_per_page[3] = (BYTE_COUNT_TYPE*)realloc(used_elems_per_page[3], sizeof(BYTE_COUNT_TYPE));
+			null_ptr_check(used_elems_per_page[3]);
 			used_elems_per_page[3][0] = 0;
 			page_limits[3] = 0;
 
 			// Now shrink btables to its minimally required size
 			for(uint page_idx = current_page_idxs[2]+1; page_idx < page_limits[2]; page_idx++)
-				free(chunked_gtable_ps[page_idx]);
+				free(chunked_btables[page_idx]);
 		  	page_limits[2] = current_page_idxs[2]+1;
 		  	used_elems_per_page[2] = (BYTE_COUNT_TYPE*)realloc(used_elems_per_page[2], page_limits[2]*sizeof(BYTE_COUNT_TYPE));
+			null_ptr_check(used_elems_per_page[2]);
 			// keep current_page_idxs[3] as is
 		}
 		// Otherwise, keep the allocated memory area and simply reset the counters and memory counts

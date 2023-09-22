@@ -4,7 +4,7 @@
 #include "cauchy_types.hpp"
 
 // gtable_p is size c_c(A_i^{k-1|k-1}) for FULL_STORAGE AND c_c(A_i^{k-1|k-1})/2 for half store
-C_COMPLEX_TYPE g_num_hashtable(int enc_l, int phc, int two_to_phc_minus1, int rev_phc_mask, KeyCValue* gtable_p, int gtable_p_size, const bool is_pos_numerator)
+C_COMPLEX_TYPE g_num_hashtable(int enc_l, int two_to_phc_minus1, int rev_phc_mask, KeyCValue* gtable_p, int gtable_p_size, const bool is_pos_numerator)
 {
     if(FULL_STORAGE)
     {
@@ -34,6 +34,7 @@ C_COMPLEX_TYPE g_num_hashtable(int enc_l, int phc, int two_to_phc_minus1, int re
     else
     {
         KeyCValue g_kv;
+        g_kv.value = 0;
         if(enc_l & two_to_phc_minus1)
         {
             g_kv.key = rev_phc_mask ^ enc_l;

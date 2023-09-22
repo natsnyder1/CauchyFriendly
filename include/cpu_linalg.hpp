@@ -4,6 +4,7 @@
 #include"cauchy_types.hpp"
 #include<float.h>
 #include<lapacke.h>
+#include<assert.h>
 //*/
 /*
 typedef double __complex__ C_COMPLEX_TYPE;
@@ -1773,8 +1774,8 @@ int lapacke_gen_eigs(double* A, C_COMPLEX_TYPE* evals, C_COMPLEX_TYPE* evecs, co
         const double eps = 1e-15; // epsilon which determines if the cmplx part is non-machine zero on return
         for(int i = 0; i < n; i++)
         {
-            evals[i] = CMPLX(eig_rp[i], eig_ip[i]);
-            //evals[i] = eig_rp[i] + I*eig_ip[i];
+            //evals[i] = CMPLX(eig_rp[i], eig_ip[i]);
+            evals[i] = eig_rp[i] + I*eig_ip[i];
         }
         for(int i = 0; i < n; i++)
         {
@@ -1782,13 +1783,13 @@ int lapacke_gen_eigs(double* A, C_COMPLEX_TYPE* evals, C_COMPLEX_TYPE* evecs, co
             {
                 for(int j = 0; j < n; j++)
                 {
-                    //evecs[i + j*n] = V[i + j*n] + I*V[i+1 + j*n];
-                    evecs[i + j*n] = CMPLX(V[i + j*n], V[i+1 + j*n]);
+                    evecs[i + j*n] = V[i + j*n] + I*V[i+1 + j*n];
+                    //evecs[i + j*n] = CMPLX(V[i + j*n], V[i+1 + j*n]);
                 }
                 for(int j = 0; j < n; j++)
                 {
-                    //evecs[i+1 + j*n] = V[i + j*n] - I*V[i+1 + j*n];
-                    evecs[i + j*n] = CMPLX(V[i + j*n], -V[i+1 + j*n]);
+                    evecs[i+1 + j*n] = V[i + j*n] - I*V[i+1 + j*n];
+                    //evecs[i + j*n] = CMPLX(V[i + j*n], -V[i+1 + j*n]);
                 }
                 i++;
             }
@@ -1796,8 +1797,8 @@ int lapacke_gen_eigs(double* A, C_COMPLEX_TYPE* evals, C_COMPLEX_TYPE* evecs, co
             {
                 for(int j = 0; j < n; j++)
                 {
-                    //evecs[i + j*n] = V[i + j*n] + 0.0*I;
-                    evecs[i + j*n] = CMPLX(V[i + j*n], 0.0);
+                    evecs[i + j*n] = V[i + j*n] + 0.0*I;
+                    //evecs[i + j*n] = CMPLX(V[i + j*n], 0.0);
                 }
             }
         }

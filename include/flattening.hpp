@@ -1,9 +1,13 @@
 #ifndef _FLATTENING_HPP_
 #define _FLATTENING_HPP_
 
+#include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
+#include "cauchy_types.hpp"
 #include "cell_enumeration.hpp"
 #include "eval_gs.hpp"
+#include <assert.h>
+#include <cstring>
 //#include <sys/types.h>
 
 //// HASHTABLE
@@ -14,15 +18,14 @@ void make_gtable_first(CauchyTerm* term, const double G_SCALE_FACTOR)
   double sign_b[m];
   double ygi; 
   uint Horthog_flag = term->Horthog_flag;
-  int two_to_m_minus1 = (1<<(m-1));
-  int two_to_m = (1<<m);
   double* p = term->p;
   GTABLE gtable = term->gtable;
-  term->cells_gtable = FULL_STORAGE ? two_to_m : two_to_m_minus1;
   int size_gtable = term->cells_gtable * GTABLE_SIZE_MULTIPLIER;
   KeyCValue g_kv;
-  for(int j = 0; j < two_to_m_minus1; j++)
+  memset(gtable, 0xff, size_gtable * sizeof(GTABLE_TYPE));
+  for(int j = 0; j < term->cells_gtable; j++)
   {
+    term->enc_B[j] = j;
     ygi = 0;
     // If we have an arrangement where H is orthog to a hyperplane (during the msmt update)
     for(int k = 0; k < m; k++)
@@ -34,25 +37,15 @@ void make_gtable_first(CauchyTerm* term, const double G_SCALE_FACTOR)
       }
     }
     g_kv.key = j;
-    C_COMPLEX_TYPE denom_left = CMPLX(ygi + term->d_val, term->c_val);
-    C_COMPLEX_TYPE denom_right = CMPLX(ygi - term->d_val, term->c_val);
-    g_kv.value = 1.0 / denom_left - 1.0 / denom_right;
-    //g_kv.value = g_num_p / (d_val + ygi + I*c_val) - g_num_m / (-d_val + ygi + I*c_val);
+    //C_COMPLEX_TYPE denom_left = CMPLX(ygi + term->d_val, term->c_val);
+    //C_COMPLEX_TYPE denom_right = CMPLX(ygi - term->d_val, term->c_val);
+    //g_kv.value = 1.0 / denom_left - 1.0 / denom_right;
+    g_kv.value = 1.0 / (term->d_val + ygi + I*term->c_val) - 1.0 / (-term->d_val + ygi + I*term->c_val);
     g_kv.value *= G_SCALE_FACTOR;
     if( hashtable_insert(gtable, &g_kv, size_gtable) )
     {
       printf(RED"[ERROR #1: Make Gtable First] hashtable_insert(...) for table returns failure=1. Debug here further! Exiting!" NC"\n");
       exit(1);
-    }
-    if(FULL_STORAGE)
-    {
-      g_kv.key ^= two_to_m_minus1;
-      g_kv.value = conj(g_kv.value);
-      if( hashtable_insert(gtable, &g_kv, size_gtable) )
-      {
-        printf(RED"[ERROR #2: Make Gtable First] hashtable_insert(...) for table returns failure=1. Debug here further! Exiting!" NC"\n");
-        exit(1);
-      }
     }
   }
 }
@@ -104,6 +97,7 @@ bool make_gtable(
   int size_gtable_p = term->cells_gtable_p * GTABLE_SIZE_MULTIPLIER;
   GTABLE gtable = term->gtable;
   int size_gtable = term->cells_gtable * GTABLE_SIZE_MULTIPLIER;
+  memset(gtable, kByteEmpty, size_gtable * sizeof(GTABLE_TYPE));
   int enc_lhp = term->enc_lhp;
   int z_idx = term->z;
   
@@ -134,40 +128,51 @@ bool make_gtable(
         ygi += q[k] * sign_b[k];
       }
     }
-    // Create lambda_p and lambda_m by expanding out the sign vector sign_b found by inc_enu
-    // This is done by using the coalignment map and the coalignment sign map to place the sign-values of the vector sign_b into their respective positions
-    //for(int k = 0; k < phc; k++)
-    k = 0;
-    l = 0;
-    enc_lp = 0;
-    enc_lm = 0;
-    while(k < phc)
+    
+    // enc_lp and enc_lm will be the same if this is an old term
+    if(term->parent == NULL)
     {
-      bval_idx = c_map[l]; // index of the sign value sign_b[k] in the parent sign vector lambda_p and lambda_m (due to coalignment)
-      coal_sign = cs_map[l]; // sign flip of the sign value sign_b[k] in the parent sign vector lambda_p and lambda_m (due to coalignment)
-      b_val = sign_b[bval_idx] * coal_sign; // flip (potentially) 
-      if(k == z_idx)
-      {
-        enc_lm |= (1 << k);
-        k++;
-        if(k == phc)
-          break;
-      }
-      if(b_val < 0)
-      {
-        enc_lp |= (1 << k);
-        enc_lm |= (1 << k);
-      }
-      k++;
-      l++;
+      enc_lp = b_enc & rev_phc_mask; // clear all Gamma bits
+      enc_lm = enc_lp;
     }
+    else 
+    {
+      // Create lambda_p and lambda_m by expanding out the sign vector sign_b found by inc_enu
+      // This is done by using the coalignment map and the coalignment sign map to place the sign-values of the vector sign_b into their respective positions
+      //for(int k = 0; k < phc; k++)
+      k = 0;
+      l = 0;
+      enc_lp = 0;
+      enc_lm = 0;
+      while(k < phc)
+      {
+        bval_idx = c_map[l]; // index of the sign value sign_b[k] in the parent sign vector lambda_p and lambda_m (due to coalignment)
+        coal_sign = cs_map[l]; // sign flip of the sign value sign_b[k] in the parent sign vector lambda_p and lambda_m (due to coalignment)
+        b_val = sign_b[bval_idx] * coal_sign; // flip (potentially) 
+        if(k == z_idx)
+        {
+          enc_lm |= (1 << k);
+          k++;
+          if(k == phc)
+            break;
+        }
+        if(b_val < 0)
+        {
+          enc_lp |= (1 << k);
+          enc_lm |= (1 << k);
+        }
+        k++;
+        l++;
+      }
+    }
+
     // Create encoded versions of lambda_p \circ lambda_hat and lambda_m \circ lambda_hat to access parent gs
-    g_num_p = g_num_hashtable(enc_lp ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, phc, gtable_p, size_gtable_p, true);
-    g_num_m = g_num_hashtable(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, phc, gtable_p, size_gtable_p, false);
+    g_num_p = g_num_hashtable(enc_lp ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, true);
+    g_num_m = g_num_hashtable(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
 
     g_kv.key = b_enc;
-    //g_val.value = g_num_p / (d_val + ygi + I*c_val) - g_num_m / (-d_val + ygi + I*c_val);
-    g_kv.value = g_num_p / CMPLX(ygi+d_val, c_val) - g_num_m / CMPLX(ygi-d_val, c_val);
+    g_kv.value = g_num_p / (d_val + ygi + I*c_val) - g_num_m / (-d_val + ygi + I*c_val);
+    //g_kv.value = g_num_p / CMPLX(ygi+d_val, c_val) - g_num_m / CMPLX(ygi-d_val, c_val);
     g_kv.value *= G_SCALE_FACTOR;
     if( hashtable_insert(gtable, &g_kv, size_gtable) )
     {
@@ -188,7 +193,7 @@ bool make_gtable(
     if(WITH_TERM_APPROXIMATION)
     {
       if(is_term_negligable)
-        if( (p_sum_squared*cabs(g_kv.key)) > TERM_APPROXIMATION_EPS)
+        if( (p_sum_squared*cabs(g_kv.value)) > TERM_APPROXIMATION_EPS)
           is_term_negligable = false;
     }
   } 
@@ -200,11 +205,10 @@ bool make_gtable(
 void add_gtables(CauchyTerm* term_i, CauchyTerm* term_j)
 {
   GTABLE gtable_i = term_i->gtable;
-  int size_gtable_i = term_i->cells_gtable * GTABLE_SIZE_MULTIPLIER;
   GTABLE gtable_j = term_j->gtable;
-  int size_gtable_j = term_j->cells_gtable * GTABLE_SIZE_MULTIPLIER;
-  BKEYS enc_Bj = term_j->enc_B;
-  int cells_Bj = term_j->cells_gtable;
+  int size_gtable = term_i->cells_gtable * GTABLE_SIZE_MULTIPLIER; // gtables are same size
+  BKEYS enc_Bi = term_i->enc_B;
+  int cells_Bi = term_i->cells_gtable;
   double* Ai = term_i->A;
   double* Aj = term_j->A;
   const int m = term_i->m;
@@ -232,20 +236,20 @@ void add_gtables(CauchyTerm* term_i, CauchyTerm* term_j)
     kd += d;
   }
 
-  for(k = 0; k < cells_Bj; k++)
+  for(k = 0; k < cells_Bi; k++)
   {
     if(FULL_STORAGE)
     {
-      enc_bj = enc_Bj[k];
-      enc_bi = enc_bj ^ sigma_enc;
+      enc_bi = enc_Bi[k];
+      enc_bj = enc_bi ^ sigma_enc;
       // Place iterators to table positions for keys enc_bi and enc_bj
       // First check for failure signal in hashtable_find(...)
-      if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable_i) )
+      if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable) )
       {
         printf(RED"[ERROR #1: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
         exit(1);
       }
-      if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable_j) )
+      if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable) )
       {
         printf(RED"[ERROR #2: Add GTables] hashtable_find(...) for table_j returns failure=1. Debug here further! Exiting!" NC"\n");
         exit(1);
@@ -273,27 +277,33 @@ void add_gtables(CauchyTerm* term_i, CauchyTerm* term_j)
     else
     {
       // Only keys that are in the positive halfspace of gtable_i and gtable_j are stored
-      enc_bj = enc_Bj[k]; // will be in positive halfspace of last HP
-      if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable_j) )
+      enc_bi = enc_Bi[k]; // will be in positive halfspace of last HP
+      if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable) )
       {
         printf(RED"[ERROR #3: Add GTables] hashtable_find(...) for table_j returns failure=1. Debug here further! Exiting!" NC"\n");
         exit(1);
       }
-      enc_bi = enc_bj ^ sigma_enc; // may not be in positive halfspace of last HP
-      if(enc_bi & two_to_m_minus1) 
+      enc_bj = enc_bi ^ sigma_enc; // may not be in positive halfspace of last HP
+      // If enc_bj's sv is in the negative halfspace of its last HP,
+      // reverse enc_bj's sv and then add conj(gtable_j["reversed enc_bj"]) g-value to gtable_i["enc_bi"]
+      bool use_conj = false;
+      if(enc_bj & two_to_m_minus1) 
       {
-        // If enc_bi's sv is in the negative halfspace of its last HP,
-        // reverse enc_bi's sv and then add conj(gtable_j["enc_bj"]) g-value to gtable_i["reversed enc_bi"]
-        if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi ^ rev_b, size_gtable_i) )
-        {
-          printf(RED"[ERROR #4: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
-          exit(1);
-        }
+        use_conj = true;
+        enc_bj ^= rev_b;
+      }
+      if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable) )
+      {
+        printf(RED"[ERROR #4: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
+        exit(1);
       }
       // If no errors are triggered add the g-values at the two positions together
       if( (gtable_iter_i != NULL) && (gtable_iter_j != NULL) )
       {
-        gtable_iter_i->value += conj(gtable_iter_j->value);
+        if(use_conj)
+          gtable_iter_i->value += conj(gtable_iter_j->value);
+        else
+          gtable_iter_i->value += gtable_iter_j->value;
       }
       else
       {

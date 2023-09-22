@@ -5,9 +5,9 @@ GCC_RELEASE = -O3 # It is seen that -O3 compilation sometimes causes a seg fault
 
 CFLAGS=""
 
-INC_LAPACK=-I/usr/local/opt/lapack/include
-
-LIB_LAPACK = -L/usr/local/opt/lapack/lib -llapacke -llapack -lblas -lm -lpthread
+#INC_LAPACK=-I/usr/local/opt/lapack/include
+#LIB_LAPACK = -L/usr/local/opt/lapack/lib -llapacke -llapack -lblas -lm -lpthread
+LIB_LAPACK = -llapacke -llapack -lblas -lm -lpthread
 
 D ?= 0
 ifeq ($(D), 1)
@@ -17,7 +17,8 @@ else
 endif
 
 bin/cauchy_estimator : src/cauchy_estimator.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(INC_LAPACK) $(LIB_LAPACK)
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+#$(INC_LAPACK) $(LIB_LAPACK)
 
 cauchy : bin/cauchy_estimator
 

@@ -1,12 +1,16 @@
 #ifndef _CELL_ENUMERATION_HPP_
 #define _CELL_ENUMERATION_HPP_
 
+#include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
+#include "cauchy_types.hpp"
+#include "random_variables.hpp"
+#include <algorithm>
 
 BYTE_COUNT_TYPE binomialCoeff(int n, int k)
 {
     BYTE_COUNT_TYPE res = 1;
- 
+
     // Since C(n, k) = C(n, n-k)
     if (k > n - k)
         k = n - k;
@@ -53,6 +57,34 @@ int cell_count_general(int hyp, int dim)
 int sort_func_B_enc(const void* p1, const void* p2)
 {
   return *((int*)p1) - *((int*)p2);
+}
+
+void print_B_encoded(int *B_enc, int cell_count, int m, bool with_sort)
+{
+    if(with_sort)
+    {    
+        qsort(B_enc, cell_count, sizeof(int), &sort_func_B_enc);
+        printf("B_enc (with %d sorted sign-vectors) is:\n", cell_count);
+    }
+    else
+        printf("B_enc is:\n");
+    for(int i = 0; i < cell_count; i++)
+        printf("%d, ", B_enc[i]);
+    printf("\n");
+    if(HALF_STORAGE)
+    {
+        printf("B_enc for opposite halfspace is:\n");
+        int* B_enc_opp = (int*) malloc(cell_count * sizeof(int));
+        memcpy(B_enc_opp, B_enc, cell_count * sizeof(int));
+        int rev_mask = (1<<m) - 1;
+        for(int i = 0; i < cell_count; i++)
+            B_enc_opp[i] ^= rev_mask;
+        if(with_sort)
+            qsort(B_enc_opp, cell_count, sizeof(int), &sort_func_B_enc);
+        for(int i = 0; i < cell_count; i++)
+            printf("%d, ", B_enc_opp[i]);
+        printf("\n");
+    }
 }
 
 void print_B_unencoded(int* B_enc, int cell_count, int m, bool with_sort = false)
@@ -141,6 +173,7 @@ void make_new_child_btable(CauchyTerm* term,
     int mask_low = (1 << z) - 1;
     int mask_z = (1 << z);
     int mask_hbit = (1 << shift_z);
+    int rev_pbc_sv = (1<<pbc) - 1;
     int z_bit, csv1, csv2;
     for(int j = 0; j < cells_parent; j++)
     {
@@ -148,6 +181,12 @@ void make_new_child_btable(CauchyTerm* term,
         {
             int b = B_mu[j];
             int b_query = b ^ mask_z;
+            // Make sure b_query is reversed if using half storage
+            if(HALF_STORAGE)
+            {
+                if(b_query & mask_hbit)
+                    b_query ^= rev_pbc_sv;
+            }
             if( hashtable_find(B_mu_hash, &kv_query, b_query, size_B_mu_hash) )
             {
                 printf(RED"[ERROR #2 DCE_MU:] Error when finding value in B_mu_hash hashtable. Debug here! Exiting!" NC"\n");
@@ -159,11 +198,11 @@ void make_new_child_btable(CauchyTerm* term,
                 F[kv_query->value] = 0;
                 z_bit = (b & mask_z) >> z; // extract z-th bit
                 csv1 = ((b >> shift_high) << z) | (b & mask_low) | (z_bit << shift_z);
+                csv2 = csv1 ^ mask_hbit;
                 // If storage method is FULL, store both
                 if(FULL_STORAGE)
                 {
                     Buc[count_B++] = csv1;
-                    csv2 = csv1 ^ mask_hbit;
                     Buc[count_B++] = csv2;
                 }
                 // For half storage, only store HPs in the positive halfspace of the last HP
@@ -172,15 +211,18 @@ void make_new_child_btable(CauchyTerm* term,
                 // If the last bit is not positive, then we can store csv2
                 else
                 {   
-                    // Store csv2 if csv1's pbc-th bit is set
-                    if(csv1 & mask_hbit)
-                    {
-                        csv2 = csv1 ^ mask_hbit;
-                        Buc[count_B++] = csv2;
-                    }
                     // Store csv1 if csv1's pbc-th bit is not set
-                    else
+                    // Otherwise, store its opposite
+                    if(csv1 & mask_hbit)
+                        Buc[count_B++] = csv1 ^ rev_pbc_sv;
+                    else 
                         Buc[count_B++] = csv1;
+                    // Store csv2 if csv2's pbc-th bit is not set
+                    // Otherwise, store its opposite
+                    if(csv2 & mask_hbit)
+                        Buc[count_B++] = csv2 ^ rev_pbc_sv;
+                    else 
+                        Buc[count_B++] = csv2;
                 }
             }
         }
@@ -213,7 +255,7 @@ void make_new_child_btable(CauchyTerm* term,
             int b = Buc[j];
             for(int l = 0; l < count_coal; l++)
                 if( b & bit_mask[l] )
-                bc |= (1 << l);
+                    bc |= (1 << l);
             // If bc is not in the coaligned hash table
             if( hashtable_find(B_coal_hash, &kv_query, bc, size_B_coal_hash) )
             {
@@ -258,6 +300,7 @@ struct DiffCellEnumHelper
     int*** anti_combos_of_Gam;
     int* cell_counts_gen;
     int* SSav;
+    double* b_pert;
 
     bool* F; // used for masking in both TP and MU sections
 
@@ -335,18 +378,22 @@ struct DiffCellEnumHelper
                 }
                 else
                 {
-                    int select_c[c]; // select last c indices
-                    for(int i = 0; i < c; i++)
-                        select_c[i] = m-c+i;
+                    //int select_c[c]; // select last c indices
+                    //for(int i = 0; i < c; i++)
+                    //    select_c[i] = m-c+i;
                     int combo_counts = nchoosek(m,d);
-                    int counts_of_Gam_cm;
-                    combos_of_Gam[c][m] = selective_combinations(combos, select_c, combo_counts, c, d, &counts_of_Gam_cm);
-                    counts_of_Gam[c][m] = counts_of_Gam_cm;
+                    //int counts_of_Gam_cm;
+                    combos_of_Gam[c][m] = combos; //selective_combinations(combos, select_c, combo_counts, c, d, &counts_of_Gam_cm);
+                    counts_of_Gam[c][m] = combo_counts; //counts_of_Gam_cm;
                     anti_combos_of_Gam[c][m] = init_anti_combos(combos_of_Gam[c][m], counts_of_Gam[c][m], m, d);
-                    free(combos);
+                    //free(combos);
                 }
             }
         }
+        // Define perturbations for Gamma HP and other HPS
+        b_pert = (double*) malloc( max_shape * sizeof(double));
+        for(int i = 0; i < max_shape; i++)
+            b_pert[i] = 2*random_uniform() - 1;
         
     }
 
@@ -500,9 +547,13 @@ struct DiffCellEnumHelper
             free(anti_combos_of_Gam[c]);
             free(counts_of_Gam[c]);
         }
+        free(combos_of_Gam[0]);
+        free(anti_combos_of_Gam[0]);
+        free(counts_of_Gam[0]);
         free(combos_of_Gam);
         free(anti_combos_of_Gam);
         free(counts_of_Gam);
+        free(b_pert);
     }
 
 };
@@ -572,7 +623,7 @@ void tp_enu_warnings_check(double* A, double* b, double* v,
     }
     if(min_resid_anti_combo < max_resid_combo)
     {
-        printf("--------------- [FAST TP ENUMERATION WARN:] ---------------\n");
+        printf(YEL "--------------- [FAST TP ENUMERATION WARN:] ---------------\n");
         printf("Shape: %d, Term Idx: %d\n", m, term_idx);
         printf("Combo #%d= ", combo_num);
         for(int i = 0; i < n; i++)
@@ -586,10 +637,10 @@ void tp_enu_warnings_check(double* A, double* b, double* v,
         printf("min_resid_anti_combo = max(abs(A[anti_combo,:] @ v - b[anti_combo))=%.4E\n", min_resid_anti_combo);
         printf("max_resid_combo = max(abs(A[combo,:] @ v - b[combo))=%.4E\n", max_resid_combo);
         printf("This error indicates the resultant sign-vectors are likely undefined!\n");
-        printf("-----------------------------------------------------------\n");
-        exit(1);
+        printf("-----------------------------------------------------------" NC "\n");
+        if(EXIT_ON_FAILURE)
+            exit(1);
     }
-        
 }
 
 void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper* dce_helper)
@@ -617,9 +668,12 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
     double bc[d];
     double vertex[d];
     double b_pert[m];
-    memset(b_pert, 0, m * sizeof(double));
-    for(int i = 0; i < num_cmcc; i++)
-        b_pert[m-num_cmcc+i] = -GAMMA_PERTURB_EPS;
+    //memset(b_pert, 0, m*sizeof(double));
+    memcpy(b_pert, dce_helper->b_pert, m * sizeof(double));
+    //for(int i = 0; i < num_cmcc; i++)
+        //b_pert[m-num_cmcc+i] = -GAMMA_PERTURB_EPS;
+        //b_pert[m-num_cmcc+i] = -fabs(b_pert[m-num_cmcc+i]);
+
     double* A = term->A;
     int two_to_d = 1 << d;
     // We need to find all sign vectors of sgn(A_tp* \nu - b), where \Gamma are the last (cmcc) HPs in A_tp
@@ -647,6 +701,7 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
 
     int count_Btp_set = 0;
     KeyValue kv;
+    /*
     for(int i = 0; i < cells_parent; i++)
     {
         int b_enc = B_parent[i];
@@ -673,8 +728,8 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
                 exit(1);
             }
         }
-
     }
+    */
     // We need to loop through the combinations of Gamma, find vertices, and encircle them
     KeyCValue* kcv_query;
     for(int i = 0; i < counts_of_Gam; i++)
@@ -710,8 +765,8 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
         for(int j = 0; j < num_anti_combo; j++)
         {
             int ac = anti_combo[j];
-            int enc_s = (dot_prod(A + ac*d, vertex, d) - b_pert[ac]) < 0;
-            enc_sv_niv |= (enc_s << ac);
+            if( (dot_prod(A + ac*d, vertex, d) - b_pert[ac]) < 0 )
+                enc_sv_niv |= (1 << ac);
         }
         // Use sign sequences around vertex array to fill in all signs around  
         for(int j = 0; j < two_to_d; j++)
@@ -719,7 +774,8 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
             int* ssav = dce_helper->SSav + j*d;
             int enc_sv = enc_sv_niv;
             for(int k = 0; k < d; k++)
-                enc_sv |= (ssav[k] << combo[k]);
+                if(ssav[k])
+                    enc_sv |= (1 << combo[k]);
             // Only process this sign vector if it has not yet been processed
             if(F[enc_sv])
             {
