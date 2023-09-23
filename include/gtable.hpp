@@ -140,6 +140,7 @@ bool hashtable_find(KeyCValue* hashtable, KeyCValue** kv, uint32_t key, uint32_t
         if(iters == kHashTableCapacity)
             break;
     }
+    *kv = NULL;
     return true;
 }
 
@@ -222,6 +223,7 @@ bool hashtable_find(KeyValue* hashtable, KeyValue** kv, uint32_t key, uint32_t k
         if(iters == kHashTableCapacity)
             break;
     }
+    *kv = NULL;
     return true;
 }
 

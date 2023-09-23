@@ -701,7 +701,7 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
 
     int count_Btp_set = 0;
     KeyValue kv;
-    /*
+    /* Moshes way not working...reverting to old way
     for(int i = 0; i < cells_parent; i++)
     {
         int b_enc = B_parent[i];
@@ -790,8 +790,12 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
                 // Check 1. Must have an enc_psv which is a member of the parent term set Bpar_set
                 if(hashtable_find(gtable_p, &kcv_query, enc_psv, gtable_p_table_size))
                 {
-                    printf(RED "[Error TP DCE #3]: hashtable find has failed! Debug here!" NC "\n");
-                    exit(1);
+                    // hashtable_find only has an error if the table size is larger than minimal
+                    if( gtable_p_table_size > cells_parent)
+                    {
+                        printf(RED "[Error TP DCE #3]: hashtable find has failed! Debug here!" NC "\n");
+                        exit(1);
+                    }
                 }
                 if(kcv_query != NULL)
                 {

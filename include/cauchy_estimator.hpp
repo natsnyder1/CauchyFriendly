@@ -117,12 +117,12 @@ struct CauchyEstimator
     {
         if(GAMMA_PERTURB_EPS <= 0 )
         {
-            printf(RED "ERROR: GAMMA_PERTURB_EPS=%lf in cauchy_constants.hpp must be positive!" NC "\n", GAMMA_PERTURB_EPS);
+            printf(RED "ERROR: GAMMA_PERTURB_EPS=%lf in cauchy_constants.hpp must be positive!\nExiting!" NC "\n", GAMMA_PERTURB_EPS);
             exit(1);
         }
         if( (shape_range-1) > 31)
         {
-            printf(RED "ERROR: Until tested, max HP (%d) shape cannot exceed 31!" NC "\n", shape_range-1);
+            printf(RED "ERROR: Until tested, max HP (%d) shape cannot exceed 31!\nExiting!" NC "\n", shape_range-1);
             exit(1);
         }
         // Make sure the gtables are setup correctly
@@ -130,7 +130,7 @@ struct CauchyEstimator
         {
             if((GTABLE_SIZE_MULTIPLIER < 1))
             {
-                printf(RED "ERROR: GTABLE_SIZE_MULTIPLIER in cauchy_types.hpp must be defined as >1 when using HASHTABLE_STORAGE method!" NC "\n");
+                printf(RED "ERROR: GTABLE_SIZE_MULTIPLIER in cauchy_types.hpp must be defined as >1 when using HASHTABLE_STORAGE method!\nExiting!" NC "\n");
                 exit(1);
             }
         }
@@ -138,7 +138,7 @@ struct CauchyEstimator
         {
             if(GTABLE_SIZE_MULTIPLIER != 1)
             {
-                printf(RED "ERROR: GTABLE_SIZE_MULTIPLIER in cauchy_types.hpp must be defined as 1 when using BINSEARCH_STORAGE or DENSE_STORAGE method!" NC "\n");
+                printf(RED "ERROR: GTABLE_SIZE_MULTIPLIER in cauchy_types.hpp must be defined as 1 when using BINSEARCH_STORAGE or DENSE_STORAGE method!\nExiting!" NC "\n");
                 exit(1);
             }
         }
@@ -152,14 +152,19 @@ struct CauchyEstimator
         BYTE_COUNT_TYPE bytes_max_hp_gtable = (BYTE_COUNT_TYPE)(GTABLE_SIZE_MULTIPLIER * sizeof(GTABLE_TYPE) * max_cell_count / (1 + HALF_STORAGE) + 10); // a little extra padding for floating point calcs
         if( bytes_max_hp_gtable > GB_TABLE_STORAGE_PAGE_SIZE)
         {
-            printf(RED "[Error Cauchy Estimator Initialization:]\nGB_TABLE_STORAGE_PAGE_SIZE is smaller than the memory required to store the largest HPA's gtable (which requires %llu bytes)\nIncrease GB_TABLE_STORAGE_PAGE_SIZE in cauchy_util.hpp!" NC"\n", bytes_max_hp_gtable );
+            printf(RED "[Error Cauchy Estimator Initialization:]\nGB_TABLE_STORAGE_PAGE_SIZE is smaller than the memory required to store the largest HPA's gtable (which requires %llu bytes)\nIncrease GB_TABLE_STORAGE_PAGE_SIZE in cauchy_util.hpp!\nExiting!" NC"\n", bytes_max_hp_gtable );
             exit(1);
         }
         // Make sure that the first d+1 gtables will fit into a single page
         BYTE_COUNT_TYPE bytes_first_gtables = (BYTE_COUNT_TYPE)(GTABLE_SIZE_MULTIPLIER * sizeof(GTABLE_TYPE) * (d+1) * (1<<d) / (1 + HALF_STORAGE) + 10); // a little extra padding for floating point calcs
         if(bytes_first_gtables > GB_TABLE_STORAGE_PAGE_SIZE)
         {
-            printf(RED "[Error Cauchy Estimator Initialization:]\nGB_TABLE_STORAGE_PAGE_SIZE is smaller than the memory required to store the first STATE_DIM+1 gtable (which requires %llu bytes)\nIncrease GB_TABLE_STORAGE_PAGE_SIZE in cauchy_util.hpp!" NC"\n", bytes_first_gtables );
+            printf(RED "[Error Cauchy Estimator Initialization:]\nGB_TABLE_STORAGE_PAGE_SIZE is smaller than the memory required to store the first STATE_DIM+1 gtable (which requires %llu bytes)\nIncrease GB_TABLE_STORAGE_PAGE_SIZE in cauchy_util.hpp!\nExiting!" NC"\n", bytes_first_gtables );
+            exit(1);
+        }
+        if(DCE_STORAGE_MULT <= 1)
+        {
+            printf(RED "[Error Cauchy Estimator Initialization:]\nDCE_STORAGE_MULT MUST BE LARGE THAN 1...Set to 2,3,4..etc\n Exiting!" NC"\n");
             exit(1);
         }
     }
@@ -390,6 +395,14 @@ struct CauchyEstimator
 
     void compute_moments(const bool before_ftr = true)
     {
+        if(!INTEGRABLE_FLAG)
+        {
+            printf(RED "[WARNING COMPUTE MOMENTS:] NON INTEGRABLE FLAG WAS RAISED!\n"
+                   RED "THIS INDICATES THAT H IS ORTHOGONAL TO GAMMA.\n"
+                   RED "THE CHARACTERISTIC FUNCTION WILL NOT HAVE MOMENTS AT THIS TIME STEP\n"
+                   RED "THE MOMENTS SHOULD COME OUT COMPLEX BELOW!"
+                   NC "\n");
+        }
         CPUTimer tmr;
         tmr.tic();
         bool first_step = (master_step == 0);
@@ -448,6 +461,7 @@ struct CauchyEstimator
             printf("Conditional Variance:\n");
             print_cmat(conditional_variance, d, d, precision);
         }
+        INTEGRABLE_FLAG = true; // reset
     }
 
     void first_create_gtables()
