@@ -58,9 +58,12 @@ typedef BKEYS_TYPE* BKEYS;
 
 // Function Pointer Definitions
 // THIS NEEDS TO BE RE-IMPLEMENTED IN
-//typedef C_COMPLEX_TYPE (*G_NUM_TYPE)(int enc_l, int phc, int two_to_phc_minus1, int rev_phc_mask, GTABLE gtable_p, int gtable_p_size, const bool is_pos_numerator);
-//G_NUM_TYPE lookup_g_numerator;
-//typedef void (*MAKE_GTABLE_TYPE)(int enc_l, int phc, int two_to_phc_minus1, int rev_phc_mask, GTABLE gtable_p, int gtable_p_size, const bool is_pos_numerator);
+typedef C_COMPLEX_TYPE (*LOOKUP_G_NUMERATOR_TYPE)(int enc_l, int two_to_phc_minus1, int rev_phc_mask, GTABLE gtable_p, int gtable_p_size, const bool is_pos_numerator);
+LOOKUP_G_NUMERATOR_TYPE lookup_g_numerator; // Used to lookup gtable_p values
+//typedef bool (*GTABLE_FIND_TYPE)(GTABLE* hashtable, GTABLE** kv, uint32_t key, uint32_t gtable_size);
+//GTABLE_FIND_TYPE gtable_find;
+
+//typedef void (*MAKE_GTABLE_TYPE)(int enc_l, int two_to_phc_minus1, int rev_phc_mask, GTABLE gtable_p, int gtable_p_size, const bool is_pos_numerator);
 
 
 

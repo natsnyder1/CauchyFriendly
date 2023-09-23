@@ -95,7 +95,7 @@ struct CauchyEstimator
         switch (GTABLE_STORAGE_METHOD)
         {
             case GTABLE_HASHTABLE_STORAGE:
-                //lookup_g_numerator = (G_NUM_TYPE)g_num_hashtable;
+                lookup_g_numerator = (LOOKUP_G_NUMERATOR_TYPE)g_num_hashtable;
                 break;
             case GTABLE_BINSEARCH_STORAGE:
                 //lookup_g_numerator = (G_NUM_TYPE)g_num_binsearch;
@@ -673,7 +673,7 @@ struct CauchyEstimator
                                 // If the cell counts are different (due to instability), update child_k's btable to be compatible with the root
                                 if(child_k->cells_gtable != child_j->cells_gtable)
                                 {
-                                    printf(RED"[BIG WARN FTR/Make Gtables:] child_k->cells_gtable != child_j->cells_gtable. We have code to fix this! But EXITING now until this is commented out!" NC "\n");
+                                    printf(RED"[BIG WARN FTR/Make Gtables:] child_k->cells_gtable != child_j->cells_gtable. We have code below to fix this! But EXITING now until this is commented out!" NC "\n");
                                     exit(1);
                                     // If child_k has more than child_j's cells,
                                     // Downgrade child_k to be equal to child_j

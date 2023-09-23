@@ -283,8 +283,8 @@ struct CauchyTerm
             }
             // Change key enc_lp and enc_lm by enc_lhp
             int size_gtable_p = GTABLE_SIZE_MULTIPLIER * cells_gtable_p;
-            g_num_p = g_num_hashtable(enc_lp ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, true);
-            g_num_m = g_num_hashtable(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
+            g_num_p = lookup_g_numerator(enc_lp ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, true);
+            g_num_m = lookup_g_numerator(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
         }
         // Compute G and add complex part to yei
         //g_val = g_num_p / CMPLX(ygi+d_val, c_val) -  g_num_m / CMPLX(ygi-d_val, c_val);
@@ -313,7 +313,7 @@ struct CauchyTerm
         // gtable is located in gtable_p after FTR (due to pointer swap for next step)
         const int two_to_m_minus1 = 1<<(m-1);
         const int rev_mask = (1<<m)-1;
-        C_COMPLEX_TYPE g_val = g_num_hashtable(enc_sv, two_to_m_minus1, rev_mask, gtable_p, cells_gtable_p * GTABLE_SIZE_MULTIPLIER, true);
+        C_COMPLEX_TYPE g_val = lookup_g_numerator(enc_sv, two_to_m_minus1, rev_mask, gtable_p, cells_gtable_p * GTABLE_SIZE_MULTIPLIER, true);
 
         for(int j = 0; j < d; j++)
             yei[j] = -tmp_yei[j] + I*b[j]; //yei[j] = CMPLX(-tmp_yei[j], b[j]);

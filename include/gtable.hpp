@@ -23,7 +23,7 @@
         return sqrt(real*real + imag*imag);
     }
 
-    C_COMPLEX_TYPE CMPLX(double real, double imag)
+    C_COMPLEX_TYPE MAKE_CMPLX(double real, double imag)
     {
         C_COMPLEX_TYPE val;
         *((double*)&val) = real;
@@ -38,14 +38,15 @@
         return val;
     }
 #endif
+*/
 
 #if __linux__
-    //C_COMPLEX_TYPE CMPLX(double real, double imag)
+    //C_COMPLEX_TYPE MAKE_CMPLX(double real, double imag)
     //{
     //    return real + I*imag;
     //}  
 #endif 
-*/
+
 
 struct KeyValue
 {

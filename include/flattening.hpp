@@ -167,8 +167,8 @@ bool make_gtable(
     }
 
     // Create encoded versions of lambda_p \circ lambda_hat and lambda_m \circ lambda_hat to access parent gs
-    g_num_p = g_num_hashtable(enc_lp ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, true);
-    g_num_m = g_num_hashtable(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
+    g_num_p = lookup_g_numerator(enc_lp ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, true);
+    g_num_m = lookup_g_numerator(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
 
     g_kv.key = b_enc;
     g_kv.value = g_num_p / (d_val + ygi + I*c_val) - g_num_m / (-d_val + ygi + I*c_val);
