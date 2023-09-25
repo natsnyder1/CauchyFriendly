@@ -36,9 +36,10 @@ struct CauchyEstimator
     C_COMPLEX_TYPE* conditional_variance;
     C_COMPLEX_TYPE fz;
     double G_SCALE_FACTOR;
-    FastTermRedHelper ftr_helper;
-    DiffCellEnumHelper dce_helper;
+    FastTermRedHelper ftr_helper; // Fast term reduction
+    DiffCellEnumHelper dce_helper; // DCE method
     ChunkedPackedTableStorage gb_tables; // g and b-tables
+    CauchyStats stats; // Used to Gather Memory Stats
     bool print_basic_info;
     bool skip_post_mu;
 
@@ -236,9 +237,13 @@ struct CauchyEstimator
         }
 
         if(print_basic_info)
+        {
             for(int i = 0; i < shape_range; i++)
                 if(terms_per_shape[i] > 0)
                     printf("TP/TPC: Shape %d has %d terms\n", i, terms_per_shape[i]);
+            stats.print_cell_count_histograms(terms, shape_range, terms_per_shape, dce_helper.cell_counts_cen, Nt);
+            stats.print_total_estimator_memory(&gb_tables, Nt, shape_range, terms_per_shape, d);
+        }
     }
 
     // true msmt update
@@ -283,6 +288,7 @@ struct CauchyEstimator
                 for(int i = 0; i < shape_range; i++)
                     if(terms_per_shape[i] > 0)
                         printf("MU: Shape %d now has %d terms\n", i, terms_per_shape[i]);
+                stats.get_elem_mem_usage(terms_per_shape, shape_range, d, true);
             }
             Nt = Nt_new;
             //terms = (CauchyTerm*) realloc(terms,  Nt * sizeof(CauchyTerm) );
@@ -314,6 +320,7 @@ struct CauchyEstimator
                     for(int i = 0; i < shape_range; i++)
                         if(terms_per_shape[i] > 0)
                             printf("MUC: Shape %d now has %d terms\n", i, terms_per_shape[i]);
+                    stats.get_elem_mem_usage(terms_per_shape, shape_range, d, true);
                 }
             }
         }
@@ -741,6 +748,8 @@ struct CauchyEstimator
         Nt = Nt_reduced;
         ptr_swap<CauchyTerm>(&terms, &terms_after_reduction); // terms now points to coalesced term count
         free(terms_after_reduction);
+        if(print_basic_info)
+            stats.print_total_estimator_memory(&gb_tables, Nt, shape_range, terms_per_shape, d);
         gb_tables.swap_gtables();
 
         // Deallocate this round of FTR helpers
@@ -757,6 +766,10 @@ struct CauchyEstimator
         if(print_basic_info)
         {
             printf("Deallocating memory after FTR took %d ms\n", tmr.cpu_time_used);
+            for(int i = 0; i < shape_range; i++)
+                if(terms_per_shape[i] > 0)
+                    printf("After FTR: Shape %d has %d terms\n", i, terms_per_shape[i]);
+            stats.print_cell_count_histograms(terms, shape_range, terms_per_shape, dce_helper.cell_counts_cen, Nt);
             compute_moments(false);
         }
     }

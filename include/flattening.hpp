@@ -83,7 +83,7 @@ bool make_gtable(
   if(WITH_TERM_APPROXIMATION)
   {
     is_term_negligable = true;
-    p_sum_squared = sum_vec(term->p, m);//dot_prod(ps + i*m, ps + i*m, m);
+    p_sum_squared = sum_vec(term->p, m);
     p_sum_squared *= p_sum_squared;
   }
 

@@ -1,0 +1,25 @@
+CC=g++
+
+GCC_DEBUG = -g -Wall -Wextra
+GCC_RELEASE = -O3 # It is seen that -O3 compilation sometimes causes a seg fault due to the compiler optimizations attempted
+
+CFLAGS=""
+
+LIB_LAPACK = -llapacke -llapack -lblas -lm
+LIB_GLPK = -lglpk -lpthread
+MKL_LINK_LINE= -Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl
+
+D ?= 0
+ifeq ($(D), 1)
+	CFLAGS = $(GCC_DEBUG)
+else
+	CFLAGS = $(GCC_RELEASE)
+endif
+
+bin/cauchy_estimator : src/cauchy_estimator.cpp
+	$(CC) $(CFLAGS) $(INCLUDE_GLPK) $^ -o $@ $(MKL_LINK_LINE)
+
+cauchy : bin/cauchy_estimator
+
+clean : 
+	rm -f bin/cauchy_estimator 

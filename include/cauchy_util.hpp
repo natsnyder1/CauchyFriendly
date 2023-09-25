@@ -2,10 +2,13 @@
 #define _CAUCHY_UTIL_HPP_
 
 #include <assert.h>
+#include <cstdlib>
+#include <cstring>
 #include <math.h>
 #include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"
+#include "gtable.hpp"
 
 double normalize_l1(double* x, const int n)
 {
@@ -759,6 +762,162 @@ struct ChunkedPackedTableStorage
 			free(chunked_btable_ps[page_idx]);
 		free(chunked_btable_ps);
 		free(used_elems_per_page[3]);
+	}
+
+};
+
+// Cauchy Stats -- Used to determine different statistics as the estimator runs
+
+struct CauchyStats
+{
+
+	BYTE_COUNT_TYPE get_table_memory_usage(ChunkedPackedTableStorage* gb_tables, bool with_print)
+	{
+		uint* current_page_idxs = gb_tables->current_page_idxs;
+		BYTE_COUNT_TYPE** used_elems_per_page = gb_tables->used_elems_per_page;
+		BYTE_COUNT_TYPE page_size_bytes = gb_tables->page_size_bytes;
+		uint* page_limits = gb_tables->page_limits;
+		printf("--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---\n");
+		double gtables_bytes = 0;
+		double gtable_ps_bytes = 0;
+		double btables_bytes = 0;
+		double btable_ps_bytes = 0;
+		for(uint i = 0; i <= current_page_idxs[0]; i++)
+			gtables_bytes += used_elems_per_page[0][i] * sizeof(GTABLE_TYPE);
+		for(uint i = 0; i <= current_page_idxs[1]; i++)
+			gtable_ps_bytes += used_elems_per_page[1][i] * sizeof(GTABLE_TYPE);
+		for(uint i = 0; i <= current_page_idxs[2]; i++)
+			btables_bytes += used_elems_per_page[2][i] * sizeof(BKEYS_TYPE);
+		for(uint i = 0; i <= current_page_idxs[3]; i++)
+			btable_ps_bytes += used_elems_per_page[3][i] * sizeof(BKEYS_TYPE);
+		BYTE_COUNT_TYPE page_size_mbs = page_size_bytes / (1024*1024);
+		if(with_print)
+		{
+			printf("  Gtables: Allocated pages: %d x %llu MBs per page. In Use: %.3lf MBs\n", page_limits[0], page_size_mbs, gtables_bytes / (1024*1024));
+			printf("  Gtable_ps: Allocated pages: %d x %llu MBs per page. In Use: %.3lf MBs\n", page_limits[1], page_size_mbs, gtable_ps_bytes / (1024*1024));
+			printf("  Btables: Allocated pages: %d x %llu MBs per page. In Use: %.3lf MBs\n", page_limits[2], page_size_mbs, btables_bytes / (1024*1024));
+			printf("  Btable_ps: Allocated pages: %d x %llu MBs per page. In Use: %.3lf MBs\n", page_limits[3], page_size_mbs, btable_ps_bytes / (1024*1024));
+			printf("--- Total G/Btable Memory Pressure: %.3lf ---\n", (gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes) / (1024*1024));
+		}
+		return gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes;
+	}
+
+	// Prints the memory usage of the A,p,b elements of all terms
+	BYTE_COUNT_TYPE get_elem_mem_usage(int* terms_per_shape, int shape_range, int d, bool with_print)
+	{
+		BYTE_COUNT_TYPE mem_usage[3];
+		memset(mem_usage, 0, 3 * sizeof(BYTE_COUNT_TYPE));
+		for(int i = 0; i < shape_range; i++)
+		{
+			BYTE_COUNT_TYPE Nt_shape = terms_per_shape[i];
+			if(Nt_shape > 0)
+			{
+				mem_usage[0] += Nt_shape * i * d * sizeof(double);// A
+				mem_usage[1] += Nt_shape * i * sizeof(double); // p 
+				mem_usage[2] += Nt_shape * d * sizeof(double); // b
+			}
+		}
+		if(with_print)
+		{
+			double A_mbs = ((double)mem_usage[0]) / (1024*1024);
+			double p_mbs = ((double)mem_usage[1]) / (1024*1024);
+			double b_mbs = ((double)mem_usage[2]) / (1024*1024);
+			printf("--- Memory Usage of A/p/q/b Parameters: ---\n");
+			printf("  As use %.3lf MBs\n", A_mbs);
+			printf("  ps (and qs) each use %.3lf MBs\n", p_mbs);
+			printf("  bs use %.3lf MBs\n", b_mbs);
+			printf("  Total: %.3lf Mbs---\n", A_mbs + 2*p_mbs + b_mbs);
+			printf("--- End of A/p/q/b Summary: ---\n");
+		}
+		return mem_usage[0] + 2*mem_usage[1] + mem_usage[2];
+	}
+
+	static int kv_sort(const void* _kv1, const void* _kv2)
+	{
+		KeyValue* kv1 = (KeyValue*) _kv1;
+		KeyValue* kv2 = (KeyValue*) _kv2;
+		return kv1->key - kv2->key;
+	}
+
+	void print_cell_count_histograms(CauchyTerm* terms, const int shape_range, int* terms_per_shape, int* cell_counts_cen, const int Nt)
+	{
+		if(HALF_STORAGE)
+			printf("--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---\n");
+		else
+			printf("--- Table Cell Count Summary ---\n");
+
+		KeyValue* table_counts[shape_range];
+		for(int i = 0; i < shape_range; i++)
+		{	
+			BYTE_COUNT_TYPE table_size_bytes = 2 * cell_counts_cen[i] * sizeof(KeyValue);
+			table_counts[i] = (KeyValue*) malloc( table_size_bytes );
+			memset(table_counts[i], kByteEmpty, table_size_bytes);
+		}
+
+		// Now create the histogram tables of range of cell counts per shape
+		KeyValue* kv_query;
+		for(int i = 0; i < Nt; i++)
+		{
+			CauchyTerm* term = terms + i;
+			const int m = term->m;
+			const int cells_gtable = term->cells_gtable * (1+HALF_STORAGE);
+			const int max_cells = cell_counts_cen[m];
+			BYTE_COUNT_TYPE table_size = 2 * max_cells;
+			if( hashtable_find(table_counts[m], &kv_query, cells_gtable, table_size) )
+			{
+				printf(RED "[ERROR Print Table Histograms:] hashtable_find reported failure! Debug Here!" NC "\n");
+				exit(1);
+			}
+			// If there is no entry, add entry 
+			if(kv_query == NULL)
+			{
+				KeyValue kv;
+				kv.key = cells_gtable;
+				kv.value = 1;
+				if( hashtable_insert(table_counts[m], &kv, table_size) )
+				{
+					printf(RED "[ERROR Print Table Histograms:] hashtable_insert reported failure! Debug Here!" NC "\n");
+					exit(1);
+				}
+			}
+			else 
+				kv_query->value += 1;
+		}
+
+		for(int m = 0; m < shape_range; m++)
+		{	
+			int Nt_shape = terms_per_shape[m];
+			if(Nt_shape > 0)
+			{
+				const int max_cells = cell_counts_cen[m];
+				BYTE_COUNT_TYPE table_size = 2 * max_cells;
+				int counts = 0;
+				KeyValue* enteries = (KeyValue*) malloc(table_size * sizeof(KeyValue));
+				printf("Tables of Shape %d: %d Terms Total! Max Cells is: %d\n", m, Nt_shape, max_cells);
+				for(uint i = 0; i < table_size; i++)
+					if(table_counts[m][i].key != kEmpty)
+						enteries[counts++] = table_counts[m][i];
+				// Sort based on keys
+				qsort(enteries, counts, sizeof(KeyValue), kv_sort);
+				for(int i = 0; i < counts; i++)
+					printf("  %d/%d terms have %d cells\n", enteries[i].value, Nt_shape, enteries[i].key);
+				free(enteries);
+			}
+		}
+		printf("--- End of Cell Count Summary ---\n");
+		for(int i = 0; i < shape_range; i++)
+			free(table_counts[i]);
+	}
+
+	void print_total_estimator_memory(ChunkedPackedTableStorage* gb_tables, const BYTE_COUNT_TYPE Nt, const int shape_range, int* terms_per_shape, const int d)
+	{
+		printf("---------- CF Memory Breakdown ---------- \n");
+		BYTE_COUNT_TYPE elem_mem_usage = get_elem_mem_usage(terms_per_shape, shape_range, d, true);
+		BYTE_COUNT_TYPE tables_mem = get_table_memory_usage(gb_tables, true);
+		BYTE_COUNT_TYPE term_mem_usage = Nt * sizeof(CauchyTerm);
+		printf("Term Structure Memory Usage: %llu MBs\n", term_mem_usage / (1024*1024));
+		printf("Total CF Memory Usage: %llu MBs\n", (elem_mem_usage + tables_mem +  term_mem_usage) / (1024*1024) );
+		printf("---------- End of CF Memory Breakdown ---------- \n");
 	}
 
 };
