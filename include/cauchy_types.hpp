@@ -13,10 +13,10 @@
 
 // Chosing a Gtable Storage Methods dictates how the program will operate
 // Note only one of these three options can be true
-#define HASHTABLE_STORAGE true // Sets the gtables to be stored in hashtables
-#define BINSEARCH_STORAGE false // Sets the gtables to be stored in arrays using binary search 
+#define HASHTABLE_STORAGE false // Sets the gtables to be stored in hashtables
+#define BINSEARCH_STORAGE true // Sets the gtables to be stored in arrays using binary search 
 #define DENSE_STORAGE false // Sets the gtables to be stored in arrays with all possible 2^m sign vectors evaluated
-#define GTABLE_SIZE_MULTIPLIER 2
+#define GTABLE_SIZE_MULTIPLIER 1
 // Sets whether only half of the gtable sign-vectors are stored in the gtable
 // This has no effect when the dense storage method is selected
 #define FULL_STORAGE false
