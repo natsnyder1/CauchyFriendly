@@ -5,9 +5,9 @@ GCC_RELEASE = -O3 # It is seen that -O3 compilation sometimes causes a seg fault
 
 CFLAGS=""
 
-INC_LAPACK=-I/usr/local/opt/lapack/include
+INC_LAPACK=-I/usr/local/opt/lapack/include -L/usr/local/opt/lapack/lib
 
-LIB_LAPACK = -L/usr/local/opt/lapack/lib -llapacke -llapack -lblas -lm -lpthread
+LIB_LAPACK = -llapacke -llapack -lblas -lm -lpthread
 
 D ?= 0
 ifeq ($(D), 1)
@@ -17,9 +17,12 @@ else
 endif
 
 bin/gamma : gamma.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(INC_LAPACK) $(LIB_LAPACK)
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
 
-gamma : bin/gamma
+bin/binsearch : binsearch.cpp
+	$(CC) $(CFLAGS) $^ -o $@
+
+all : bin/gamma bin/binsearch
 
 clean : 
-	rm -f bin/gamma 
+	rm -f bin/gamma bin/binsearch 

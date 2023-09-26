@@ -82,8 +82,9 @@ struct CauchyEstimator
             root_point[i] = 1.0 + random_uniform();
         if(DENSE_STORAGE)
         {
-            B_dense = (int*) malloc((1<<max_hp_shape) * sizeof(int) );
-            for(int i = 0; i < (1<<max_hp_shape); i++)
+            int two_to_max_shape = (1<<max_hp_shape);
+            B_dense = (int*) malloc(two_to_max_shape * sizeof(int) );
+            for(int i = 0; i < two_to_max_shape; i++)
                 B_dense[i] = i;
         }
         // Set the function pointers necessary to run all methods
@@ -149,7 +150,7 @@ struct CauchyEstimator
             if(GTABLE_SIZE_MULTIPLIER == 1)
             {
                 printf(YEL "WARNING! You are using GTABLE_SIZE_MULTIPLIER==1! This is unoptimal! Consider using GTABLE_SIZE_MULTIPLIER>1!" NC "\n");
-                sleep(1);
+                sleep(2);
             }
         }
         else
@@ -163,8 +164,10 @@ struct CauchyEstimator
         if(DENSE_STORAGE)
         {
             if(FULL_STORAGE)
+            {
                 printf(YEL "WARNING! You are using DENSE_STORAGE WITH FULL STORAGE set on! This is VERY expensive! Consider using FULL_STORAGE=false method!" NC "\n");
-            sleep(2);
+                sleep(2);
+            }
         }
         // Make sure the largest gtable size will fit into a single page
         int max_cell_count = cell_count_central(shape_range-1, d);
