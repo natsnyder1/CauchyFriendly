@@ -207,7 +207,7 @@ struct CauchyTerm
                 child_terms[i].enc_lhp = enc_lhp;
                 child_terms[i].parent = this;
             }
-            if(!last_update)
+            if(!last_update && !DENSE_STORAGE)
                 for(int i = 0; i < cells_gtable; i++)
                     enc_B[i] ^= enc_lhp;
         }

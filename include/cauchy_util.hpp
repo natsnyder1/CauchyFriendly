@@ -1,10 +1,6 @@
 #ifndef _CAUCHY_UTIL_HPP_
 #define _CAUCHY_UTIL_HPP_
 
-#include <assert.h>
-#include <cstdlib>
-#include <cstring>
-#include <math.h>
 #include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"

@@ -13,9 +13,10 @@
 
 // Chosing a Gtable Storage Methods dictates how the program will operate
 // Note only one of these three options can be true
-#define HASHTABLE_STORAGE true // Sets the gtables to be stored in hashtables
-#define BINSEARCH_STORAGE false // Sets the gtables to be stored in arrays using binary search 
+#define HASHTABLE_STORAGE false // Sets the gtables to be stored in hashtables
+#define BINSEARCH_STORAGE true // Sets the gtables to be stored in arrays using binary search 
 #define DENSE_STORAGE false // Sets the gtables to be stored in arrays with all possible 2^m sign vectors evaluated
+#define GTABLE_SIZE_MULTIPLIER 1
 // Sets whether only half of the gtable sign-vectors are stored in the gtable
 // This has no effect when the dense storage method is selected
 #define FULL_STORAGE false
@@ -26,10 +27,10 @@
 #define HALF_STORAGE (!FULL_STORAGE)
 #define DISCARD_BTABLES (!KEEP_BTABLES)
 
-#if HASHTABLE_STORAGE
+#if HASHTABLE_STORAGE || BINSEARCH_STORAGE
     typedef KeyCValue GTABLE_TYPE;
     typedef GTABLE_TYPE* GTABLE;
-#else 
+#else
     typedef C_COMPLEX_TYPE GTABLE_TYPE;
     typedef C_COMPLEX_TYPE* GTABLE;
 #endif
@@ -57,14 +58,15 @@ typedef int BKEYS_TYPE;
 typedef BKEYS_TYPE* BKEYS;
 
 // Function Pointer Definitions
-// THIS NEEDS TO BE RE-IMPLEMENTED IN
+// These allow the estimator to be run in various modes...with a small speed price (~%4)
 typedef C_COMPLEX_TYPE (*LOOKUP_G_NUMERATOR_TYPE)(int enc_l, int two_to_phc_minus1, int rev_phc_mask, GTABLE gtable_p, int gtable_p_size, const bool is_pos_numerator);
 LOOKUP_G_NUMERATOR_TYPE lookup_g_numerator; // Used to lookup gtable_p values
-//typedef bool (*GTABLE_FIND_TYPE)(GTABLE* hashtable, GTABLE** kv, uint32_t key, uint32_t gtable_size);
-//GTABLE_FIND_TYPE gtable_find;
-
-//typedef void (*MAKE_GTABLE_TYPE)(int enc_l, int two_to_phc_minus1, int rev_phc_mask, GTABLE gtable_p, int gtable_p_size, const bool is_pos_numerator);
-
+typedef void (*GTABLE_INSERT_TYPE)(GTABLE gtable_p, KeyCValue* kv, uint32_t gtable_size, uint32_t rev_mask);
+GTABLE_INSERT_TYPE gtable_insert; 
+typedef void (*GTABLE_ADD_TYPE)(int enc_bi, int enc_bj, GTABLE gtable_i, GTABLE gtable_j, int size_gtable, bool use_conj);
+GTABLE_ADD_TYPE gtable_add;
+typedef void (*GTABLE_P_FIND_TYPE)(GTABLE gtable_p, KeyCValue** kv, uint32_t key, uint32_t gtable_size, int cells_parent);
+GTABLE_P_FIND_TYPE gtable_p_find;
 
 
 // NULL Pointer checker

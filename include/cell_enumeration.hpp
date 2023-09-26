@@ -690,7 +690,7 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
     bool* F = dce_helper->F;
     int gtable_p_table_size = cells_parent * GTABLE_SIZE_MULTIPLIER;
     GTABLE gtable_p = term->gtable_p;
-    const int two_to_phc_minus1 = 1<<(phc -1);
+    const int two_to_phc_minus1 = 1<<(phc-1);
     const int two_to_m_minus1 = 1<<(m-1);
     const int rev_phc_mask = (1<<phc)-1; // reverses sv of length phc with xor operator
     const int rev_m_mask = (1<<m)-1; // reverses sv of length m with xor operator
@@ -788,15 +788,7 @@ void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper*
                         enc_psv ^= rev_phc_mask;
                 }
                 // Check 1. Must have an enc_psv which is a member of the parent term set Bpar_set
-                if(hashtable_find(gtable_p, &kcv_query, enc_psv, gtable_p_table_size))
-                {
-                    // hashtable_find only has an error if the table size is larger than minimal
-                    if( gtable_p_table_size > cells_parent)
-                    {
-                        printf(RED "[Error TP DCE #3]: hashtable find has failed! Debug here!" NC "\n");
-                        exit(1);
-                    }
-                }
+                gtable_p_find(gtable_p, &kcv_query, enc_psv, gtable_p_table_size, cells_parent);
                 if(kcv_query != NULL)
                 {
                     // Add this sign vector since enc_psv is a member of the parent set

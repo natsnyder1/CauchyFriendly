@@ -6,8 +6,7 @@
 #include "cauchy_types.hpp"
 #include "cell_enumeration.hpp"
 #include "eval_gs.hpp"
-#include <assert.h>
-#include <cstring>
+
 //#include <sys/types.h>
 
 //// HASHTABLE
@@ -15,17 +14,22 @@
 void make_gtable_first(CauchyTerm* term, const double G_SCALE_FACTOR)
 {
   const int m = term->d;
+  int rev_mask = (1<<m)-1;
   double sign_b[m];
   double ygi; 
   uint Horthog_flag = term->Horthog_flag;
   double* p = term->p;
   GTABLE gtable = term->gtable;
   int size_gtable = term->cells_gtable * GTABLE_SIZE_MULTIPLIER;
+  int cells_gtable = term->cells_gtable / (1 + FULL_STORAGE);
   KeyCValue g_kv;
   memset(gtable, 0xff, size_gtable * sizeof(GTABLE_TYPE));
-  for(int j = 0; j < term->cells_gtable; j++)
+  int binsearch_count = 0;
+  if(!DENSE_STORAGE)
+    for(int j = 0; j < term->cells_gtable; j++)
+      term->enc_B[j] = j;
+  for(int j = 0; j < cells_gtable; j++)
   {
-    term->enc_B[j] = j;
     ygi = 0;
     // If we have an arrangement where H is orthog to a hyperplane (during the msmt update)
     for(int k = 0; k < m; k++)
@@ -42,12 +46,22 @@ void make_gtable_first(CauchyTerm* term, const double G_SCALE_FACTOR)
     //g_kv.value = 1.0 / denom_left - 1.0 / denom_right;
     g_kv.value = 1.0 / (term->d_val + ygi + I*term->c_val) - 1.0 / (-term->d_val + ygi + I*term->c_val);
     g_kv.value *= G_SCALE_FACTOR;
-    if( hashtable_insert(gtable, &g_kv, size_gtable) )
+
+    if(HASHTABLE_STORAGE)
+      gtable_insert(gtable, &g_kv, size_gtable, rev_mask);
+    if(BINSEARCH_STORAGE)
     {
-      printf(RED"[ERROR #1: Make Gtable First] hashtable_insert(...) for table returns failure=1. Debug here further! Exiting!" NC"\n");
-      exit(1);
+      gtable_insert(gtable, &g_kv, binsearch_count++, rev_mask);
+      if(FULL_STORAGE)
+        binsearch_count++;
     }
+    if(DENSE_STORAGE)
+      gtable_insert(gtable, &g_kv, size_gtable, rev_mask);
   }
+  // After creating the gtable, sort the keys in ascending order if using binsearch storage
+  // To do: Make this use timsort
+  if(BINSEARCH_STORAGE)
+    qsort(gtable, term->cells_gtable, sizeof(GTABLE_TYPE), sort_key_cvalues);
 }
 
 //// HASHTABLE
@@ -97,10 +111,14 @@ bool make_gtable(
   int size_gtable_p = term->cells_gtable_p * GTABLE_SIZE_MULTIPLIER;
   GTABLE gtable = term->gtable;
   int size_gtable = term->cells_gtable * GTABLE_SIZE_MULTIPLIER;
-  memset(gtable, kByteEmpty, size_gtable * sizeof(GTABLE_TYPE));
+  if(!DENSE_STORAGE)
+    memset(gtable, kByteEmpty, size_gtable * sizeof(GTABLE_TYPE));
   int enc_lhp = term->enc_lhp;
   int z_idx = term->z;
   
+  //For Binsearch
+  int binsearch_count=0;
+
   // Whether we store half the arrangement's sign-vectors or all them, only evaluate gtable over half the arrangement
   for(j = 0; j < num_cells; j++)
   {
@@ -174,21 +192,19 @@ bool make_gtable(
     g_kv.value = g_num_p / (d_val + ygi + I*c_val) - g_num_m / (-d_val + ygi + I*c_val);
     //g_kv.value = g_num_p / CMPLX(ygi+d_val, c_val) - g_num_m / CMPLX(ygi-d_val, c_val);
     g_kv.value *= G_SCALE_FACTOR;
-    if( hashtable_insert(gtable, &g_kv, size_gtable) )
+
+    // --- Store depending on method --- //
+    if(HASHTABLE_STORAGE)
+      gtable_insert(gtable, &g_kv, size_gtable, rev_mask);
+    if(BINSEARCH_STORAGE)
     {
-      printf(RED"[ERROR #1: Make Gtable] hashtable_insert(...) for table returns failure=1. Debug here further! Exiting!" NC"\n");
-      exit(1);
+      gtable_insert(gtable, &g_kv, binsearch_count++, rev_mask);
+      if(FULL_STORAGE)
+        binsearch_count++;
     }
-    if(FULL_STORAGE)
-    {
-      g_kv.key = b_enc ^ rev_mask;
-      g_kv.value = conj(g_kv.value);
-      if( hashtable_insert(gtable, &g_kv, size_gtable) )
-      {
-        printf(RED"[ERROR #2: Make Gtable] hashtable_insert(...) for table returns failure=1. Debug here further! Exiting!" NC"\n");
-        exit(1);
-      }
-    }
+    if(DENSE_STORAGE)
+      gtable_insert(gtable, &g_kv, size_gtable, rev_mask);
+
     // If we are using the term approximation, check if |g|*p_sum_squared is under eps
     if(WITH_TERM_APPROXIMATION)
     {
@@ -197,6 +213,11 @@ bool make_gtable(
           is_term_negligable = false;
     }
   } 
+  // After creating the gtable, sort the keys in ascending order if using binsearch storage
+  // To do: Make this use timsort
+  if(BINSEARCH_STORAGE)
+    qsort(gtable, num_cells, sizeof(GTABLE_TYPE), sort_key_cvalues);
+
   return is_term_negligable;
 }
 
@@ -217,8 +238,6 @@ void add_gtables(CauchyTerm* term_i, CauchyTerm* term_j)
 
   int enc_bi;
   int enc_bj;
-  GTABLE gtable_iter_i;
-  GTABLE gtable_iter_j; 
   const int two_to_m_minus1 = (1<<(m-1));
   const int rev_b = (1<<m) - 1;
   int kd = 0;
@@ -242,47 +261,12 @@ void add_gtables(CauchyTerm* term_i, CauchyTerm* term_j)
     {
       enc_bi = enc_Bi[k];
       enc_bj = enc_bi ^ sigma_enc;
-      // Place iterators to table positions for keys enc_bi and enc_bj
-      // First check for failure signal in hashtable_find(...)
-      if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable) )
-      {
-        printf(RED"[ERROR #1: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
-        exit(1);
-      }
-      if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable) )
-      {
-        printf(RED"[ERROR #2: Add GTables] hashtable_find(...) for table_j returns failure=1. Debug here further! Exiting!" NC"\n");
-        exit(1);
-      }
-      // If no errors are tiggered add the g-values at the two positions together
-      if( (gtable_iter_i != NULL) && (gtable_iter_j != NULL) )
-      {
-        gtable_iter_i->value += gtable_iter_j->value;
-      }
-      // Now check for error signal that a key could not be found (but no failure)
-      // Since we are querying gtable_i from a key in gtable_j, an error should originate from gtable_i
-      else
-      {
-        if(gtable_iter_i == NULL)
-          printf(YEL"[WARN #1 Add Gtables]: g_table_i does not contain the key %d queried by gtable_iter_i. Debug here further!" NC"\n", enc_bi);
-        if(gtable_iter_j == NULL)
-          printf(YEL"[WARN #2 Add Gtables]: g_table_j does not contain the key %d queried by gtable_iter_j. Debug here further!" NC"\n", enc_bj);
-        if(EXIT_ON_FAILURE)
-        {
-          printf(RED"[SIG_ABORT #1 in Add Gtables]: EXIT_ON_FAILURE is set true. Exiting!" NC "\n");
-          exit(1);
-        }
-      }
+      gtable_add(enc_bi, enc_bj, gtable_i, gtable_j, size_gtable, false);
     }
     else
     {
       // Only keys that are in the positive halfspace of gtable_i and gtable_j are stored
       enc_bi = enc_Bi[k]; // will be in positive halfspace of last HP
-      if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable) )
-      {
-        printf(RED"[ERROR #3: Add GTables] hashtable_find(...) for table_j returns failure=1. Debug here further! Exiting!" NC"\n");
-        exit(1);
-      }
       enc_bj = enc_bi ^ sigma_enc; // may not be in positive halfspace of last HP
       // If enc_bj's sv is in the negative halfspace of its last HP,
       // reverse enc_bj's sv and then add conj(gtable_j["reversed enc_bj"]) g-value to gtable_i["enc_bi"]
@@ -292,45 +276,93 @@ void add_gtables(CauchyTerm* term_i, CauchyTerm* term_j)
         use_conj = true;
         enc_bj ^= rev_b;
       }
-      if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable) )
-      {
-        printf(RED"[ERROR #4: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
-        exit(1);
-      }
-      // If no errors are triggered add the g-values at the two positions together
-      if( (gtable_iter_i != NULL) && (gtable_iter_j != NULL) )
-      {
-        if(use_conj)
-          gtable_iter_i->value += conj(gtable_iter_j->value);
-        else
-          gtable_iter_i->value += gtable_iter_j->value;
-      }
-      else
-      {
-        if(gtable_iter_i == NULL)
-          printf(YEL"[WARN #3 Add Gtables]: g_table_i does not contain the key queried by gtable_iter_i. original sv enc_bi=%d, reversed=%d (rev_b is %d), queried sv = %d. Debug here further!" NC"\n", enc_bi, enc_bi & two_to_m_minus1, rev_b, ( (enc_bi & two_to_m_minus1) ? enc_bi ^ rev_b : enc_bi) );
-        if(gtable_iter_j == NULL)
-          printf(YEL"[WARN #4 Add Gtables]: g_table_j does not contain the key %d queried by gtable_iter_j. Debug here further!" NC"\n", enc_bj);
-        if(EXIT_ON_FAILURE)
-        {
-          printf(RED"[SIG_ABORT #2 in Add Gtables]: EXIT_ON_FAILURE is set true. Exiting!" NC "\n");
-          exit(1);
-        }
-      }
+      gtable_add(enc_bi, enc_bj, gtable_i, gtable_j, size_gtable, use_conj);
     }
   }
 }
 
 
 /*
-bool make_gtable_BINSEARCH(CauchyTerm* term, 
-  KeyValue* B_mu_hash, int size_B_mu_hash, 
-  KeyValue* B_coal_hash, int size_B_coal_hash, 
-  BKEYS B_uncoal, bool* F,
-  const double G_SCALE_FACTOR)
+// old add_gtables code with just hashtables
+if(FULL_STORAGE)
 {
-
-  return false;
+  enc_bi = enc_Bi[k];
+  enc_bj = enc_bi ^ sigma_enc;      
+  // Place iterators to table positions for keys enc_bi and enc_bj
+  // First check for failure signal in hashtable_find(...)
+  if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable) )
+  {
+    printf(RED"[ERROR #1: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
+    exit(1);
+  }
+  if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable) )
+  {
+    printf(RED"[ERROR #2: Add GTables] hashtable_find(...) for table_j returns failure=1. Debug here further! Exiting!" NC"\n");
+    exit(1);
+  }
+  // If no errors are tiggered add the g-values at the two positions together
+  if( (gtable_iter_i != NULL) && (gtable_iter_j != NULL) )
+  {
+    gtable_iter_i->value += gtable_iter_j->value;
+  }
+  // Now check for error signal that a key could not be found (but no failure)
+  // Since we are querying gtable_i from a key in gtable_j, an error should originate from gtable_i
+  else
+  {
+    if(gtable_iter_i == NULL)
+      printf(YEL"[WARN #1 Add Gtables]: g_table_i does not contain the key %d queried by gtable_iter_i. Debug here further!" NC"\n", enc_bi);
+    if(gtable_iter_j == NULL)
+      printf(YEL"[WARN #2 Add Gtables]: g_table_j does not contain the key %d queried by gtable_iter_j. Debug here further!" NC"\n", enc_bj);
+    if(EXIT_ON_FAILURE)
+    {
+      printf(RED"[SIG_ABORT #1 in Add Gtables]: EXIT_ON_FAILURE is set true. Exiting!" NC "\n");
+      exit(1);
+    }
+  }
+}
+else
+{
+  // Only keys that are in the positive halfspace of gtable_i and gtable_j are stored
+  enc_bi = enc_Bi[k]; // will be in positive halfspace of last HP
+  if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable) )
+  {
+    printf(RED"[ERROR #3: Add GTables] hashtable_find(...) for table_j returns failure=1. Debug here further! Exiting!" NC"\n");
+    exit(1);
+  }
+  enc_bj = enc_bi ^ sigma_enc; // may not be in positive halfspace of last HP
+  // If enc_bj's sv is in the negative halfspace of its last HP,
+  // reverse enc_bj's sv and then add conj(gtable_j["reversed enc_bj"]) g-value to gtable_i["enc_bi"]
+  bool use_conj = false;
+  if(enc_bj & two_to_m_minus1) 
+  {
+    use_conj = true;
+    enc_bj ^= rev_b;
+  }
+  if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable) )
+  {
+    printf(RED"[ERROR #4: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
+    exit(1);
+  }
+  // If no errors are triggered add the g-values at the two positions together
+  if( (gtable_iter_i != NULL) && (gtable_iter_j != NULL) )
+  {
+    if(use_conj)
+      gtable_iter_i->value += conj(gtable_iter_j->value);
+    else
+      gtable_iter_i->value += gtable_iter_j->value;
+  }
+  else
+  {
+    if(gtable_iter_i == NULL)
+      printf(YEL"[WARN #3 Add Gtables]: g_table_i does not contain the key queried by gtable_iter_i. original sv enc_bi=%d, reversed=%d (rev_b is %d), queried sv = %d. Debug here further!" NC"\n", enc_bi, enc_bi & two_to_m_minus1, rev_b, ( (enc_bi & two_to_m_minus1) ? enc_bi ^ rev_b : enc_bi) );
+    if(gtable_iter_j == NULL)
+      printf(YEL"[WARN #4 Add Gtables]: g_table_j does not contain the key %d queried by gtable_iter_j. Debug here further!" NC"\n", enc_bj);
+    if(EXIT_ON_FAILURE)
+    {
+      printf(RED"[SIG_ABORT #2 in Add Gtables]: EXIT_ON_FAILURE is set true. Exiting!" NC "\n");
+      exit(1);
+    }
+  }
 }
 */
 

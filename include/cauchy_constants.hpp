@@ -2,6 +2,7 @@
 #define _CAUCHY_CONSTANTS_HPP_
 
 #include<stdint.h>
+#include<assert.h>
 #include<complex.h>
 #include<math.h>
 
@@ -23,7 +24,6 @@ const uint8_t COALIGN_MAP_NOVAL = 255;
 const bool WITH_COALIGN_REALLOC = true;
 
 // Gtable-Settings
-#define GTABLE_SIZE_MULTIPLIER 2
 const uint8_t kByteEmpty = 0xff;
 const uint32_t kEmpty = 0xffffffff;
 const bool WITH_TERM_APPROXIMATION = false;

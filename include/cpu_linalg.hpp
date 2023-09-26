@@ -4,7 +4,6 @@
 #include"cauchy_types.hpp"
 #include<float.h>
 #include<lapacke.h>
-#include<assert.h>
 //*/
 /*
 typedef double __complex__ C_COMPLEX_TYPE;

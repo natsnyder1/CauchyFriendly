@@ -86,7 +86,7 @@ void swap_arr_vals(int* a, int* b)
     *b = t;
 }
 
-int binary_search(double qp, double* arr, const int n, const bool less_than)
+int ftr_binary_search(double qp, double* arr, const int n, const bool less_than)
 {
     int high = n-1;
     int low = 0;
@@ -111,8 +111,8 @@ int construct_candidate_list(int* candidate_list, double qp, int qpi, double* op
     // The extents of the bounds are -1 to n, as the indices can be [0,n-1], the bounds are +/-1 for these, respectively
     // NOTE: It may be faster to walk from qp to the upper extent (qp+ep) and then from qp to the lower extent (qp-ep)
     // .... this will only be so if the range of points in [qp-ep, qp+ep] is consitently smaller than log_2(n)
-    int lti = binary_search(qp - ep, op, n, true); // less then index (index of the greatest lower bound)
-    int gti = binary_search(qp + ep, op, n, false); // greater then index (index of the least upper bound)
+    int lti = ftr_binary_search(qp - ep, op, n, true); // less then index (index of the greatest lower bound)
+    int gti = ftr_binary_search(qp + ep, op, n, false); // greater then index (index of the least upper bound)
     // If there is only 1 point found, (the query point itself), then the range (gti - lti) will be 2. 
     // Only if gti-lti is greater than 2 does it imply a candidate point was found that is not the query point
     int pi;
@@ -141,8 +141,8 @@ int prune_candidate_list(int* candidate_list, int candidate_list_count, double q
     int new_candidate_list_count = candidate_list_count;
     // NOTE: It may be faster to walk from qp to the upper extent (qp+ep) and then from qp to the lower extent (qp-ep)
     // .... this will only be so if the range of points in [qp-ep, qp+ep] is consitently smaller than log_2(n)
-    int lti = binary_search(qp - ep, op, n, true); // less than index (index of the greatest lower bound)
-    int gti = binary_search(qp + ep, op, n, false); // greater than index (index of the least upper bound)
+    int lti = ftr_binary_search(qp - ep, op, n, true); // less than index (index of the greatest lower bound)
+    int gti = ftr_binary_search(qp + ep, op, n, false); // greater than index (index of the least upper bound)
     // Iterate over the candidate list, checking to see if these points fall within [lti+1,gti-1]
     ++lti;
     --gti;

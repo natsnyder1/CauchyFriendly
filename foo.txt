@@ -1,0 +1,2543 @@
+Size of Cauchy Term is 136
+Size of Cauchy Estimator is 440
+MU step 1/14: Shape 3 now has 4 terms
+Moment Information (after MU) at step 1, MU 1/1 (took 0 ms)
+fz: 0.8862325076187869 + 0.0000000000000010j
+Conditional Mean:
+0.0161881631340450 + 0.0000000000000000j, 0.0129505305072360 + 0.0000000000000001j, 0.0080940815670225 + 0.0000000000000001j, 
+
+Conditional Variance:
+0.0256551415641361 + -0.0000000000000000j, -0.0082096453005236 + 0.0000000000000000j, -0.0051310283128272 + -0.0000000000000000j, 
+-0.0082096453005236 + 0.0000000000000000j, 0.0508998008632460 + -0.0000000000000000j, -0.0041048226502618 + -0.0000000000000000j, 
+-0.0051310283128272 + -0.0000000000000000j, -0.0041048226502618 + -0.0000000000000000j, 0.0872274813180628 + -0.0000000000000001j, 
+
+Moment Information (after FTR) at step 1, MU 1/1 (took 0 ms)
+fz: 0.9999999999999997 + 0.0000000000000010j
+Conditional Mean:
+0.0161881631340450 + -0.0000000000000000j, 0.0129505305072360 + 0.0000000000000001j, 0.0080940815670225 + 0.0000000000000001j, 
+
+Conditional Variance:
+0.0256551415641361 + -0.0000000000000000j, -0.0082096453005236 + -0.0000000000000000j, -0.0051310283128272 + -0.0000000000000000j, 
+-0.0082096453005236 + 0.0000000000000000j, 0.0508998008632461 + -0.0000000000000001j, -0.0041048226502618 + -0.0000000000000000j, 
+-0.0051310283128272 + 0.0000000000000000j, -0.0041048226502618 + -0.0000000000000000j, 0.0872274813180628 + -0.0000000000000001j, 
+
+Step 1 took 0 ms
+TP/TPC Step 2/14 took 0 ms
+TP Cell Enum Took 0 ms
+TP/TPC: Shape 4 has 4 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 4 Terms Total! Max Cells is: 14
+  4/4 terms have 14 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.000 MBs
+  ps (and qs) each use 0.000 MBs
+  bs use 0.000 MBs
+  Total: 0.001 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.001 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.000 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.001 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 2/14 took 0 ms:
+MU: Shape 4 now has 20 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.002 MBs
+  ps (and qs) each use 0.001 MBs
+  bs use 0.000 MBs
+  Total: 0.004 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 2, MU 1/1 (took 0 ms)
+fz: 0.8229606275342467 + -0.0000000000000003j
+Conditional Mean:
+-0.0682591686097758 + 0.0000000000000000j, 0.0332232211933719 + -0.0000000000000000j, -0.0239698325088888 + -0.0000000000000001j, 
+
+Conditional Variance:
+0.0410526711502118 + -0.0000000000000001j, -0.0269363868698117 + 0.0000000000000002j, 0.0204498037765799 + -0.0000000000000001j, 
+-0.0269363868698117 + 0.0000000000000002j, 0.0546335295675829 + -0.0000000000000003j, -0.0353002516661289 + -0.0000000000000001j, 
+0.0204498037765800 + -0.0000000000000002j, -0.0353002516661289 + -0.0000000000000001j, 0.0253219743002223 + -0.0000000000000002j, 
+
+MUC took 0 ms:
+MUC: Shape 4 now has 20 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.002 MBs
+  ps (and qs) each use 0.001 MBs
+  bs use 0.000 MBs
+  Total: 0.004 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 2/14:] Preprocessing took 0 ms
+[FTR Shape 4:], 14/20 terms remain (Took 0 ms)
+[Eval Gtables shape 4:] Took 1 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.001 MBs
+  ps (and qs) each use 0.000 MBs
+  bs use 0.000 MBs
+  Total: 0.002 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 1 x 25 MBs per page. In Use: 0.004 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.001 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.000 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.005 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 0 ms
+After FTR: Shape 4 has 14 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 14 Terms Total! Max Cells is: 14
+  10/14 terms have 12 cells
+  4/14 terms have 14 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 2, MU 1/1 (took 0 ms)
+fz: 1.0000000000000002 + -0.0000000000000006j
+Conditional Mean:
+-0.0682591686097759 + 0.0000000000000000j, 0.0332232211933720 + -0.0000000000000001j, -0.0239698325088886 + 0.0000000000000000j, 
+
+Conditional Variance:
+0.0410526711502119 + -0.0000000000000001j, -0.0269363868698115 + 0.0000000000000002j, 0.0204498037765799 + -0.0000000000000001j, 
+-0.0269363868698115 + 0.0000000000000001j, 0.0546335295675830 + -0.0000000000000003j, -0.0353002516661287 + 0.0000000000000002j, 
+0.0204498037765799 + -0.0000000000000001j, -0.0353002516661287 + 0.0000000000000002j, 0.0253219743002222 + -0.0000000000000001j, 
+
+Step 2 took 1 ms
+TP/TPC Step 3/14 took 0 ms
+TP Cell Enum Took 0 ms
+TP/TPC: Shape 5 has 14 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 14 Terms Total! Max Cells is: 22
+  10/14 terms have 20 cells
+  4/14 terms have 22 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.002 MBs
+  ps (and qs) each use 0.001 MBs
+  bs use 0.000 MBs
+  Total: 0.003 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.004 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.001 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.005 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 3/14 took 0 ms:
+MU: Shape 5 now has 84 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.010 MBs
+  ps (and qs) each use 0.003 MBs
+  bs use 0.002 MBs
+  Total: 0.018 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 3, MU 1/1 (took 0 ms)
+fz: 0.0647833244981257 + 0.0000000000000001j
+Conditional Mean:
+-0.3058203198098489 + -0.0000000000000224j, -0.0277737311534230 + 0.0000000000000740j, -0.0743457855104894 + -0.0000000000000588j, 
+
+Conditional Variance:
+0.1459769375092371 + -0.0000000000010189j, -0.0168324657721975 + 0.0000000000028980j, 0.0563211589804369 + -0.0000000000037820j, 
+-0.0168324657720882 + 0.0000000000029255j, 0.2710487555898098 + -0.0000000000101048j, -0.2103603372752454 + 0.0000000000106899j, 
+0.0563211589803820 + -0.0000000000035643j, -0.2103603372741456 + 0.0000000000089381j, 0.1771865938905743 + -0.0000000000096312j, 
+
+MUC took 0 ms:
+MUC: Shape 4 now has 30 terms
+MUC: Shape 5 now has 54 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.009 MBs
+  ps (and qs) each use 0.003 MBs
+  bs use 0.002 MBs
+  Total: 0.017 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 3/14:] Preprocessing took 0 ms
+[FTR Shape 4:], 10/30 terms remain (Took 0 ms)
+[Eval Gtables shape 4:] Took 0 ms
+[FTR Shape 5:], 38/54 terms remain (Took 0 ms)
+[Eval Gtables shape 5:] Took 0 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.005 MBs
+  ps (and qs) each use 0.002 MBs
+  bs use 0.001 MBs
+  Total: 0.010 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 1 x 25 MBs per page. In Use: 0.018 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.004 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.002 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.024 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 0 ms
+After FTR: Shape 4 has 10 terms
+After FTR: Shape 5 has 38 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 10 Terms Total! Max Cells is: 14
+  10/10 terms have 12 cells
+Tables of Shape 5: 38 Terms Total! Max Cells is: 22
+  24/38 terms have 16 cells
+  10/38 terms have 20 cells
+  4/38 terms have 22 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 3, MU 1/1 (took 0 ms)
+fz: 1.0000000000000009 + 0.0000000000000004j
+Conditional Mean:
+-0.3058203198098464 + -0.0000000000000210j, -0.0277737311534300 + 0.0000000000000666j, -0.0743457855104956 + -0.0000000000000661j, 
+
+Conditional Variance:
+0.1459769375092639 + -0.0000000000007285j, -0.0168324657720390 + 0.0000000000025077j, 0.0563211589806895 + -0.0000000000024847j, 
+-0.0168324657720390 + 0.0000000000025076j, 0.2710487555900480 + -0.0000000000086105j, -0.2103603372753545 + 0.0000000000085297j, 
+0.0563211589806894 + -0.0000000000024847j, -0.2103603372753546 + 0.0000000000085297j, 0.1771865938920666 + -0.0000000000084492j, 
+
+Step 3 took 0 ms
+TP/TPC Step 4/14 took 0 ms
+TP Cell Enum Took 0 ms
+TP/TPC: Shape 5 has 10 terms
+TP/TPC: Shape 6 has 38 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 10 Terms Total! Max Cells is: 22
+  10/10 terms have 20 cells
+Tables of Shape 6: 38 Terms Total! Max Cells is: 32
+  24/38 terms have 26 cells
+  10/38 terms have 30 cells
+  4/38 terms have 32 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.006 MBs
+  ps (and qs) each use 0.002 MBs
+  bs use 0.001 MBs
+  Total: 0.012 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.018 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.002 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.021 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 4/14 took 0 ms:
+MU: Shape 5 now has 60 terms
+MU: Shape 6 now has 266 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.043 MBs
+  ps (and qs) each use 0.014 MBs
+  bs use 0.007 MBs
+  Total: 0.080 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 4, MU 1/1 (took 0 ms)
+fz: 0.0278767769839547 + -0.0000000000000000j
+Conditional Mean:
+-0.0567574958085671 + 0.0000000000002019j, 0.2337464980554839 + -0.0000000000006305j, -0.2195147908409769 + 0.0000000000006244j, 
+
+Conditional Variance:
+0.1959771251038048 + 0.0000000001194863j, 0.1311324735985669 + -0.0000000003973741j, -0.0183419941785026 + 0.0000000004186840j, 
+0.1311324735822542 + -0.0000000003973184j, 0.5103613124818152 + 0.0000000014362279j, -0.3590469645368672 + -0.0000000013264612j, 
+-0.0183419941641974 + 0.0000000004268482j, -0.3590469645206027 + -0.0000000013265238j, 0.2866633937854359 + 0.0000000015433312j, 
+
+MUC took 1 ms:
+MUC: Shape 4 now has 126 terms
+MUC: Shape 5 now has 60 terms
+MUC: Shape 6 now has 140 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.038 MBs
+  ps (and qs) each use 0.013 MBs
+  bs use 0.007 MBs
+  Total: 0.070 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 4/14:] Preprocessing took 0 ms
+[FTR Shape 4:], 31/126 terms remain (Took 0 ms)
+[Eval Gtables shape 4:] Took 0 ms
+[FTR Shape 5:], 30/60 terms remain (Took 0 ms)
+[Eval Gtables shape 5:] Took 0 ms
+[FTR Shape 6:], 100/140 terms remain (Took 0 ms)
+[Eval Gtables shape 6:] Took 0 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.020 MBs
+  ps (and qs) each use 0.007 MBs
+  bs use 0.004 MBs
+  Total: 0.037 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 1 x 25 MBs per page. In Use: 0.073 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.018 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.006 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.097 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 0 ms
+After FTR: Shape 4 has 31 terms
+After FTR: Shape 5 has 30 terms
+After FTR: Shape 6 has 100 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 31 Terms Total! Max Cells is: 14
+  31/31 terms have 12 cells
+Tables of Shape 5: 30 Terms Total! Max Cells is: 22
+  20/30 terms have 16 cells
+  10/30 terms have 20 cells
+Tables of Shape 6: 100 Terms Total! Max Cells is: 32
+  62/100 terms have 20 cells
+  24/100 terms have 26 cells
+  10/100 terms have 30 cells
+  4/100 terms have 32 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 4, MU 1/1 (took 0 ms)
+fz: 0.9999999999999961 + 0.0000000000000005j
+Conditional Mean:
+-0.0567574958085651 + 0.0000000000001937j, 0.2337464980554992 + -0.0000000000006365j, -0.2195147908409387 + 0.0000000000006275j, 
+
+Conditional Variance:
+0.1959771251030486 + 0.0000000001339548j, 0.1311324735700306 + -0.0000000004410189j, -0.0183419941393097 + 0.0000000004341596j, 
+0.1311324735700306 + -0.0000000004410188j, 0.5103613124549615 + 0.0000000014519337j, -0.3590469646095394 + -0.0000000014293482j, 
+-0.0183419941393097 + 0.0000000004341596j, -0.3590469646095394 + -0.0000000014293480j, 0.2866633938823191 + 0.0000000014071128j, 
+
+Step 4 took 1 ms
+TP/TPC Step 5/14 took 0 ms
+TP Cell Enum Took 2 ms
+TP/TPC: Shape 5 has 31 terms
+TP/TPC: Shape 6 has 30 terms
+TP/TPC: Shape 7 has 100 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 31 Terms Total! Max Cells is: 22
+  31/31 terms have 20 cells
+Tables of Shape 6: 30 Terms Total! Max Cells is: 32
+  20/30 terms have 26 cells
+  10/30 terms have 30 cells
+Tables of Shape 7: 100 Terms Total! Max Cells is: 44
+  62/100 terms have 32 cells
+  24/100 terms have 38 cells
+  10/100 terms have 42 cells
+  4/100 terms have 44 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.024 MBs
+  ps (and qs) each use 0.008 MBs
+  bs use 0.004 MBs
+  Total: 0.043 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.073 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.009 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.082 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 5/14 took 0 ms:
+MU: Shape 5 now has 186 terms
+MU: Shape 6 now has 210 terms
+MU: Shape 7 now has 800 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.178 MBs
+  ps (and qs) each use 0.059 MBs
+  bs use 0.027 MBs
+  Total: 0.325 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 5, MU 1/1 (took 0 ms)
+fz: 0.3566631806882316 + 0.0000000000000003j
+Conditional Mean:
+-0.2830773227412822 + 0.0000000000000903j, -0.0158420143515448 + -0.0000000000002988j, -0.1517231497838269 + 0.0000000000002949j, 
+
+Conditional Variance:
+0.0670904329440761 + 0.0000000000951420j, 0.0072062535717787 + -0.0000000003144502j, 0.0311945461106491 + 0.0000000003088504j, 
+0.0072062535725738 + -0.0000000003141340j, 0.0593777720811263 + 0.0000000010347744j, -0.0488806827526888 + -0.0000000010242325j, 
+0.0311945461112869 + 0.0000000003093291j, -0.0488806827526907 + -0.0000000010248700j, 0.0614549178916303 + 0.0000000010075611j, 
+
+MUC took 0 ms:
+MUC: Shape 4 now has 483 terms
+MUC: Shape 5 now has 219 terms
+MUC: Shape 6 now has 130 terms
+MUC: Shape 7 now has 364 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.145 MBs
+  ps (and qs) each use 0.048 MBs
+  bs use 0.027 MBs
+  Total: 0.270 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 5/14:] Preprocessing took 0 ms
+[FTR Shape 4:], 97/483 terms remain (Took 0 ms)
+[Eval Gtables shape 4:] Took 1 ms
+[FTR Shape 5:], 93/219 terms remain (Took 0 ms)
+[Eval Gtables shape 5:] Took 0 ms
+[FTR Shape 6:], 80/130 terms remain (Took 0 ms)
+[Eval Gtables shape 6:] Took 0 ms
+[FTR Shape 7:], 262/364 terms remain (Took 0 ms)
+[Eval Gtables shape 7:] Took 1 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.072 MBs
+  ps (and qs) each use 0.024 MBs
+  bs use 0.012 MBs
+  Total: 0.133 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 1 x 25 MBs per page. In Use: 0.274 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.073 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.023 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.370 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 0 ms
+After FTR: Shape 4 has 97 terms
+After FTR: Shape 5 has 93 terms
+After FTR: Shape 6 has 80 terms
+After FTR: Shape 7 has 262 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 97 Terms Total! Max Cells is: 14
+  97/97 terms have 12 cells
+Tables of Shape 5: 93 Terms Total! Max Cells is: 22
+  62/93 terms have 16 cells
+  31/93 terms have 20 cells
+Tables of Shape 6: 80 Terms Total! Max Cells is: 32
+  50/80 terms have 20 cells
+  20/80 terms have 26 cells
+  10/80 terms have 30 cells
+Tables of Shape 7: 262 Terms Total! Max Cells is: 44
+  162/262 terms have 24 cells
+  62/262 terms have 32 cells
+  24/262 terms have 38 cells
+  10/262 terms have 42 cells
+  4/262 terms have 44 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 5, MU 1/1 (took 0 ms)
+fz: 1.0000000000000027 + 0.0000000000000009j
+Conditional Mean:
+-0.2830773227413874 + 0.0000000000000322j, -0.0158420143512014 + -0.0000000000001074j, -0.1517231497841724 + 0.0000000000001051j, 
+
+Conditional Variance:
+0.0670904328552683 + 0.0000000000142244j, 0.0072062538649732 + -0.0000000000469852j, 0.0311945458222056 + 0.0000000000463186j, 
+0.0072062538649732 + -0.0000000000469852j, 0.0593777711106759 + 0.0000000001551959j, -0.0488806818001880 + -0.0000000001529937j, 
+0.0311945458222056 + 0.0000000000463186j, -0.0488806818001880 + -0.0000000001529937j, 0.0614549169429580 + 0.0000000001508228j, 
+
+Step 5 took 4 ms
+TP/TPC Step 6/14 took 0 ms
+TP Cell Enum Took 7 ms
+TP/TPC: Shape 5 has 97 terms
+TP/TPC: Shape 6 has 93 terms
+TP/TPC: Shape 7 has 80 terms
+TP/TPC: Shape 8 has 262 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 97 Terms Total! Max Cells is: 22
+  97/97 terms have 20 cells
+Tables of Shape 6: 93 Terms Total! Max Cells is: 32
+  62/93 terms have 26 cells
+  31/93 terms have 30 cells
+Tables of Shape 7: 80 Terms Total! Max Cells is: 44
+  50/80 terms have 32 cells
+  20/80 terms have 38 cells
+  10/80 terms have 42 cells
+Tables of Shape 8: 262 Terms Total! Max Cells is: 58
+  162/262 terms have 38 cells
+  62/262 terms have 46 cells
+  24/262 terms have 52 cells
+  10/262 terms have 56 cells
+  4/262 terms have 58 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.085 MBs
+  ps (and qs) each use 0.028 MBs
+  bs use 0.012 MBs
+  Total: 0.153 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.274 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.035 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 0.309 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 0 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 6/14 took 0 ms:
+MU: Shape 5 now has 582 terms
+MU: Shape 6 now has 651 terms
+MU: Shape 7 now has 640 terms
+MU: Shape 8 now has 2358 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.690 MBs
+  ps (and qs) each use 0.230 MBs
+  bs use 0.097 MBs
+  Total: 1.247 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 6, MU 1/1 (took 1 ms)
+fz: 0.1671702107197482 + 0.0000000000000003j
+Conditional Mean:
+-0.4274775750256899 + 0.0000000000000060j, -0.1680715737536425 + -0.0000000000000297j, -0.1285455821306276 + 0.0000000000000304j, 
+
+Conditional Variance:
+0.0604068159753489 + 0.0000000000001025j, 0.0308564644637556 + -0.0000000000003655j, 0.0095086416749458 + 0.0000000000003632j, 
+0.0308564644637599 + -0.0000000000003678j, 0.0983286892887430 + 0.0000000000012873j, -0.0720921836585523 + -0.0000000000012983j, 
+0.0095086416749433 + 0.0000000000003633j, -0.0720921836585587 + -0.0000000000012878j, 0.0746773298909499 + 0.0000000000012949j, 
+
+MUC took 1 ms:
+MUC: Shape 4 now has 1761 terms
+MUC: Shape 5 now has 774 terms
+MUC: Shape 6 now has 436 terms
+MUC: Shape 7 now has 310 terms
+MUC: Shape 8 now has 950 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.533 MBs
+  ps (and qs) each use 0.178 MBs
+  bs use 0.097 MBs
+  Total: 0.986 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 6/14:] Preprocessing took 0 ms
+[FTR Shape 4:], 308/1761 terms remain (Took 1 ms)
+[Eval Gtables shape 4:] Took 1 ms
+[FTR Shape 5:], 291/774 terms remain (Took 0 ms)
+[Eval Gtables shape 5:] Took 1 ms
+[FTR Shape 6:], 248/436 terms remain (Took 0 ms)
+[Eval Gtables shape 6:] Took 0 ms
+[FTR Shape 7:], 210/310 terms remain (Took 0 ms)
+[Eval Gtables shape 7:] Took 1 ms
+[FTR Shape 8:], 686/950 terms remain (Took 0 ms)
+[Eval Gtables shape 8:] Took 2 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.255 MBs
+  ps (and qs) each use 0.085 MBs
+  bs use 0.040 MBs
+  Total: 0.465 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 1 x 25 MBs per page. In Use: 0.989 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.274 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.082 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 1.345 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 2 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 0 ms
+After FTR: Shape 4 has 308 terms
+After FTR: Shape 5 has 291 terms
+After FTR: Shape 6 has 248 terms
+After FTR: Shape 7 has 210 terms
+After FTR: Shape 8 has 686 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 308 Terms Total! Max Cells is: 14
+  308/308 terms have 12 cells
+Tables of Shape 5: 291 Terms Total! Max Cells is: 22
+  194/291 terms have 16 cells
+  97/291 terms have 20 cells
+Tables of Shape 6: 248 Terms Total! Max Cells is: 32
+  155/248 terms have 20 cells
+  62/248 terms have 26 cells
+  31/248 terms have 30 cells
+Tables of Shape 7: 210 Terms Total! Max Cells is: 44
+  130/210 terms have 24 cells
+  50/210 terms have 32 cells
+  20/210 terms have 38 cells
+  10/210 terms have 42 cells
+Tables of Shape 8: 686 Terms Total! Max Cells is: 58
+  424/686 terms have 28 cells
+  162/686 terms have 38 cells
+  62/686 terms have 46 cells
+  24/686 terms have 52 cells
+  10/686 terms have 56 cells
+  4/686 terms have 58 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 6, MU 1/1 (took 0 ms)
+fz: 1.0000000000000018 + 0.0000000000000012j
+Conditional Mean:
+-0.4274775750256969 + -0.0000000000000057j, -0.1680715737536234 + 0.0000000000000152j, -0.1285455821306473 + -0.0000000000000141j, 
+
+Conditional Variance:
+0.0604068159753877 + -0.0000000000000136j, 0.0308564644636322 + 0.0000000000000565j, 0.0095086416750629 + -0.0000000000000569j, 
+0.0308564644636322 + 0.0000000000000564j, 0.0983286892891432 + -0.0000000000002083j, -0.0720921836589420 + 0.0000000000002071j, 
+0.0095086416750629 + -0.0000000000000569j, -0.0720921836589420 + 0.0000000000002071j, 0.0746773298913324 + -0.0000000000002064j, 
+
+Step 6 took 15 ms
+TP/TPC Step 7/14 took 1 ms
+TP Cell Enum Took 26 ms
+TP/TPC: Shape 5 has 308 terms
+TP/TPC: Shape 6 has 291 terms
+TP/TPC: Shape 7 has 248 terms
+TP/TPC: Shape 8 has 210 terms
+TP/TPC: Shape 9 has 686 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 308 Terms Total! Max Cells is: 22
+  308/308 terms have 20 cells
+Tables of Shape 6: 291 Terms Total! Max Cells is: 32
+  194/291 terms have 26 cells
+  97/291 terms have 30 cells
+Tables of Shape 7: 248 Terms Total! Max Cells is: 44
+  155/248 terms have 32 cells
+  62/248 terms have 38 cells
+  31/248 terms have 42 cells
+Tables of Shape 8: 210 Terms Total! Max Cells is: 58
+  130/210 terms have 38 cells
+  50/210 terms have 46 cells
+  20/210 terms have 52 cells
+  10/210 terms have 56 cells
+Tables of Shape 9: 686 Terms Total! Max Cells is: 74
+  424/686 terms have 44 cells
+  162/686 terms have 54 cells
+  62/686 terms have 62 cells
+  24/686 terms have 68 cells
+  10/686 terms have 72 cells
+  4/686 terms have 74 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.295 MBs
+  ps (and qs) each use 0.098 MBs
+  bs use 0.040 MBs
+  Total: 0.531 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.989 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.125 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 1.114 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 1 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 7/14 took 2 ms:
+MU: Shape 5 now has 1848 terms
+MU: Shape 6 now has 2037 terms
+MU: Shape 7 now has 1984 terms
+MU: Shape 8 now has 1890 terms
+MU: Shape 9 now has 6860 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 2.568 MBs
+  ps (and qs) each use 0.856 MBs
+  bs use 0.335 MBs
+  Total: 4.615 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 7, MU 1/1 (took 2 ms)
+fz: 0.6871535798580428 + 0.0000000000000006j
+Conditional Mean:
+-0.4180350566800722 + -0.0000000000000055j, -0.1659115820843835 + 0.0000000000000188j, -0.1485859523519847 + -0.0000000000000191j, 
+
+Conditional Variance:
+0.0282333993094817 + -0.0000000000010510j, 0.0143626956728369 + 0.0000000000034754j, 0.0033978402872470 + -0.0000000000034071j, 
+0.0143626956728427 + 0.0000000000034806j, 0.0286850932064016 + -0.0000000000113875j, -0.0192789703500334 + 0.0000000000112485j, 
+0.0033978402872424 + -0.0000000000034149j, -0.0192789703500437 + 0.0000000000112899j, 0.0236916044764367 + -0.0000000000110522j, 
+
+MUC took 2 ms:
+MUC: Shape 4 now has 6223 terms
+MUC: Shape 5 now has 2685 terms
+MUC: Shape 6 now has 1453 terms
+MUC: Shape 7 now has 994 terms
+MUC: Shape 8 now has 780 terms
+MUC: Shape 9 now has 2484 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 1.890 MBs
+  ps (and qs) each use 0.630 MBs
+  bs use 0.335 MBs
+  Total: 3.485 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 7/14:] Preprocessing took 1 ms
+[FTR Shape 4:], 988/6223 terms remain (Took 3 ms)
+[Eval Gtables shape 4:] Took 4 ms
+[FTR Shape 5:], 924/2685 terms remain (Took 1 ms)
+[Eval Gtables shape 5:] Took 2 ms
+[FTR Shape 6:], 776/1453 terms remain (Took 0 ms)
+[Eval Gtables shape 6:] Took 1 ms
+[FTR Shape 7:], 651/994 terms remain (Took 0 ms)
+[Eval Gtables shape 7:] Took 1 ms
+[FTR Shape 8:], 550/780 terms remain (Took 1 ms)
+[Eval Gtables shape 8:] Took 1 ms
+[FTR Shape 9:], 1796/2484 terms remain (Took 1 ms)
+[Eval Gtables shape 9:] Took 5 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 0.878 MBs
+  ps (and qs) each use 0.293 MBs
+  bs use 0.130 MBs
+  Total: 1.593 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 1 x 25 MBs per page. In Use: 3.470 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 0.989 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.289 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 4.748 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 7 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 1 ms
+After FTR: Shape 4 has 988 terms
+After FTR: Shape 5 has 924 terms
+After FTR: Shape 6 has 776 terms
+After FTR: Shape 7 has 651 terms
+After FTR: Shape 8 has 550 terms
+After FTR: Shape 9 has 1796 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 988 Terms Total! Max Cells is: 14
+  988/988 terms have 12 cells
+Tables of Shape 5: 924 Terms Total! Max Cells is: 22
+  616/924 terms have 16 cells
+  308/924 terms have 20 cells
+Tables of Shape 6: 776 Terms Total! Max Cells is: 32
+  485/776 terms have 20 cells
+  194/776 terms have 26 cells
+  97/776 terms have 30 cells
+Tables of Shape 7: 651 Terms Total! Max Cells is: 44
+  403/651 terms have 24 cells
+  155/651 terms have 32 cells
+  62/651 terms have 38 cells
+  31/651 terms have 42 cells
+Tables of Shape 8: 550 Terms Total! Max Cells is: 58
+  340/550 terms have 28 cells
+  130/550 terms have 38 cells
+  50/550 terms have 46 cells
+  20/550 terms have 52 cells
+  10/550 terms have 56 cells
+Tables of Shape 9: 1796 Terms Total! Max Cells is: 74
+  1110/1796 terms have 32 cells
+  424/1796 terms have 44 cells
+  162/1796 terms have 54 cells
+  62/1796 terms have 62 cells
+  24/1796 terms have 68 cells
+  10/1796 terms have 72 cells
+  4/1796 terms have 74 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 7, MU 1/1 (took 1 ms)
+fz: 0.9999999999999887 + -0.0000000000000003j
+Conditional Mean:
+-0.4180350566800732 + -0.0000000000000008j, -0.1659115820843958 + 0.0000000000000010j, -0.1485859523519749 + -0.0000000000000019j, 
+
+Conditional Variance:
+0.0282333993095862 + 0.0000000000000116j, 0.0143626956724849 + -0.0000000000000386j, 0.0033978402875877 + 0.0000000000000381j, 
+0.0143626956724849 + -0.0000000000000386j, 0.0286850932076083 + 0.0000000000001279j, -0.0192789703512009 + -0.0000000000001262j, 
+0.0033978402875877 + 0.0000000000000381j, -0.0192789703512008 + -0.0000000000001262j, 0.0236916044775695 + 0.0000000000001246j, 
+
+Step 7 took 57 ms
+TP/TPC Step 8/14 took 1 ms
+TP Cell Enum Took 101 ms
+TP/TPC: Shape 5 has 988 terms
+TP/TPC: Shape 6 has 924 terms
+TP/TPC: Shape 7 has 776 terms
+TP/TPC: Shape 8 has 651 terms
+TP/TPC: Shape 9 has 550 terms
+TP/TPC: Shape 10 has 1796 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 988 Terms Total! Max Cells is: 22
+  988/988 terms have 20 cells
+Tables of Shape 6: 924 Terms Total! Max Cells is: 32
+  616/924 terms have 26 cells
+  308/924 terms have 30 cells
+Tables of Shape 7: 776 Terms Total! Max Cells is: 44
+  485/776 terms have 32 cells
+  194/776 terms have 38 cells
+  97/776 terms have 42 cells
+Tables of Shape 8: 651 Terms Total! Max Cells is: 58
+  403/651 terms have 38 cells
+  155/651 terms have 46 cells
+  62/651 terms have 52 cells
+  31/651 terms have 56 cells
+Tables of Shape 9: 550 Terms Total! Max Cells is: 74
+  340/550 terms have 44 cells
+  130/550 terms have 54 cells
+  50/550 terms have 62 cells
+  20/550 terms have 68 cells
+  10/550 terms have 72 cells
+Tables of Shape 10: 1796 Terms Total! Max Cells is: 92
+  1110/1796 terms have 50 cells
+  424/1796 terms have 62 cells
+  162/1796 terms have 72 cells
+  62/1796 terms have 80 cells
+  24/1796 terms have 86 cells
+  10/1796 terms have 90 cells
+  4/1796 terms have 92 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 1.008 MBs
+  ps (and qs) each use 0.336 MBs
+  bs use 0.130 MBs
+  Total: 1.810 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 3.470 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.435 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 3.905 ---
+Term Structure Memory Usage: 0 MBs
+Total CF Memory Usage: 6 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 8/14 took 9 ms:
+MU: Shape 5 now has 5928 terms
+MU: Shape 6 now has 6468 terms
+MU: Shape 7 now has 6208 terms
+MU: Shape 8 now has 5859 terms
+MU: Shape 9 now has 5500 terms
+MU: Shape 10 now has 19756 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 9.289 MBs
+  ps (and qs) each use 3.096 MBs
+  bs use 1.138 MBs
+  Total: 16.619 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 8, MU 1/1 (took 7 ms)
+fz: 0.6425811456422099 + 0.0000000000000061j
+Conditional Mean:
+-0.4291220849458799 + 0.0000000000000164j, -0.2111823089790388 + -0.0000000000000615j, -0.1217758504315476 + 0.0000000000000580j, 
+
+Conditional Variance:
+0.0219770628278127 + -0.0000000000054477j, 0.0098919025820615 + 0.0000000000179563j, 0.0015069635772662 + -0.0000000000176914j, 
+0.0098919025820643 + 0.0000000000179729j, 0.0243592995224696 + -0.0000000000591124j, -0.0154563513198341 + 0.0000000000583539j, 
+0.0015069635772669 + -0.0000000000176859j, -0.0154563513198021 + 0.0000000000582818j, 0.0153372150807254 + -0.0000000000574512j, 
+
+MUC took 9 ms:
+MUC: Shape 4 now has 21531 terms
+MUC: Shape 5 now has 9187 terms
+MUC: Shape 6 now has 4841 terms
+MUC: Shape 7 now has 3199 terms
+MUC: Shape 8 now has 2451 terms
+MUC: Shape 9 now has 2010 terms
+MUC: Shape 10 now has 6500 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 6.551 MBs
+  ps (and qs) each use 2.184 MBs
+  bs use 1.138 MBs
+  Total: 12.055 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 8/14:] Preprocessing took 5 ms
+[FTR Shape 4:], 3188/21531 terms remain (Took 13 ms)
+[Eval Gtables shape 4:] Took 16 ms
+[FTR Shape 5:], 2964/9187 terms remain (Took 5 ms)
+[Eval Gtables shape 5:] Took 7 ms
+[FTR Shape 6:], 2464/4841 terms remain (Took 3 ms)
+[Eval Gtables shape 6:] Took 5 ms
+[FTR Shape 7:], 2037/3199 terms remain (Took 1 ms)
+[Eval Gtables shape 7:] Took 4 ms
+[FTR Shape 8:], 1705/2451 terms remain (Took 1 ms)
+[Eval Gtables shape 8:] Took 4 ms
+[FTR Shape 9:], 1440/2010 terms remain (Took 1 ms)
+[Eval Gtables shape 9:] Took 4 ms
+[FTR Shape 10:], 4702/6500 terms remain (Took 4 ms)
+[Eval Gtables shape 10:] Took 14 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 2.981 MBs
+  ps (and qs) each use 0.994 MBs
+  bs use 0.423 MBs
+  Total: 5.392 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 1 x 25 MBs per page. In Use: 11.944 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 3.470 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 0.995 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 16.409 ---
+Term Structure Memory Usage: 2 MBs
+Total CF Memory Usage: 24 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 9 ms
+After FTR: Shape 4 has 3188 terms
+After FTR: Shape 5 has 2964 terms
+After FTR: Shape 6 has 2464 terms
+After FTR: Shape 7 has 2037 terms
+After FTR: Shape 8 has 1705 terms
+After FTR: Shape 9 has 1440 terms
+After FTR: Shape 10 has 4702 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 3188 Terms Total! Max Cells is: 14
+  3188/3188 terms have 12 cells
+Tables of Shape 5: 2964 Terms Total! Max Cells is: 22
+  1976/2964 terms have 16 cells
+  988/2964 terms have 20 cells
+Tables of Shape 6: 2464 Terms Total! Max Cells is: 32
+  1540/2464 terms have 20 cells
+  616/2464 terms have 26 cells
+  308/2464 terms have 30 cells
+Tables of Shape 7: 2037 Terms Total! Max Cells is: 44
+  1261/2037 terms have 24 cells
+  485/2037 terms have 32 cells
+  194/2037 terms have 38 cells
+  97/2037 terms have 42 cells
+Tables of Shape 8: 1705 Terms Total! Max Cells is: 58
+  1054/1705 terms have 28 cells
+  403/1705 terms have 38 cells
+  155/1705 terms have 46 cells
+  62/1705 terms have 52 cells
+  31/1705 terms have 56 cells
+Tables of Shape 9: 1440 Terms Total! Max Cells is: 74
+  890/1440 terms have 32 cells
+  340/1440 terms have 44 cells
+  130/1440 terms have 54 cells
+  50/1440 terms have 62 cells
+  20/1440 terms have 68 cells
+  10/1440 terms have 72 cells
+Tables of Shape 10: 4702 Terms Total! Max Cells is: 92
+  2906/4702 terms have 36 cells
+  1110/4702 terms have 50 cells
+  424/4702 terms have 62 cells
+  162/4702 terms have 72 cells
+  62/4702 terms have 80 cells
+  24/4702 terms have 86 cells
+  10/4702 terms have 90 cells
+  4/4702 terms have 92 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 8, MU 1/1 (took 5 ms)
+fz: 0.9999999999999952 + 0.0000000000000159j
+Conditional Mean:
+-0.4291220849458561 + -0.0000000000000013j, -0.2111823089791344 + 0.0000000000000006j, -0.1217758504314567 + -0.0000000000000006j, 
+
+Conditional Variance:
+0.0219770628281108 + -0.0000000000000268j, 0.0098919025810858 + 0.0000000000000921j, 0.0015069635782352 + -0.0000000000000910j, 
+0.0098919025810858 + 0.0000000000000921j, 0.0243592995256809 + -0.0000000000003058j, -0.0154563513230726 + 0.0000000000003020j, 
+0.0015069635782352 + -0.0000000000000911j, -0.0154563513230726 + 0.0000000000003020j, 0.0153372150837999 + -0.0000000000002980j, 
+
+Step 8 took 228 ms
+TP/TPC Step 9/14 took 6 ms
+TP Cell Enum Took 386 ms
+TP/TPC: Shape 5 has 3188 terms
+TP/TPC: Shape 6 has 2964 terms
+TP/TPC: Shape 7 has 2464 terms
+TP/TPC: Shape 8 has 2037 terms
+TP/TPC: Shape 9 has 1705 terms
+TP/TPC: Shape 10 has 1440 terms
+TP/TPC: Shape 11 has 4702 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 3188 Terms Total! Max Cells is: 22
+  3188/3188 terms have 20 cells
+Tables of Shape 6: 2964 Terms Total! Max Cells is: 32
+  1976/2964 terms have 26 cells
+  988/2964 terms have 30 cells
+Tables of Shape 7: 2464 Terms Total! Max Cells is: 44
+  1540/2464 terms have 32 cells
+  616/2464 terms have 38 cells
+  308/2464 terms have 42 cells
+Tables of Shape 8: 2037 Terms Total! Max Cells is: 58
+  1261/2037 terms have 38 cells
+  485/2037 terms have 46 cells
+  194/2037 terms have 52 cells
+  97/2037 terms have 56 cells
+Tables of Shape 9: 1705 Terms Total! Max Cells is: 74
+  1054/1705 terms have 44 cells
+  403/1705 terms have 54 cells
+  155/1705 terms have 62 cells
+  62/1705 terms have 68 cells
+  31/1705 terms have 72 cells
+Tables of Shape 10: 1440 Terms Total! Max Cells is: 92
+  890/1440 terms have 50 cells
+  340/1440 terms have 62 cells
+  130/1440 terms have 72 cells
+  50/1440 terms have 80 cells
+  20/1440 terms have 86 cells
+  10/1440 terms have 90 cells
+Tables of Shape 11: 4702 Terms Total! Max Cells is: 112
+  2906/4702 terms have 56 cells
+  1110/4702 terms have 70 cells
+  424/4702 terms have 82 cells
+  162/4702 terms have 92 cells
+  62/4702 terms have 100 cells
+  24/4702 terms have 106 cells
+  10/4702 terms have 110 cells
+  4/4702 terms have 112 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 3.404 MBs
+  ps (and qs) each use 1.135 MBs
+  bs use 0.423 MBs
+  Total: 6.097 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 11.944 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 1.492 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 13.436 ---
+Term Structure Memory Usage: 2 MBs
+Total CF Memory Usage: 21 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 9/14 took 35 ms:
+MU: Shape 5 now has 19128 terms
+MU: Shape 6 now has 20748 terms
+MU: Shape 7 now has 19712 terms
+MU: Shape 8 now has 18333 terms
+MU: Shape 9 now has 17050 terms
+MU: Shape 10 now has 15840 terms
+MU: Shape 11 now has 56424 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 32.897 MBs
+  ps (and qs) each use 10.966 MBs
+  bs use 3.828 MBs
+  Total: 58.656 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 9, MU 1/1 (took 29 ms)
+fz: 0.8907917496076980 + 0.0000000000000020j
+Conditional Mean:
+-0.3008041858577630 + 0.0000000000002866j, -0.1609757944167076 + -0.0000000000007662j, -0.1045622025785376 + 0.0000000000010153j, 
+
+Conditional Variance:
+0.0165629068458714 + 0.0000000000101307j, 0.0050780383081092 + -0.0000000000286190j, 0.0032325175293062 + 0.0000000000242901j, 
+0.0050780383076182 + -0.0000000000283595j, 0.0183329314784175 + 0.0000000000631436j, -0.0119379652651762 + -0.0000000000929857j, 
+0.0032325175295580 + 0.0000000000244140j, -0.0119379652656869 + -0.0000000000930037j, 0.0116302908668938 + 0.0000000000860487j, 
+
+MUC took 31 ms:
+MUC: Shape 4 now has 73386 terms
+MUC: Shape 5 now has 31095 terms
+MUC: Shape 6 now has 16103 terms
+MUC: Shape 7 now has 10385 terms
+MUC: Shape 8 now has 7758 terms
+MUC: Shape 9 now has 6264 terms
+MUC: Shape 10 now has 5230 terms
+MUC: Shape 11 now has 17014 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 22.344 MBs
+  ps (and qs) each use 7.448 MBs
+  bs use 3.828 MBs
+  Total: 41.068 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 9/14:] Preprocessing took 31 ms
+[FTR Shape 4:], 10320/73386 terms remain (Took 56 ms)
+[Eval Gtables shape 4:] Took 60 ms
+[FTR Shape 5:], 9564/31095 terms remain (Took 21 ms)
+[Eval Gtables shape 5:] Took 29 ms
+[FTR Shape 6:], 7904/16103 terms remain (Took 10 ms)
+[Eval Gtables shape 6:] Took 17 ms
+[FTR Shape 7:], 6468/10385 terms remain (Took 6 ms)
+[Eval Gtables shape 7:] Took 13 ms
+[FTR Shape 8:], 5335/7758 terms remain (Took 5 ms)
+[Eval Gtables shape 8:] Took 10 ms
+[FTR Shape 9:], 4464/6264 terms remain (Took 4 ms)
+[Eval Gtables shape 9:] Took 12 ms
+[FTR Shape 10:], 3770/5230 terms remain (Took 3 ms)
+[Eval Gtables shape 10:] Took 12 ms
+[FTR Shape 11:], 12310/17014 terms remain (Took 11 ms)
+[Eval Gtables shape 11:] Took 50 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 10.020 MBs
+  ps (and qs) each use 3.340 MBs
+  bs use 1.376 MBs
+  Total: 18.076 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 3 x 25 MBs per page. In Use: 40.555 MBs
+  Gtable_ps: Allocated pages: 1 x 25 MBs per page. In Use: 11.944 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 3.380 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 55.879 ---
+Term Structure Memory Usage: 7 MBs
+Total CF Memory Usage: 81 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 44 ms
+After FTR: Shape 4 has 10320 terms
+After FTR: Shape 5 has 9564 terms
+After FTR: Shape 6 has 7904 terms
+After FTR: Shape 7 has 6468 terms
+After FTR: Shape 8 has 5335 terms
+After FTR: Shape 9 has 4464 terms
+After FTR: Shape 10 has 3770 terms
+After FTR: Shape 11 has 12310 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 10320 Terms Total! Max Cells is: 14
+  10320/10320 terms have 12 cells
+Tables of Shape 5: 9564 Terms Total! Max Cells is: 22
+  6376/9564 terms have 16 cells
+  3188/9564 terms have 20 cells
+Tables of Shape 6: 7904 Terms Total! Max Cells is: 32
+  4940/7904 terms have 20 cells
+  1976/7904 terms have 26 cells
+  988/7904 terms have 30 cells
+Tables of Shape 7: 6468 Terms Total! Max Cells is: 44
+  4004/6468 terms have 24 cells
+  1540/6468 terms have 32 cells
+  616/6468 terms have 38 cells
+  308/6468 terms have 42 cells
+Tables of Shape 8: 5335 Terms Total! Max Cells is: 58
+  3298/5335 terms have 28 cells
+  1261/5335 terms have 38 cells
+  485/5335 terms have 46 cells
+  194/5335 terms have 52 cells
+  97/5335 terms have 56 cells
+Tables of Shape 9: 4464 Terms Total! Max Cells is: 74
+  2759/4464 terms have 32 cells
+  1054/4464 terms have 44 cells
+  403/4464 terms have 54 cells
+  155/4464 terms have 62 cells
+  62/4464 terms have 68 cells
+  31/4464 terms have 72 cells
+Tables of Shape 10: 3770 Terms Total! Max Cells is: 92
+  2330/3770 terms have 36 cells
+  890/3770 terms have 50 cells
+  340/3770 terms have 62 cells
+  130/3770 terms have 72 cells
+  50/3770 terms have 80 cells
+  20/3770 terms have 86 cells
+  10/3770 terms have 90 cells
+Tables of Shape 11: 12310 Terms Total! Max Cells is: 112
+  7608/12310 terms have 40 cells
+  2906/12310 terms have 56 cells
+  1110/12310 terms have 70 cells
+  424/12310 terms have 82 cells
+  162/12310 terms have 92 cells
+  62/12310 terms have 100 cells
+  24/12310 terms have 106 cells
+  10/12310 terms have 110 cells
+  4/12310 terms have 112 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 9, MU 1/1 (took 16 ms)
+fz: 1.0000000000000160 + -0.0000000000000017j
+Conditional Mean:
+-0.3008041858580672 + 0.0000000000000079j, -0.1609757944156699 + -0.0000000000000393j, -0.1045622025795506 + 0.0000000000000364j, 
+
+Conditional Variance:
+0.0165629068662183 + 0.0000000000021895j, 0.0050780382560234 + -0.0000000000072376j, 0.0032325175911805 + 0.0000000000071245j, 
+0.0050780382560234 + -0.0000000000072376j, 0.0183329316420440 + 0.0000000000238769j, -0.0119379654652269 + -0.0000000000235164j, 
+0.0032325175911805 + 0.0000000000071245j, -0.0119379654652269 + -0.0000000000235165j, 0.0116302910595464 + 0.0000000000231612j, 
+
+Step 9 took 902 ms
+TP/TPC Step 10/14 took 25 ms
+TP Cell Enum Took 1441 ms
+TP/TPC: Shape 5 has 10320 terms
+TP/TPC: Shape 6 has 9564 terms
+TP/TPC: Shape 7 has 7904 terms
+TP/TPC: Shape 8 has 6468 terms
+TP/TPC: Shape 9 has 5335 terms
+TP/TPC: Shape 10 has 4464 terms
+TP/TPC: Shape 11 has 3770 terms
+TP/TPC: Shape 12 has 12310 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 10320 Terms Total! Max Cells is: 22
+  10320/10320 terms have 20 cells
+Tables of Shape 6: 9564 Terms Total! Max Cells is: 32
+  6376/9564 terms have 26 cells
+  3188/9564 terms have 30 cells
+Tables of Shape 7: 7904 Terms Total! Max Cells is: 44
+  4940/7904 terms have 32 cells
+  1976/7904 terms have 38 cells
+  988/7904 terms have 42 cells
+Tables of Shape 8: 6468 Terms Total! Max Cells is: 58
+  4004/6468 terms have 38 cells
+  1540/6468 terms have 46 cells
+  616/6468 terms have 52 cells
+  308/6468 terms have 56 cells
+Tables of Shape 9: 5335 Terms Total! Max Cells is: 74
+  3298/5335 terms have 44 cells
+  1261/5335 terms have 54 cells
+  485/5335 terms have 62 cells
+  194/5335 terms have 68 cells
+  97/5335 terms have 72 cells
+Tables of Shape 10: 4464 Terms Total! Max Cells is: 92
+  2759/4464 terms have 50 cells
+  1054/4464 terms have 62 cells
+  403/4464 terms have 72 cells
+  155/4464 terms have 80 cells
+  62/4464 terms have 86 cells
+  31/4464 terms have 90 cells
+Tables of Shape 11: 3770 Terms Total! Max Cells is: 112
+  2330/3770 terms have 56 cells
+  890/3770 terms have 70 cells
+  340/3770 terms have 82 cells
+  130/3770 terms have 92 cells
+  50/3770 terms have 100 cells
+  20/3770 terms have 106 cells
+  10/3770 terms have 110 cells
+Tables of Shape 12: 12310 Terms Total! Max Cells is: 134
+  7608/12310 terms have 62 cells
+  2906/12310 terms have 78 cells
+  1110/12310 terms have 92 cells
+  424/12310 terms have 104 cells
+  162/12310 terms have 114 cells
+  62/12310 terms have 122 cells
+  24/12310 terms have 128 cells
+  10/12310 terms have 132 cells
+  4/12310 terms have 134 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 11.396 MBs
+  ps (and qs) each use 3.799 MBs
+  bs use 1.376 MBs
+  Total: 20.370 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 2 x 25 MBs per page. In Use: 40.555 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 5.050 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 45.605 ---
+Term Structure Memory Usage: 7 MBs
+Total CF Memory Usage: 73 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 10/14 took 127 ms:
+MU: Shape 5 now has 61920 terms
+MU: Shape 6 now has 66948 terms
+MU: Shape 7 now has 63232 terms
+MU: Shape 8 now has 58212 terms
+MU: Shape 9 now has 53350 terms
+MU: Shape 10 now has 49104 terms
+MU: Shape 11 now has 45240 terms
+MU: Shape 12 now has 160030 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 114.642 MBs
+  ps (and qs) each use 38.214 MBs
+  bs use 12.772 MBs
+  Total: 203.843 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 10, MU 1/1 (took 101 ms)
+fz: 0.7154278599300483 + -0.0000000000001038j
+Conditional Mean:
+-0.1503978583897012 + 0.0000000000011925j, -0.1135030307115475 + -0.0000000000046936j, -0.0606454884598633 + 0.0000000000044294j, 
+
+Conditional Variance:
+0.0137901188915453 + 0.0000000091534672j, 0.0057547332648379 + -0.0000000304218460j, 0.0019627101055952 + 0.0000000299585650j, 
+0.0057547332651557 + -0.0000000304204153j, 0.0225431097795214 + 0.0000001010886606j, -0.0154659597264951 + -0.0000000967325727j, 
+0.0019627101469112 + 0.0000000299994042j, -0.0154659597264951 + -0.0000000968978359j, 0.0140335961929637 + 0.0000000965707437j, 
+
+MUC took 115 ms:
+MUC: Shape 4 now has 247396 terms
+MUC: Shape 5 now has 104346 terms
+MUC: Shape 6 now has 53411 terms
+MUC: Shape 7 now has 33887 terms
+MUC: Shape 8 now has 24861 terms
+MUC: Shape 9 now has 19689 terms
+MUC: Shape 10 now has 16246 terms
+MUC: Shape 11 now has 13660 terms
+MUC: Shape 12 now has 44540 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 75.354 MBs
+  ps (and qs) each use 25.118 MBs
+  bs use 12.772 MBs
+  Total: 138.363 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 10/14:] Preprocessing took 75 ms
+[FTR Shape 4:], 33464/247396 terms remain (Took 239 ms)
+[Eval Gtables shape 4:] Took 214 ms
+[FTR Shape 5:], 30959/104346 terms remain (Took 80 ms)
+[Eval Gtables shape 5:] Took 103 ms
+[FTR Shape 6:], 25504/53411 terms remain (Took 37 ms)
+[Eval Gtables shape 6:] Took 60 ms
+[FTR Shape 7:], 20748/33887 terms remain (Took 23 ms)
+[Eval Gtables shape 7:] Took 44 ms
+[FTR Shape 8:], 16940/24861 terms remain (Took 16 ms)
+[Eval Gtables shape 8:] Took 37 ms
+[FTR Shape 9:], 13968/19689 terms remain (Took 14 ms)
+[Eval Gtables shape 9:] Took 35 ms
+[FTR Shape 10:], 11687/16246 terms remain (Took 12 ms)
+[Eval Gtables shape 10:] Took 38 ms
+[FTR Shape 11:], 9870/13660 terms remain (Took 9 ms)
+[Eval Gtables shape 11:] Took 39 ms
+[FTR Shape 12:], 32228/44540 terms remain (Took 31 ms)
+
+[Eval Gtables shape 12:] Took 156 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 33.424 MBs
+  ps (and qs) each use 11.141 MBs
+  bs use 4.472 MBs
+  Total: 60.178 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 8 x 25 MBs per page. In Use: 136.326 MBs
+  Gtable_ps: Allocated pages: 2 x 25 MBs per page. In Use: 40.555 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 11.360 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 188.241 ---
+Term Structure Memory Usage: 25 MBs
+Total CF Memory Usage: 273 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 157 ms
+After FTR: Shape 4 has 33464 terms
+After FTR: Shape 5 has 30959 terms
+After FTR: Shape 6 has 25504 terms
+After FTR: Shape 7 has 20748 terms
+After FTR: Shape 8 has 16940 terms
+After FTR: Shape 9 has 13968 terms
+After FTR: Shape 10 has 11687 terms
+After FTR: Shape 11 has 9870 terms
+After FTR: Shape 12 has 32228 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 33464 Terms Total! Max Cells is: 14
+  33464/33464 terms have 12 cells
+Tables of Shape 5: 30959 Terms Total! Max Cells is: 22
+  20639/30959 terms have 16 cells
+  10320/30959 terms have 20 cells
+Tables of Shape 6: 25504 Terms Total! Max Cells is: 32
+  15940/25504 terms have 20 cells
+  6376/25504 terms have 26 cells
+  3188/25504 terms have 30 cells
+Tables of Shape 7: 20748 Terms Total! Max Cells is: 44
+  12844/20748 terms have 24 cells
+  4940/20748 terms have 32 cells
+  1976/20748 terms have 38 cells
+  988/20748 terms have 42 cells
+Tables of Shape 8: 16940 Terms Total! Max Cells is: 58
+  10472/16940 terms have 28 cells
+  4004/16940 terms have 38 cells
+  1540/16940 terms have 46 cells
+  616/16940 terms have 52 cells
+  308/16940 terms have 56 cells
+Tables of Shape 9: 13968 Terms Total! Max Cells is: 74
+  8633/13968 terms have 32 cells
+  3298/13968 terms have 44 cells
+  1261/13968 terms have 54 cells
+  485/13968 terms have 62 cells
+  194/13968 terms have 68 cells
+  97/13968 terms have 72 cells
+Tables of Shape 10: 11687 Terms Total! Max Cells is: 92
+  7223/11687 terms have 36 cells
+  2759/11687 terms have 50 cells
+  1054/11687 terms have 62 cells
+  403/11687 terms have 72 cells
+  155/11687 terms have 80 cells
+  62/11687 terms have 86 cells
+  31/11687 terms have 90 cells
+Tables of Shape 11: 9870 Terms Total! Max Cells is: 112
+  6100/9870 terms have 40 cells
+  2330/9870 terms have 56 cells
+  890/9870 terms have 70 cells
+  340/9870 terms have 82 cells
+  130/9870 terms have 92 cells
+  50/9870 terms have 100 cells
+  20/9870 terms have 106 cells
+  10/9870 terms have 110 cells
+Tables of Shape 12: 32228 Terms Total! Max Cells is: 134
+  19918/32228 terms have 44 cells
+  7608/32228 terms have 62 cells
+  2906/32228 terms have 78 cells
+  1110/32228 terms have 92 cells
+  424/32228 terms have 104 cells
+  162/32228 terms have 114 cells
+  62/32228 terms have 122 cells
+  24/32228 terms have 128 cells
+  10/32228 terms have 132 cells
+  4/32228 terms have 134 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 10, MU 1/1 (took 54 ms)
+fz: 1.0000000000000211 + -0.0000000000000285j
+Conditional Mean:
+-0.1503978583903323 + 0.0000000000006942j, -0.1135030307095540 + -0.0000000000022236j, -0.0606454884618511 + 0.0000000000020991j, 
+
+Conditional Variance:
+0.0137901190876710 + 0.0000000088061375j, 0.0057547323849770 + -0.0000000290746954j, 0.0019627114779542 + 0.0000000286298077j, 
+0.0057547323850902 + -0.0000000290744682j, 0.0225431119355007 + 0.0000000959581171j, -0.0154659634939239 + -0.0000000945019187j, 
+0.0019627114788637 + 0.0000000286299216j, -0.0154659634989261 + -0.0000000945055567j, 0.0140335989992891 + 0.0000000930861966j, 
+
+Step 10 took 3308 ms
+TP/TPC Step 11/14 took 106 ms
+TP Cell Enum Took 5185 ms
+TP/TPC: Shape 5 has 33464 terms
+TP/TPC: Shape 6 has 30959 terms
+TP/TPC: Shape 7 has 25504 terms
+TP/TPC: Shape 8 has 20748 terms
+TP/TPC: Shape 9 has 16940 terms
+TP/TPC: Shape 10 has 13968 terms
+TP/TPC: Shape 11 has 11687 terms
+TP/TPC: Shape 12 has 9870 terms
+TP/TPC: Shape 13 has 32228 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 33464 Terms Total! Max Cells is: 22
+  33464/33464 terms have 20 cells
+Tables of Shape 6: 30959 Terms Total! Max Cells is: 32
+  20639/30959 terms have 26 cells
+  10320/30959 terms have 30 cells
+Tables of Shape 7: 25504 Terms Total! Max Cells is: 44
+  15940/25504 terms have 32 cells
+  6376/25504 terms have 38 cells
+  3188/25504 terms have 42 cells
+Tables of Shape 8: 20748 Terms Total! Max Cells is: 58
+  12844/20748 terms have 38 cells
+  4940/20748 terms have 46 cells
+  1976/20748 terms have 52 cells
+  988/20748 terms have 56 cells
+Tables of Shape 9: 16940 Terms Total! Max Cells is: 74
+  10472/16940 terms have 44 cells
+  4004/16940 terms have 54 cells
+  1540/16940 terms have 62 cells
+  616/16940 terms have 68 cells
+  308/16940 terms have 72 cells
+Tables of Shape 10: 13968 Terms Total! Max Cells is: 92
+  8633/13968 terms have 50 cells
+  3298/13968 terms have 62 cells
+  1261/13968 terms have 72 cells
+  485/13968 terms have 80 cells
+  194/13968 terms have 86 cells
+  97/13968 terms have 90 cells
+Tables of Shape 11: 11687 Terms Total! Max Cells is: 112
+  7223/11687 terms have 56 cells
+  2759/11687 terms have 70 cells
+  1054/11687 terms have 82 cells
+  403/11687 terms have 92 cells
+  155/11687 terms have 100 cells
+  62/11687 terms have 106 cells
+  31/11687 terms have 110 cells
+Tables of Shape 12: 9870 Terms Total! Max Cells is: 134
+  6100/9870 terms have 62 cells
+  2330/9870 terms have 78 cells
+  890/9870 terms have 92 cells
+  340/9870 terms have 104 cells
+  130/9870 terms have 114 cells
+  50/9870 terms have 122 cells
+  20/9870 terms have 128 cells
+  10/9870 terms have 132 cells
+Tables of Shape 13: 32228 Terms Total! Max Cells is: 158
+  19918/32228 terms have 68 cells
+  7608/32228 terms have 86 cells
+  2906/32228 terms have 102 cells
+  1110/32228 terms have 116 cells
+  424/32228 terms have 128 cells
+  162/32228 terms have 138 cells
+  62/32228 terms have 146 cells
+  24/32228 terms have 152 cells
+  10/32228 terms have 156 cells
+  4/32228 terms have 158 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 37.896 MBs
+  ps (and qs) each use 12.632 MBs
+  bs use 4.472 MBs
+  Total: 67.631 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 6 x 25 MBs per page. In Use: 136.326 MBs
+  Btables: Allocated pages: 1 x 25 MBs per page. In Use: 16.931 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 153.257 ---
+Term Structure Memory Usage: 25 MBs
+Total CF Memory Usage: 246 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 11/14 took 449 ms:
+MU: Shape 5 now has 200784 terms
+MU: Shape 6 now has 216713 terms
+MU: Shape 7 now has 204032 terms
+MU: Shape 8 now has 186732 terms
+MU: Shape 9 now has 169400 terms
+MU: Shape 10 now has 153648 terms
+MU: Shape 11 now has 140244 terms
+MU: Shape 12 now has 128310 terms
+MU: Shape 13 now has 451192 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 394.484 MBs
+  ps (and qs) each use 131.495 MBs
+  bs use 42.367 MBs
+  Total: 699.840 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 11, MU 1/1 (took 346 ms)
+fz: 0.1150773235041346 + -0.0000000000000180j
+Conditional Mean:
+0.0021674598937388 + -0.0000000000016859j, 0.0161594986135859 + 0.0000000000058491j, -0.0766309728688428 + -0.0000000000056443j, 
+
+Conditional Variance:
+0.0285967850817091 + -0.0000000367562343j, 0.0428454170466019 + 0.0000001212336292j, -0.0217111331046220 + -0.0000001194839336j, 
+0.0428454170504375 + 0.0000001212367167j, 0.1184688212666356 + -0.0000004003456671j, -0.0779149044468614 + 0.0000003939153890j, 
+-0.0217111331221074 + -0.0000001194839954j, -0.0779149045023396 + 0.0000003938776003j, 0.0548794347011456 + -0.0000003865485957j, 
+
+MUC took 399 ms:
+MUC: Shape 4 now has 827185 terms
+MUC: Shape 5 now has 347788 terms
+MUC: Shape 6 now has 176583 terms
+MUC: Shape 7 now has 110795 terms
+MUC: Shape 8 now has 80323 terms
+MUC: Shape 9 now has 62745 terms
+MUC: Shape 10 now has 50923 terms
+MUC: Shape 11 now has 42379 terms
+MUC: Shape 12 now has 35730 terms
+MUC: Shape 13 now has 116604 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 252.000 MBs
+  ps (and qs) each use 84.000 MBs
+  bs use 42.367 MBs
+  Total: 462.367 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 11/14:] Preprocessing took 217 ms
+[FTR Shape 4:], 108557/827185 terms remain (Took 901 ms)
+[Eval Gtables shape 4:] Took 730 ms
+[FTR Shape 5:], 100380/347788 terms remain (Took 293 ms)
+[Eval Gtables shape 5:] Took 354 ms
+[FTR Shape 6:], 82557/176583 terms remain (Took 139 ms)
+[Eval Gtables shape 6:] Took 203 ms
+[FTR Shape 7:], 66948/110795 terms remain (Took 81 ms)
+[Eval Gtables shape 7:] Took 146 ms
+[FTR Shape 8:], 54340/80323 terms remain (Took 58 ms)
+[Eval Gtables shape 8:] Took 119 ms
+[FTR Shape 9:], 44352/62745 terms remain (Took 45 ms)
+[Eval Gtables shape 9:] Took 110 ms
+[FTR Shape 10:], 36569/50923 terms remain (Took 38 ms)
+[Eval Gtables shape 10:] Took 109 ms
+[FTR Shape 11:], 30597/42379 terms remain (Took 32 ms)
+[Eval Gtables shape 11:] Took 117 ms
+[FTR Shape 12:], 25840/35730 terms remain (Took 25 ms)
+[Eval Gtables shape 12:] Took 119 ms
+[FTR Shape 13:], 84374/116604 terms remain (Took 87 ms)
+[Eval Gtables shape 13:] Took 459 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 110.852 MBs
+  ps (and qs) each use 36.951 MBs
+  bs use 14.523 MBs
+  Total: 199.276 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 26 x 25 MBs per page. In Use: 454.793 MBs
+  Gtable_ps: Allocated pages: 6 x 25 MBs per page. In Use: 136.326 MBs
+  Btables: Allocated pages: 3 x 25 MBs per page. In Use: 37.900 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 629.019 ---
+Term Structure Memory Usage: 82 MBs
+Total CF Memory Usage: 910 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 535 ms
+After FTR: Shape 4 has 108557 terms
+After FTR: Shape 5 has 100380 terms
+After FTR: Shape 6 has 82557 terms
+After FTR: Shape 7 has 66948 terms
+After FTR: Shape 8 has 54340 terms
+After FTR: Shape 9 has 44352 terms
+After FTR: Shape 10 has 36569 terms
+After FTR: Shape 11 has 30597 terms
+After FTR: Shape 12 has 25840 terms
+After FTR: Shape 13 has 84374 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 108557 Terms Total! Max Cells is: 14
+  108557/108557 terms have 12 cells
+Tables of Shape 5: 100380 Terms Total! Max Cells is: 22
+  66918/100380 terms have 16 cells
+  33462/100380 terms have 20 cells
+Tables of Shape 6: 82557 Terms Total! Max Cells is: 32
+  51598/82557 terms have 20 cells
+  20639/82557 terms have 26 cells
+  10320/82557 terms have 30 cells
+Tables of Shape 7: 66948 Terms Total! Max Cells is: 44
+  41444/66948 terms have 24 cells
+  15940/66948 terms have 32 cells
+  6376/66948 terms have 38 cells
+  3188/66948 terms have 42 cells
+Tables of Shape 8: 54340 Terms Total! Max Cells is: 58
+  33592/54340 terms have 28 cells
+  12844/54340 terms have 38 cells
+  4940/54340 terms have 46 cells
+  1976/54340 terms have 52 cells
+  988/54340 terms have 56 cells
+Tables of Shape 9: 44352 Terms Total! Max Cells is: 74
+  27412/44352 terms have 32 cells
+  10472/44352 terms have 44 cells
+  4004/44352 terms have 54 cells
+  1540/44352 terms have 62 cells
+  616/44352 terms have 68 cells
+  308/44352 terms have 72 cells
+Tables of Shape 10: 36569 Terms Total! Max Cells is: 92
+  22601/36569 terms have 36 cells
+  8633/36569 terms have 50 cells
+  3298/36569 terms have 62 cells
+  1261/36569 terms have 72 cells
+  485/36569 terms have 80 cells
+  194/36569 terms have 86 cells
+  97/36569 terms have 90 cells
+Tables of Shape 11: 30597 Terms Total! Max Cells is: 112
+  18910/30597 terms have 40 cells
+  7223/30597 terms have 56 cells
+  2759/30597 terms have 70 cells
+  1054/30597 terms have 82 cells
+  403/30597 terms have 92 cells
+  155/30597 terms have 100 cells
+  62/30597 terms have 106 cells
+  31/30597 terms have 110 cells
+Tables of Shape 12: 25840 Terms Total! Max Cells is: 134
+  15970/25840 terms have 44 cells
+  6100/25840 terms have 62 cells
+  2330/25840 terms have 78 cells
+  890/25840 terms have 92 cells
+  340/25840 terms have 104 cells
+  130/25840 terms have 114 cells
+  50/25840 terms have 122 cells
+  20/25840 terms have 128 cells
+  10/25840 terms have 132 cells
+Tables of Shape 13: 84374 Terms Total! Max Cells is: 158
+  52146/84374 terms have 48 cells
+  19918/84374 terms have 68 cells
+  7608/84374 terms have 86 cells
+  2906/84374 terms have 102 cells
+  1110/84374 terms have 116 cells
+  424/84374 terms have 128 cells
+  162/84374 terms have 138 cells
+  62/84374 terms have 146 cells
+  24/84374 terms have 152 cells
+  10/84374 terms have 156 cells
+  4/84374 terms have 158 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 11, MU 1/1 (took 180 ms)
+fz: 1.0000000000012239 + 0.0000000000000190j
+Conditional Mean:
+0.0021674599489223 + -0.0000000000002659j, 0.0161594984309533 + 0.0000000000008353j, -0.0766309726856713 + -0.0000000000008130j, 
+
+Conditional Variance:
+0.0285968244300196 + -0.0000000012799433j, 0.0428452867260235 + 0.0000000042213149j, -0.0217110052037032 + -0.0000000041594179j, 
+0.0428452867261372 + 0.0000000042212013j, 0.1184692502801033 + -0.0000000139358468j, -0.0779153268042169 + 0.0000000137322247j, 
+-0.0217110052037883 + -0.0000000041596737j, -0.0779153268036201 + 0.0000000137323384j, 0.0548798498849498 + -0.0000000135155966j, 
+
+Step 11 took 11631 ms
+TP/TPC Step 12/14 took 377 ms
+TP Cell Enum Took 18366 ms
+TP/TPC: Shape 5 has 108557 terms
+TP/TPC: Shape 6 has 100380 terms
+TP/TPC: Shape 7 has 82557 terms
+TP/TPC: Shape 8 has 66948 terms
+TP/TPC: Shape 9 has 54340 terms
+TP/TPC: Shape 10 has 44352 terms
+TP/TPC: Shape 11 has 36569 terms
+TP/TPC: Shape 12 has 30597 terms
+TP/TPC: Shape 13 has 25840 terms
+TP/TPC: Shape 14 has 84374 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 108557 Terms Total! Max Cells is: 22
+  108557/108557 terms have 20 cells
+Tables of Shape 6: 100380 Terms Total! Max Cells is: 32
+  66918/100380 terms have 26 cells
+  33462/100380 terms have 30 cells
+Tables of Shape 7: 82557 Terms Total! Max Cells is: 44
+  51598/82557 terms have 32 cells
+  20639/82557 terms have 38 cells
+  10320/82557 terms have 42 cells
+Tables of Shape 8: 66948 Terms Total! Max Cells is: 58
+  41444/66948 terms have 38 cells
+  15940/66948 terms have 46 cells
+  6376/66948 terms have 52 cells
+  3188/66948 terms have 56 cells
+Tables of Shape 9: 54340 Terms Total! Max Cells is: 74
+  33592/54340 terms have 44 cells
+  12844/54340 terms have 54 cells
+  4940/54340 terms have 62 cells
+  1976/54340 terms have 68 cells
+  988/54340 terms have 72 cells
+Tables of Shape 10: 44352 Terms Total! Max Cells is: 92
+  27412/44352 terms have 50 cells
+  10472/44352 terms have 62 cells
+  4004/44352 terms have 72 cells
+  1540/44352 terms have 80 cells
+  616/44352 terms have 86 cells
+  308/44352 terms have 90 cells
+Tables of Shape 11: 36569 Terms Total! Max Cells is: 112
+  22601/36569 terms have 56 cells
+  8633/36569 terms have 70 cells
+  3298/36569 terms have 82 cells
+  1261/36569 terms have 92 cells
+  485/36569 terms have 100 cells
+  194/36569 terms have 106 cells
+  97/36569 terms have 110 cells
+Tables of Shape 12: 30597 Terms Total! Max Cells is: 134
+  18910/30597 terms have 62 cells
+  7223/30597 terms have 78 cells
+  2759/30597 terms have 92 cells
+  1054/30597 terms have 104 cells
+  403/30597 terms have 114 cells
+  155/30597 terms have 122 cells
+  62/30597 terms have 128 cells
+  31/30597 terms have 132 cells
+Tables of Shape 13: 25840 Terms Total! Max Cells is: 158
+  15970/25840 terms have 68 cells
+  6100/25840 terms have 86 cells
+  2330/25840 terms have 102 cells
+  890/25840 terms have 116 cells
+  340/25840 terms have 128 cells
+  130/25840 terms have 138 cells
+  50/25840 terms have 146 cells
+  20/25840 terms have 152 cells
+  10/25840 terms have 156 cells
+Tables of Shape 14: 84374 Terms Total! Max Cells is: 184
+  52146/84374 terms have 74 cells
+  19918/84374 terms have 94 cells
+  7608/84374 terms have 112 cells
+  2906/84374 terms have 128 cells
+  1110/84374 terms have 142 cells
+  424/84374 terms have 154 cells
+  162/84374 terms have 164 cells
+  62/84374 terms have 172 cells
+  24/84374 terms have 178 cells
+  10/84374 terms have 182 cells
+  4/84374 terms have 184 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 125.375 MBs
+  ps (and qs) each use 41.792 MBs
+  bs use 14.523 MBs
+  Total: 223.481 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 19 x 25 MBs per page. In Use: 454.793 MBs
+  Btables: Allocated pages: 3 x 25 MBs per page. In Use: 56.375 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 511.168 ---
+Term Structure Memory Usage: 82 MBs
+Total CF Memory Usage: 816 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 12/14 took 1592 ms:
+MU: Shape 5 now has 651342 terms
+MU: Shape 6 now has 702660 terms
+MU: Shape 7 now has 660456 terms
+MU: Shape 8 now has 602532 terms
+MU: Shape 9 now has 543400 terms
+MU: Shape 10 now has 487872 terms
+MU: Shape 11 now has 438828 terms
+MU: Shape 12 now has 397761 terms
+MU: Shape 13 now has 361760 terms
+MU: Shape 14 now has 1265610 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 1343.699 MBs
+  ps (and qs) each use 447.900 MBs
+  bs use 139.898 MBs
+  Total: 2379.396 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 12, MU 1/1 (took 1181 ms)
+fz: 0.3902120974320609 + -0.0000000000000087j
+Conditional Mean:
+0.1848878462907859 + -0.0000000000003144j, 0.0798416975200846 + 0.0000000000017849j, -0.0226577865098689 + -0.0000000000019875j, 
+
+Conditional Variance:
+0.0378954721060954 + 0.0000000000822515j, 0.0330016744818561 + -0.0000000003239124j, -0.0100018539884395 + 0.0000000003385563j, 
+0.0330016744903781 + -0.0000000003200155j, 0.0565859109331559 + 0.0000000009237054j, -0.0325468061787765 + -0.0000000010741874j, 
+-0.0100018539846521 + 0.0000000003343863j, -0.0325468061840198 + -0.0000000010800145j, 0.0234737062707957 + 0.0000000013591746j, 
+
+MUC took 1375 ms:
+MUC: Shape 4 now has 2748368 terms
+MUC: Shape 5 now has 1152850 terms
+MUC: Shape 6 now has 581998 terms
+MUC: Shape 7 now has 362336 terms
+MUC: Shape 8 now has 260631 terms
+MUC: Shape 9 now has 201847 terms
+MUC: Shape 10 now has 161921 terms
+MUC: Shape 11 now has 132694 terms
+MUC: Shape 12 now has 110796 terms
+MUC: Shape 13 now has 93510 terms
+MUC: Shape 14 now has 305270 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 837.377 MBs
+  ps (and qs) each use 279.126 MBs
+  bs use 139.898 MBs
+  Total: 1535.525 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 12/14:] Preprocessing took 701 ms
+[FTR Shape 4:], 352332/2748368 terms remain (Took 3339 ms)
+[Eval Gtables shape 4:] Took 2518 ms
+[FTR Shape 5:], 325651/1152850 terms remain (Took 1089 ms)
+[Eval Gtables shape 5:] Took 1205 ms
+[FTR Shape 6:], 267656/581998 terms remain (Took 518 ms)
+[Eval Gtables shape 6:] Took 696 ms
+[FTR Shape 7:], 216713/362336 terms remain (Took 319 ms)
+[Eval Gtables shape 7:] Took 489 ms
+[FTR Shape 8:], 175340/260631 terms remain (Took 225 ms)
+[Eval Gtables shape 8:] Took 396 ms
+[FTR Shape 9:], 142272/201847 terms remain (Took 168 ms)
+[Eval Gtables shape 9:] Took 362 ms
+[FTR Shape 10:], 116116/161921 terms remain (Took 129 ms)
+[Eval Gtables shape 10:] Took 333 ms
+[FTR Shape 11:], 95739/132694 terms remain (Took 105 ms)
+[Eval Gtables shape 11:] Took 329 ms
+[FTR Shape 12:], 80104/110796 terms remain (Took 89 ms)
+[Eval Gtables shape 12:] Took 360 ms
+[FTR Shape 13:], 67650/93510 terms remain (Took 73 ms)
+[Eval Gtables shape 13:] Took 367 ms
+[FTR Shape 14:], 220894/305270 terms remain (Took 255 ms)
+[Eval Gtables shape 14:] Took 1360 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 366.009 MBs
+  ps (and qs) each use 122.003 MBs
+  bs use 47.160 MBs
+  Total: 657.175 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 85 x 25 MBs per page. In Use: 1508.483 MBs
+  Gtable_ps: Allocated pages: 19 x 25 MBs per page. In Use: 454.793 MBs
+  Btables: Allocated pages: 8 x 25 MBs per page. In Use: 125.707 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 2088.984 ---
+Term Structure Memory Usage: 267 MBs
+Total CF Memory Usage: 3013 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 1820 ms
+After FTR: Shape 4 has 352332 terms
+After FTR: Shape 5 has 325651 terms
+After FTR: Shape 6 has 267656 terms
+After FTR: Shape 7 has 216713 terms
+After FTR: Shape 8 has 175340 terms
+After FTR: Shape 9 has 142272 terms
+After FTR: Shape 10 has 116116 terms
+After FTR: Shape 11 has 95739 terms
+After FTR: Shape 12 has 80104 terms
+After FTR: Shape 13 has 67650 terms
+After FTR: Shape 14 has 220894 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 352332 Terms Total! Max Cells is: 14
+  352332/352332 terms have 12 cells
+Tables of Shape 5: 325651 Terms Total! Max Cells is: 22
+  217096/325651 terms have 16 cells
+  108555/325651 terms have 20 cells
+Tables of Shape 6: 267656 Terms Total! Max Cells is: 32
+  167282/267656 terms have 20 cells
+  66914/267656 terms have 26 cells
+  33460/267656 terms have 30 cells
+Tables of Shape 7: 216713 Terms Total! Max Cells is: 44
+  134156/216713 terms have 24 cells
+  51598/216713 terms have 32 cells
+  20639/216713 terms have 38 cells
+  10320/216713 terms have 42 cells
+Tables of Shape 8: 175340 Terms Total! Max Cells is: 58
+  108392/175340 terms have 28 cells
+  41444/175340 terms have 38 cells
+  15940/175340 terms have 46 cells
+  6376/175340 terms have 52 cells
+  3188/175340 terms have 56 cells
+Tables of Shape 9: 142272 Terms Total! Max Cells is: 74
+  87932/142272 terms have 32 cells
+  33592/142272 terms have 44 cells
+  12844/142272 terms have 54 cells
+  4940/142272 terms have 62 cells
+  1976/142272 terms have 68 cells
+  988/142272 terms have 72 cells
+Tables of Shape 10: 116116 Terms Total! Max Cells is: 92
+  71764/116116 terms have 36 cells
+  27412/116116 terms have 50 cells
+  10472/116116 terms have 62 cells
+  4004/116116 terms have 72 cells
+  1540/116116 terms have 80 cells
+  616/116116 terms have 86 cells
+  308/116116 terms have 90 cells
+Tables of Shape 11: 95739 Terms Total! Max Cells is: 112
+  59170/95739 terms have 40 cells
+  22601/95739 terms have 56 cells
+  8633/95739 terms have 70 cells
+  3298/95739 terms have 82 cells
+  1261/95739 terms have 92 cells
+  485/95739 terms have 100 cells
+  194/95739 terms have 106 cells
+  97/95739 terms have 110 cells
+Tables of Shape 12: 80104 Terms Total! Max Cells is: 134
+  49507/80104 terms have 44 cells
+  18910/80104 terms have 62 cells
+  7223/80104 terms have 78 cells
+  2759/80104 terms have 92 cells
+  1054/80104 terms have 104 cells
+  403/80104 terms have 114 cells
+  155/80104 terms have 122 cells
+  62/80104 terms have 128 cells
+  31/80104 terms have 132 cells
+Tables of Shape 13: 67650 Terms Total! Max Cells is: 158
+  41810/67650 terms have 48 cells
+  15970/67650 terms have 68 cells
+  6100/67650 terms have 86 cells
+  2330/67650 terms have 102 cells
+  890/67650 terms have 116 cells
+  340/67650 terms have 128 cells
+  130/67650 terms have 138 cells
+  50/67650 terms have 146 cells
+  20/67650 terms have 152 cells
+  10/67650 terms have 156 cells
+Tables of Shape 14: 220894 Terms Total! Max Cells is: 184
+  136520/220894 terms have 52 cells
+  52146/220894 terms have 74 cells
+  19918/220894 terms have 94 cells
+  7608/220894 terms have 112 cells
+  2906/220894 terms have 128 cells
+  1110/220894 terms have 142 cells
+  424/220894 terms have 154 cells
+  162/220894 terms have 164 cells
+  62/220894 terms have 172 cells
+  24/220894 terms have 178 cells
+  10/220894 terms have 182 cells
+  4/220894 terms have 184 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 12, MU 1/1 (took 598 ms)
+fz: 1.0000000000003484 + -0.0000000000000105j
+Conditional Mean:
+0.1848878462898290 + 0.0000000000000561j, 0.0798416975234158 + -0.0000000000001858j, -0.0226577865129848 + 0.0000000000001740j, 
+
+Conditional Variance:
+0.0378954718880587 + 0.0000000000244735j, 0.0330016751749429 + -0.0000000000873220j, -0.0100018547166543 + 0.0000000000960886j, 
+0.0330016751749425 + -0.0000000000873224j, 0.0565859086401929 + 0.0000000003112535j, -0.0325468038273090 + -0.0000000003419426j, 
+-0.0100018547166534 + 0.0000000000960886j, -0.0325468038273107 + -0.0000000003419418j, 0.0234737034610861 + 0.0000000003748254j, 
+
+Step 12 took 40869 ms
+TP/TPC Step 13/14 took 1458 ms
+TP Cell Enum Took 64092 ms
+TP/TPC: Shape 5 has 352332 terms
+TP/TPC: Shape 6 has 325651 terms
+TP/TPC: Shape 7 has 267656 terms
+TP/TPC: Shape 8 has 216713 terms
+TP/TPC: Shape 9 has 175340 terms
+TP/TPC: Shape 10 has 142272 terms
+TP/TPC: Shape 11 has 116116 terms
+TP/TPC: Shape 12 has 95739 terms
+TP/TPC: Shape 13 has 80104 terms
+TP/TPC: Shape 14 has 67650 terms
+TP/TPC: Shape 15 has 220894 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 352332 Terms Total! Max Cells is: 22
+  352332/352332 terms have 20 cells
+Tables of Shape 6: 325651 Terms Total! Max Cells is: 32
+  217096/325651 terms have 26 cells
+  108555/325651 terms have 30 cells
+Tables of Shape 7: 267656 Terms Total! Max Cells is: 44
+  167282/267656 terms have 32 cells
+  66914/267656 terms have 38 cells
+  33460/267656 terms have 42 cells
+Tables of Shape 8: 216713 Terms Total! Max Cells is: 58
+  134156/216713 terms have 38 cells
+  51598/216713 terms have 46 cells
+  20639/216713 terms have 52 cells
+  10320/216713 terms have 56 cells
+Tables of Shape 9: 175340 Terms Total! Max Cells is: 74
+  108392/175340 terms have 44 cells
+  41444/175340 terms have 54 cells
+  15940/175340 terms have 62 cells
+  6376/175340 terms have 68 cells
+  3188/175340 terms have 72 cells
+Tables of Shape 10: 142272 Terms Total! Max Cells is: 92
+  87932/142272 terms have 50 cells
+  33592/142272 terms have 62 cells
+  12844/142272 terms have 72 cells
+  4940/142272 terms have 80 cells
+  1976/142272 terms have 86 cells
+  988/142272 terms have 90 cells
+Tables of Shape 11: 116116 Terms Total! Max Cells is: 112
+  71764/116116 terms have 56 cells
+  27412/116116 terms have 70 cells
+  10472/116116 terms have 82 cells
+  4004/116116 terms have 92 cells
+  1540/116116 terms have 100 cells
+  616/116116 terms have 106 cells
+  308/116116 terms have 110 cells
+Tables of Shape 12: 95739 Terms Total! Max Cells is: 134
+  59170/95739 terms have 62 cells
+  22601/95739 terms have 78 cells
+  8633/95739 terms have 92 cells
+  3298/95739 terms have 104 cells
+  1261/95739 terms have 114 cells
+  485/95739 terms have 122 cells
+  194/95739 terms have 128 cells
+  97/95739 terms have 132 cells
+Tables of Shape 13: 80104 Terms Total! Max Cells is: 158
+  49507/80104 terms have 68 cells
+  18910/80104 terms have 86 cells
+  7223/80104 terms have 102 cells
+  2759/80104 terms have 116 cells
+  1054/80104 terms have 128 cells
+  403/80104 terms have 138 cells
+  155/80104 terms have 146 cells
+  62/80104 terms have 152 cells
+  31/80104 terms have 156 cells
+Tables of Shape 14: 67650 Terms Total! Max Cells is: 184
+  41810/67650 terms have 74 cells
+  15970/67650 terms have 94 cells
+  6100/67650 terms have 112 cells
+  2330/67650 terms have 128 cells
+  890/67650 terms have 142 cells
+  340/67650 terms have 154 cells
+  130/67650 terms have 164 cells
+  50/67650 terms have 172 cells
+  20/67650 terms have 178 cells
+  10/67650 terms have 182 cells
+Tables of Shape 15: 220894 Terms Total! Max Cells is: 212
+  136520/220894 terms have 80 cells
+  52146/220894 terms have 102 cells
+  19918/220894 terms have 122 cells
+  7608/220894 terms have 140 cells
+  2906/220894 terms have 156 cells
+  1110/220894 terms have 170 cells
+  424/220894 terms have 182 cells
+  162/220894 terms have 192 cells
+  62/220894 terms have 200 cells
+  24/220894 terms have 206 cells
+  10/220894 terms have 210 cells
+  4/220894 terms have 212 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 413.169 MBs
+  ps (and qs) each use 137.723 MBs
+  bs use 47.160 MBs
+  Total: 735.776 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 61 x 25 MBs per page. In Use: 1508.483 MBs
+  Btables: Allocated pages: 8 x 25 MBs per page. In Use: 186.708 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 1695.192 ---
+Term Structure Memory Usage: 267 MBs
+Total CF Memory Usage: 2698 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 13/14 took 5169 ms:
+MU: Shape 5 now has 2113992 terms
+MU: Shape 6 now has 2279557 terms
+MU: Shape 7 now has 2141248 terms
+MU: Shape 8 now has 1950417 terms
+MU: Shape 9 now has 1753400 terms
+MU: Shape 10 now has 1564992 terms
+MU: Shape 11 now has 1393392 terms
+MU: Shape 12 now has 1244607 terms
+MU: Shape 13 now has 1121456 terms
+MU: Shape 14 now has 1014750 terms
+MU: Shape 15 now has 3534304 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 4539.470 MBs
+  ps (and qs) each use 1513.157 MBs
+  bs use 460.330 MBs
+  Total: 8026.113 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 13, MU 1/1 (took 3979 ms)
+fz: 0.5844343176619015 + -0.0000000000000384j
+Conditional Mean:
+0.3654542478009594 + -0.0000000000011453j, 0.1150938756371906 + 0.0000000000133069j, 0.0632334009438670 + -0.0000000000044309j, 
+
+Conditional Variance:
+0.0299694507020038 + 0.0000000061969112j, 0.0163189672900147 + -0.0000000204063629j, 0.0009112502408872 + 0.0000000198411720j, 
+0.0163189672868644 + -0.0000000204057063j, 0.0310136510356632 + 0.0000000673399855j, -0.0186882775175926 + -0.0000000654981181j, 
+0.0009112502403789 + 0.0000000198403317j, -0.0186882775189071 + -0.0000000654978737j, 0.0170752929514192 + 0.0000000655506980j, 
+
+MUC took 4719 ms:
+MUC: Shape 4 now has 9087559 terms
+MUC: Shape 5 now has 3805342 terms
+MUC: Shape 6 now has 1912681 terms
+MUC: Shape 7 now has 1184198 terms
+MUC: Shape 8 now has 847361 terms
+MUC: Shape 9 now has 652755 terms
+MUC: Shape 10 now has 519983 terms
+MUC: Shape 11 now has 421565 terms
+MUC: Shape 12 now has 346773 terms
+MUC: Shape 13 now has 289914 terms
+MUC: Shape 14 now has 244780 terms
+MUC: Shape 15 now has 799204 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 2768.973 MBs
+  ps (and qs) each use 922.991 MBs
+  bs use 460.330 MBs
+  Total: 5075.285 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 13/14:] Preprocessing took 2269 ms
+[FTR Shape 4:], 1143837/9087559 terms remain (Took 12286 ms)
+[Eval Gtables shape 4:] Took 8584 ms
+[FTR Shape 5:], 1056962/3805342 terms remain (Took 3979 ms)
+[Eval Gtables shape 5:] Took 4069 ms
+[FTR Shape 6:], 868360/1912681 terms remain (Took 1881 ms)
+[Eval Gtables shape 6:] Took 2342 ms
+[FTR Shape 7:], 702580/1184198 terms remain (Took 1182 ms)
+[Eval Gtables shape 7:] Took 1633 ms
+[FTR Shape 8:], 567579/847361 terms remain (Took 838 ms)
+[Eval Gtables shape 8:] Took 1297 ms
+[FTR Shape 9:], 459072/652755 terms remain (Took 627 ms)
+[Eval Gtables shape 9:] Took 1192 ms
+[FTR Shape 10:], 372478/519983 terms remain (Took 477 ms)
+[Eval Gtables shape 10:] Took 1087 ms
+[FTR Shape 11:], 303996/421565 terms remain (Took 368 ms)
+[Eval Gtables shape 11:] Took 1039 ms
+[FTR Shape 12:], 250648/346773 terms remain (Took 308 ms)
+[Eval Gtables shape 12:] Took 1051 ms
+[FTR Shape 13:], 209715/289914 terms remain (Took 261 ms)
+[Eval Gtables shape 13:] Took 1122 ms
+[FTR Shape 14:], 177110/244780 terms remain (Took 214 ms)
+[Eval Gtables shape 14:] Took 1089 ms
+[FTR Shape 15:], 578308/799204 terms remain (Took 764 ms)
+[Eval Gtables shape 15:] Took 3935 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 1204.322 MBs
+  ps (and qs) each use 401.441 MBs
+  bs use 153.137 MBs
+  Total: 2160.340 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 275 x 25 MBs per page. In Use: 4981.201 MBs
+  Gtable_ps: Allocated pages: 61 x 25 MBs per page. In Use: 1508.483 MBs
+  Btables: Allocated pages: 25 x 25 MBs per page. In Use: 415.101 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 6904.786 ---
+Term Structure Memory Usage: 867 MBs
+Total CF Memory Usage: 9932 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 6031 ms
+After FTR: Shape 4 has 1143837 terms
+After FTR: Shape 5 has 1056962 terms
+After FTR: Shape 6 has 868360 terms
+After FTR: Shape 7 has 702580 terms
+After FTR: Shape 8 has 567579 terms
+After FTR: Shape 9 has 459072 terms
+After FTR: Shape 10 has 372478 terms
+After FTR: Shape 11 has 303996 terms
+After FTR: Shape 12 has 250648 terms
+After FTR: Shape 13 has 209715 terms
+After FTR: Shape 14 has 177110 terms
+After FTR: Shape 15 has 578308 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 4: 1143837 Terms Total! Max Cells is: 14
+  1143837/1143837 terms have 12 cells
+Tables of Shape 5: 1056962 Terms Total! Max Cells is: 22
+  704633/1056962 terms have 16 cells
+  352329/1056962 terms have 20 cells
+Tables of Shape 6: 868360 Terms Total! Max Cells is: 32
+  542720/868360 terms have 20 cells
+  217092/868360 terms have 26 cells
+  108548/868360 terms have 30 cells
+Tables of Shape 7: 702580 Terms Total! Max Cells is: 44
+  434931/702580 terms have 24 cells
+  167278/702580 terms have 32 cells
+  66912/702580 terms have 38 cells
+  33459/702580 terms have 42 cells
+Tables of Shape 8: 567579 Terms Total! Max Cells is: 58
+  350867/567579 terms have 28 cells
+  134155/567579 terms have 38 cells
+  51598/567579 terms have 46 cells
+  20639/567579 terms have 52 cells
+  10320/567579 terms have 56 cells
+Tables of Shape 9: 459072 Terms Total! Max Cells is: 74
+  283732/459072 terms have 32 cells
+  108392/459072 terms have 44 cells
+  41444/459072 terms have 54 cells
+  15940/459072 terms have 62 cells
+  6376/459072 terms have 68 cells
+  3188/459072 terms have 72 cells
+Tables of Shape 10: 372478 Terms Total! Max Cells is: 92
+  230206/372478 terms have 36 cells
+  87932/372478 terms have 50 cells
+  33592/372478 terms have 62 cells
+  12844/372478 terms have 72 cells
+  4940/372478 terms have 80 cells
+  1976/372478 terms have 86 cells
+  988/372478 terms have 90 cells
+Tables of Shape 11: 303996 Terms Total! Max Cells is: 112
+  187880/303996 terms have 40 cells
+  71764/303996 terms have 56 cells
+  27412/303996 terms have 70 cells
+  10472/303996 terms have 82 cells
+  4004/303996 terms have 92 cells
+  1540/303996 terms have 100 cells
+  616/303996 terms have 106 cells
+  308/303996 terms have 110 cells
+Tables of Shape 12: 250648 Terms Total! Max Cells is: 134
+  154909/250648 terms have 44 cells
+  59170/250648 terms have 62 cells
+  22601/250648 terms have 78 cells
+  8633/250648 terms have 92 cells
+  3298/250648 terms have 104 cells
+  1261/250648 terms have 114 cells
+  485/250648 terms have 122 cells
+  194/250648 terms have 128 cells
+  97/250648 terms have 132 cells
+Tables of Shape 13: 209715 Terms Total! Max Cells is: 158
+  129611/209715 terms have 48 cells
+  49507/209715 terms have 68 cells
+  18910/209715 terms have 86 cells
+  7223/209715 terms have 102 cells
+  2759/209715 terms have 116 cells
+  1054/209715 terms have 128 cells
+  403/209715 terms have 138 cells
+  155/209715 terms have 146 cells
+  62/209715 terms have 152 cells
+  31/209715 terms have 156 cells
+Tables of Shape 14: 177110 Terms Total! Max Cells is: 184
+  109460/177110 terms have 52 cells
+  41810/177110 terms have 74 cells
+  15970/177110 terms have 94 cells
+  6100/177110 terms have 112 cells
+  2330/177110 terms have 128 cells
+  890/177110 terms have 142 cells
+  340/177110 terms have 154 cells
+  130/177110 terms have 164 cells
+  50/177110 terms have 172 cells
+  20/177110 terms have 178 cells
+  10/177110 terms have 182 cells
+Tables of Shape 15: 578308 Terms Total! Max Cells is: 212
+  357414/578308 terms have 56 cells
+  136520/578308 terms have 80 cells
+  52146/578308 terms have 102 cells
+  19918/578308 terms have 122 cells
+  7608/578308 terms have 140 cells
+  2906/578308 terms have 156 cells
+  1110/578308 terms have 170 cells
+  424/578308 terms have 182 cells
+  162/578308 terms have 192 cells
+  62/578308 terms have 200 cells
+  24/578308 terms have 206 cells
+  10/578308 terms have 210 cells
+  4/578308 terms have 212 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 13, MU 1/1 (took 1991 ms)
+fz: 1.0000000000000731 + -0.0000000000000342j
+Conditional Mean:
+0.3654542478014304 + 0.0000000000000396j, 0.1150938756362543 + -0.0000000000000006j, 0.0632334009447553 + -0.0000000000000067j, 
+
+Conditional Variance:
+0.0299694507307346 + 0.0000000061574761j, 0.0163189672898942 + -0.0000000203203652j, 0.0009112503567751 + 0.0000000200153743j, 
+0.0163189672898711 + -0.0000000203203510j, 0.0310136505644595 + 0.0000000670618773j, -0.0186882773079072 + -0.0000000660551448j, 
+0.0009112503567432 + 0.0000000200153738j, -0.0186882773078343 + -0.0000000660550917j, 0.0170752929393656 + 0.0000000650626672j, 
+
+Step 13 took 141750 ms
+TP/TPC Step 14/14 took 5205 ms
+TP Cell Enum Took 221801 ms
+TP/TPC: Shape 5 has 1143837 terms
+TP/TPC: Shape 6 has 1056962 terms
+TP/TPC: Shape 7 has 868360 terms
+TP/TPC: Shape 8 has 702580 terms
+TP/TPC: Shape 9 has 567579 terms
+TP/TPC: Shape 10 has 459072 terms
+TP/TPC: Shape 11 has 372478 terms
+TP/TPC: Shape 12 has 303996 terms
+TP/TPC: Shape 13 has 250648 terms
+TP/TPC: Shape 14 has 209715 terms
+TP/TPC: Shape 15 has 177110 terms
+TP/TPC: Shape 16 has 578308 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 5: 1143837 Terms Total! Max Cells is: 22
+  1143837/1143837 terms have 20 cells
+Tables of Shape 6: 1056962 Terms Total! Max Cells is: 32
+  704633/1056962 terms have 26 cells
+  352329/1056962 terms have 30 cells
+Tables of Shape 7: 868360 Terms Total! Max Cells is: 44
+  542720/868360 terms have 32 cells
+  217092/868360 terms have 38 cells
+  108548/868360 terms have 42 cells
+Tables of Shape 8: 702580 Terms Total! Max Cells is: 58
+  434931/702580 terms have 38 cells
+  167278/702580 terms have 46 cells
+  66912/702580 terms have 52 cells
+  33459/702580 terms have 56 cells
+Tables of Shape 9: 567579 Terms Total! Max Cells is: 74
+  350867/567579 terms have 44 cells
+  134155/567579 terms have 54 cells
+  51598/567579 terms have 62 cells
+  20639/567579 terms have 68 cells
+  10320/567579 terms have 72 cells
+Tables of Shape 10: 459072 Terms Total! Max Cells is: 92
+  283732/459072 terms have 50 cells
+  108392/459072 terms have 62 cells
+  41444/459072 terms have 72 cells
+  15940/459072 terms have 80 cells
+  6376/459072 terms have 86 cells
+  3188/459072 terms have 90 cells
+Tables of Shape 11: 372478 Terms Total! Max Cells is: 112
+  230206/372478 terms have 56 cells
+  87932/372478 terms have 70 cells
+  33592/372478 terms have 82 cells
+  12844/372478 terms have 92 cells
+  4940/372478 terms have 100 cells
+  1976/372478 terms have 106 cells
+  988/372478 terms have 110 cells
+Tables of Shape 12: 303996 Terms Total! Max Cells is: 134
+  187880/303996 terms have 62 cells
+  71764/303996 terms have 78 cells
+  27412/303996 terms have 92 cells
+  10472/303996 terms have 104 cells
+  4004/303996 terms have 114 cells
+  1540/303996 terms have 122 cells
+  616/303996 terms have 128 cells
+  308/303996 terms have 132 cells
+Tables of Shape 13: 250648 Terms Total! Max Cells is: 158
+  154909/250648 terms have 68 cells
+  59170/250648 terms have 86 cells
+  22601/250648 terms have 102 cells
+  8633/250648 terms have 116 cells
+  3298/250648 terms have 128 cells
+  1261/250648 terms have 138 cells
+  485/250648 terms have 146 cells
+  194/250648 terms have 152 cells
+  97/250648 terms have 156 cells
+Tables of Shape 14: 209715 Terms Total! Max Cells is: 184
+  129611/209715 terms have 74 cells
+  49507/209715 terms have 94 cells
+  18910/209715 terms have 112 cells
+  7223/209715 terms have 128 cells
+  2759/209715 terms have 142 cells
+  1054/209715 terms have 154 cells
+  403/209715 terms have 164 cells
+  155/209715 terms have 172 cells
+  62/209715 terms have 178 cells
+  31/209715 terms have 182 cells
+Tables of Shape 15: 177110 Terms Total! Max Cells is: 212
+  109460/177110 terms have 80 cells
+  41810/177110 terms have 102 cells
+  15970/177110 terms have 122 cells
+  6100/177110 terms have 140 cells
+  2330/177110 terms have 156 cells
+  890/177110 terms have 170 cells
+  340/177110 terms have 182 cells
+  130/177110 terms have 192 cells
+  50/177110 terms have 200 cells
+  20/177110 terms have 206 cells
+  10/177110 terms have 210 cells
+Tables of Shape 16: 578308 Terms Total! Max Cells is: 242
+  357414/578308 terms have 86 cells
+  136520/578308 terms have 110 cells
+  52146/578308 terms have 132 cells
+  19918/578308 terms have 152 cells
+  7608/578308 terms have 170 cells
+  2906/578308 terms have 186 cells
+  1110/578308 terms have 200 cells
+  424/578308 terms have 212 cells
+  162/578308 terms have 222 cells
+  62/578308 terms have 230 cells
+  24/578308 terms have 236 cells
+  10/578308 terms have 240 cells
+  4/578308 terms have 242 cells
+--- End of Cell Count Summary ---
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 1357.459 MBs
+  ps (and qs) each use 452.486 MBs
+  bs use 153.137 MBs
+  Total: 2415.568 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+  Gtable_ps: Allocated pages: 200 x 25 MBs per page. In Use: 4981.201 MBs
+  Btables: Allocated pages: 25 x 25 MBs per page. In Use: 615.820 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 5597.022 ---
+Term Structure Memory Usage: 867 MBs
+Total CF Memory Usage: 8880 MBs
+---------- End of CF Memory Breakdown ---------- 
+MU step 14/14 took 18149 ms:
+MU: Shape 5 now has 6863022 terms
+MU: Shape 6 now has 7398734 terms
+MU: Shape 7 now has 6946880 terms
+MU: Shape 8 now has 6323220 terms
+MU: Shape 9 now has 5675790 terms
+MU: Shape 10 now has 5049792 terms
+MU: Shape 11 now has 4469736 terms
+MU: Shape 12 now has 3951948 terms
+MU: Shape 13 now has 3509072 terms
+MU: Shape 14 now has 3145725 terms
+MU: Shape 15 now has 2833760 terms
+MU: Shape 16 now has 9831236 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 15233.372 MBs
+  ps (and qs) each use 5077.791 MBs
+  bs use 1510.595 MBs
+  Total: 26899.549 Mbs---
+--- End of A/p/q/b Summary: ---
+Moment Information (after MU) at step 14, MU 1/1 (took 14319 ms)
+fz: 0.2840634730847018 + 0.0000000000001005j
+Conditional Mean:
+0.5178294357152595 + 0.0000000003699049j, 0.1816537584276261 + -0.0000000012267468j, 0.1170673644352359 + 0.0000000011965279j, 
+
+Conditional Variance:
+0.0300929586715153 + -0.0000100942990958j, 0.0213204632615249 + 0.0000333158503925j, -0.0027081762770585 + -0.0000328134196175j, 
+0.0213204631334727 + 0.0000333157469262j, 0.0517622549311077 + -0.0001099448189856j, -0.0334464818042355 + 0.0001082683145521j, 
+-0.0027081761233724 + -0.0000328133685280j, -0.0334464820089774 + 0.0001082683265865j, 0.0278294171193905 + -0.0001066718356766j, 
+
+MUC took 15845 ms:
+MUC: Shape 3 now has 14 terms
+MUC: Shape 4 now has 29935901 terms
+MUC: Shape 5 now has 12519019 terms
+MUC: Shape 6 now has 6271532 terms
+MUC: Shape 7 now has 3866438 terms
+MUC: Shape 8 now has 2756615 terms
+MUC: Shape 9 now has 2116671 terms
+MUC: Shape 10 now has 1679294 terms
+MUC: Shape 11 now has 1352870 terms
+MUC: Shape 12 now has 1101321 terms
+MUC: Shape 13 now has 907239 terms
+MUC: Shape 14 now has 758851 terms
+MUC: Shape 15 now has 640810 terms
+MUC: Shape 16 now has 2092340 terms
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 9121.718 MBs
+  ps (and qs) each use 3040.573 MBs
+  bs use 1510.595 MBs
+  Total: 16713.458 Mbs---
+--- End of A/p/q/b Summary: ---
+[FTR/Gtables step 14/14:] Preprocessing took 8437 ms
+[FTR Shape 3:], 3/14 terms remain (Took 3 ms)
+[Eval Gtables shape 3:] Took 2 ms
+[FTR Shape 4:], 3713982/29935901 terms remain (Took 48955 ms)
+[Eval Gtables shape 4:] Took 31165 ms
+[FTR Shape 5:], 3431411/12519019 terms remain (Took 18060 ms)
+[Eval Gtables shape 5:] Took 14847 ms
+[FTR Shape 6:], 2818498/6271532 terms remain (Took 8346 ms)
+[Eval Gtables shape 6:] Took 8332 ms
+[FTR Shape 7:], 2279436/3866438 terms remain (Took 4583 ms)
+[Eval Gtables shape 7:] Took 5672 ms
+[FTR Shape 8:], 1840090/2756615 terms remain (Took 3280 ms)
+[Eval Gtables shape 8:] Took 4531 ms
+[FTR Shape 9:], 1486025/2116671 terms remain (Took 2528 ms)
+[Eval Gtables shape 9:] Took 4146 ms
+[FTR Shape 10:], 1201879/1679294 terms remain (Took 1855 ms)
+[Eval Gtables shape 10:] Took 3826 ms
+[FTR Shape 11:], 975157/1352870 terms remain (Took 1397 ms)
+[Eval Gtables shape 11:] Took 3614 ms
+[FTR Shape 12:], 795872/1101321 terms remain (Took 1103 ms)
+[Eval Gtables shape 12:] Took 3592 ms
+[FTR Shape 13:], 656205/907239 terms remain (Took 939 ms)
+[Eval Gtables shape 13:] Took 3602 ms
+[FTR Shape 14:], 549041/758851 terms remain (Took 799 ms)
+[Eval Gtables shape 14:] Took 3436 ms
+[FTR Shape 15:], 463680/640810 terms remain (Took 661 ms)
+[Eval Gtables shape 15:] Took 3221 ms
+[FTR Shape 16:], 1514030/2092340 terms remain (Took 2408 ms)
+[Eval Gtables shape 16:] Took 12212 ms
+---------- CF Memory Breakdown ---------- 
+--- Memory Usage of A/p/q/b Parameters: ---
+  As use 3952.054 MBs
+  ps (and qs) each use 1317.351 MBs
+  bs use 497.253 MBs
+  Total: 7084.010 Mbs---
+--- End of A/p/q/b Summary: ---
+--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---
+  Gtables: Allocated pages: 887 x 25 MBs per page. In Use: 16391.756 MBs
+  Gtable_ps: Allocated pages: 200 x 25 MBs per page. In Use: 4981.201 MBs
+  Btables: Allocated pages: 79 x 25 MBs per page. In Use: 1365.982 MBs
+  Btable_ps: Allocated pages: 0 x 25 MBs per page. In Use: 0.000 MBs
+--- Total G/Btable Memory Pressure: 22738.939 ---
+Term Structure Memory Usage: 2817 MBs
+Total CF Memory Usage: 32640 MBs
+---------- End of CF Memory Breakdown ---------- 
+Deallocating memory after FTR took 26502 ms
+After FTR: Shape 3 has 3 terms
+After FTR: Shape 4 has 3713982 terms
+After FTR: Shape 5 has 3431411 terms
+After FTR: Shape 6 has 2818498 terms
+After FTR: Shape 7 has 2279436 terms
+After FTR: Shape 8 has 1840090 terms
+After FTR: Shape 9 has 1486025 terms
+After FTR: Shape 10 has 1201879 terms
+After FTR: Shape 11 has 975157 terms
+After FTR: Shape 12 has 795872 terms
+After FTR: Shape 13 has 656205 terms
+After FTR: Shape 14 has 549041 terms
+After FTR: Shape 15 has 463680 terms
+After FTR: Shape 16 has 1514030 terms
+--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---
+Tables of Shape 3: 3 Terms Total! Max Cells is: 8
+  3/3 terms have 8 cells
+Tables of Shape 4: 3713982 Terms Total! Max Cells is: 14
+  3713982/3713982 terms have 12 cells
+Tables of Shape 5: 3431411 Terms Total! Max Cells is: 22
+  2287587/3431411 terms have 16 cells
+  1143824/3431411 terms have 20 cells
+Tables of Shape 6: 2818498 Terms Total! Max Cells is: 32
+  1761557/2818498 terms have 20 cells
+  704628/2818498 terms have 26 cells
+  352313/2818498 terms have 30 cells
+Tables of Shape 7: 2279436 Terms Total! Max Cells is: 44
+  1411080/2279436 terms have 24 cells
+  542717/2279436 terms have 32 cells
+  217091/2279436 terms have 38 cells
+  108548/2279436 terms have 42 cells
+Tables of Shape 8: 1840090 Terms Total! Max Cells is: 58
+  1137511/1840090 terms have 28 cells
+  434930/1840090 terms have 38 cells
+  167278/1840090 terms have 46 cells
+  66912/1840090 terms have 52 cells
+  33459/1840090 terms have 56 cells
+Tables of Shape 9: 1486025 Terms Total! Max Cells is: 74
+  918446/1486025 terms have 32 cells
+  350867/1486025 terms have 44 cells
+  134155/1486025 terms have 54 cells
+  51598/1486025 terms have 62 cells
+  20639/1486025 terms have 68 cells
+  10320/1486025 terms have 72 cells
+Tables of Shape 10: 1201879 Terms Total! Max Cells is: 92
+  742807/1201879 terms have 36 cells
+  283732/1201879 terms have 50 cells
+  108392/1201879 terms have 62 cells
+  41444/1201879 terms have 72 cells
+  15940/1201879 terms have 80 cells
+  6376/1201879 terms have 86 cells
+  3188/1201879 terms have 90 cells
+Tables of Shape 11: 975157 Terms Total! Max Cells is: 112
+  602679/975157 terms have 40 cells
+  230206/975157 terms have 56 cells
+  87932/975157 terms have 70 cells
+  33592/975157 terms have 82 cells
+  12844/975157 terms have 92 cells
+  4940/975157 terms have 100 cells
+  1976/975157 terms have 106 cells
+  988/975157 terms have 110 cells
+Tables of Shape 12: 795872 Terms Total! Max Cells is: 134
+  491876/795872 terms have 44 cells
+  187880/795872 terms have 62 cells
+  71764/795872 terms have 78 cells
+  27412/795872 terms have 92 cells
+  10472/795872 terms have 104 cells
+  4004/795872 terms have 114 cells
+  1540/795872 terms have 122 cells
+  616/795872 terms have 128 cells
+  308/795872 terms have 132 cells
+Tables of Shape 13: 656205 Terms Total! Max Cells is: 158
+  405557/656205 terms have 48 cells
+  154909/656205 terms have 68 cells
+  59170/656205 terms have 86 cells
+  22601/656205 terms have 102 cells
+  8633/656205 terms have 116 cells
+  3298/656205 terms have 128 cells
+  1261/656205 terms have 138 cells
+  485/656205 terms have 146 cells
+  194/656205 terms have 152 cells
+  97/656205 terms have 156 cells
+Tables of Shape 14: 549041 Terms Total! Max Cells is: 184
+  339326/549041 terms have 52 cells
+  129611/549041 terms have 74 cells
+  49507/549041 terms have 94 cells
+  18910/549041 terms have 112 cells
+  7223/549041 terms have 128 cells
+  2759/549041 terms have 142 cells
+  1054/549041 terms have 154 cells
+  403/549041 terms have 164 cells
+  155/549041 terms have 172 cells
+  62/549041 terms have 178 cells
+  31/549041 terms have 182 cells
+Tables of Shape 15: 463680 Terms Total! Max Cells is: 212
+  286570/463680 terms have 56 cells
+  109460/463680 terms have 80 cells
+  41810/463680 terms have 102 cells
+  15970/463680 terms have 122 cells
+  6100/463680 terms have 140 cells
+  2330/463680 terms have 156 cells
+  890/463680 terms have 170 cells
+  340/463680 terms have 182 cells
+  130/463680 terms have 192 cells
+  50/463680 terms have 200 cells
+  20/463680 terms have 206 cells
+  10/463680 terms have 210 cells
+Tables of Shape 16: 1514030 Terms Total! Max Cells is: 242
+  935722/1514030 terms have 60 cells
+  357414/1514030 terms have 86 cells
+  136520/1514030 terms have 110 cells
+  52146/1514030 terms have 132 cells
+  19918/1514030 terms have 152 cells
+  7608/1514030 terms have 170 cells
+  2906/1514030 terms have 186 cells
+  1110/1514030 terms have 200 cells
+  424/1514030 terms have 212 cells
+  162/1514030 terms have 222 cells
+  62/1514030 terms have 230 cells
+  24/1514030 terms have 236 cells
+  10/1514030 terms have 240 cells
+  4/1514030 terms have 242 cells
+--- End of Cell Count Summary ---
+Moment Information (after FTR) at step 14, MU 1/1 (took 8012 ms)
+fz: 1.0000000000008478 + -0.0000000000000518j
+Conditional Mean:
+0.5178294357415382 + 0.0000000003618684j, 0.1816537583466605 + -0.0000000011936181j, 0.1170673645169535 + 0.0000000011756739j, 
+
+Conditional Variance:
+0.0300929712350006 + -0.0000100650208325j, 0.0213204198612487 + 0.0000332177221184j, -0.0027081384940036 + -0.0000327191335785j, 
+0.0213204198576249 + 0.0000332178412605j, 0.0517623893286093 + -0.0001096296488981j, -0.0334465899465363 + 0.0001079845160092j, 
+-0.0027081384935347 + -0.0000327191335661j, -0.0334465900630155 + 0.0001079845055785j, 0.0278295414580860 + -0.0001063619306609j, 
+
+Step 14 took 516710 ms

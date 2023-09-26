@@ -72,7 +72,7 @@ uint32_t hash(uint32_t k, uint32_t kHashTableCapacity)
 }
 
 // Insert the key/values into the hashtable
-bool hashtable_insert(KeyCValue* hashtable, const KeyCValue* kv, uint32_t kHashTableCapacity)
+bool hashtable_insert(KeyCValue* hashtable, KeyCValue* kv, uint32_t kHashTableCapacity)
 {
 
     uint32_t key = kv->key;
@@ -155,7 +155,7 @@ void hashtable_print(KeyCValue* hashtable, uint32_t kHashTableCapacity)
 }
 
 // Insert the key/values into the hashtable
-bool hashtable_insert(KeyValue* hashtable, const KeyValue* kv, uint32_t kHashTableCapacity)
+bool hashtable_insert(KeyValue* hashtable, KeyValue* kv, uint32_t kHashTableCapacity)
 {
 
     uint32_t key = kv->key;
@@ -238,8 +238,30 @@ void hashtable_print(KeyValue* hashtable, uint32_t kHashTableCapacity)
 }
 
 // enter binary search methods here
+int binsearch(KeyCValue* gtable, uint32_t target_key, uint32_t gtable_size)
+{
+    int low = 0;
+    int high = gtable_size - 1;
+    int mid;
+    uint32_t mid_key;
+    while(low <= high)
+    {
+        mid = (low + high ) / 2;
+        mid_key = gtable[mid].key;
+        if(mid_key == target_key)
+            return mid;
+        else if(mid_key > target_key)
+            high = mid - 1;
+        else  
+            low = mid + 1;
+    }
+    return -1;
+}
 
-
+int sort_key_cvalues(const void* p1, const void* p2)
+{
+    return ((KeyCValue*)p1)->key - ((KeyCValue*)p2)->key;
+}
 
 
 

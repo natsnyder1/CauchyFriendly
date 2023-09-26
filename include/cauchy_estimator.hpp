@@ -8,11 +8,11 @@
 #include "cauchy_util.hpp"
 #include "cpu_linalg.hpp"
 #include "eval_gs.hpp"
+#include "gtable.hpp"
 #include "random_variables.hpp"
 #include "term_reduction.hpp"
 #include "flattening.hpp"
 #include "cpu_timer.hpp"
-#include <cstring>
 
 struct CauchyEstimator
 {
@@ -31,6 +31,7 @@ struct CauchyEstimator
     int num_btable_chunks;
     int* terms_per_shape;
     int shape_range;
+    int* B_dense;
     double* root_point;
     C_COMPLEX_TYPE* conditional_mean;
     C_COMPLEX_TYPE* conditional_variance;
@@ -79,6 +80,12 @@ struct CauchyEstimator
         null_ptr_check(root_point);
         for(int i = 0; i < d; i++)
             root_point[i] = 1.0 + random_uniform();
+        if(DENSE_STORAGE)
+        {
+            B_dense = (int*) malloc((1<<max_hp_shape) * sizeof(int) );
+            for(int i = 0; i < (1<<max_hp_shape); i++)
+                B_dense[i] = i;
+        }
         // Set the function pointers necessary to run all methods
         set_function_pointers();
         error_checks();
@@ -97,19 +104,24 @@ struct CauchyEstimator
         {
             case GTABLE_HASHTABLE_STORAGE:
                 lookup_g_numerator = (LOOKUP_G_NUMERATOR_TYPE)g_num_hashtable;
+                gtable_insert = (GTABLE_INSERT_TYPE) g_insert_hashtable;
+                gtable_add = (GTABLE_ADD_TYPE) gs_add_hashtable;
+                gtable_p_find = (GTABLE_P_FIND_TYPE) gp_find_hashtable;
                 break;
             case GTABLE_BINSEARCH_STORAGE:
-                //lookup_g_numerator = (G_NUM_TYPE)g_num_binsearch;
-                printf("GTABLE_BINSEARCH_STORAGE not implemented yet! Exiting\n");
-                exit(1);
+                lookup_g_numerator = (LOOKUP_G_NUMERATOR_TYPE)g_num_binsearch;
+                gtable_insert = (GTABLE_INSERT_TYPE) g_insert_binsearch;
+                gtable_add = (GTABLE_ADD_TYPE) gs_add_binsearch;
+                gtable_p_find = (GTABLE_P_FIND_TYPE) gp_find_binsearch;
                 break;
             case GTABLE_DENSE_STORAGE:
-                //lookup_g_numerator = (G_NUM_TYPE)g_num_dense;
-                printf("GTABLE_DENSE_STORAGE not implemented yet! Exiting\n");
-                exit(1);
+                lookup_g_numerator = (LOOKUP_G_NUMERATOR_TYPE)g_num_dense;
+                gtable_insert = (GTABLE_INSERT_TYPE) g_insert_dense;
+                gtable_add = (GTABLE_ADD_TYPE) gs_add_dense;
+                gtable_p_find = NULL;
                 break;
             default:
-                printf("GTABLE/BTABLE METHOD NOT IMPLEMENTED YET! EXITING!\n");
+                printf("CHOSEN GTABLE/BTABLE METHOD NOT IMPLEMENTED YET! EXITING!\n");
                 exit(1);
         }
     }
@@ -134,6 +146,11 @@ struct CauchyEstimator
                 printf(RED "ERROR: GTABLE_SIZE_MULTIPLIER in cauchy_types.hpp must be defined as >1 when using HASHTABLE_STORAGE method!\nExiting!" NC "\n");
                 exit(1);
             }
+            if(GTABLE_SIZE_MULTIPLIER == 1)
+            {
+                printf(YEL "WARNING! You are using GTABLE_SIZE_MULTIPLIER==1! This is unoptimal! Consider using GTABLE_SIZE_MULTIPLIER>1!" NC "\n");
+                sleep(1);
+            }
         }
         else
         {
@@ -147,6 +164,7 @@ struct CauchyEstimator
         {
             if(FULL_STORAGE)
                 printf(YEL "WARNING! You are using DENSE_STORAGE WITH FULL STORAGE set on! This is VERY expensive! Consider using FULL_STORAGE=false method!" NC "\n");
+            sleep(2);
         }
         // Make sure the largest gtable size will fit into a single page
         int max_cell_count = cell_count_central(shape_range-1, d);
@@ -187,9 +205,9 @@ struct CauchyEstimator
         }
         tmr.toc(false);
         if(print_basic_info)
-            printf("TP/TPC Step %d/%d took %d ms\n", master_step+1, num_estimation_steps, tmr.cpu_time_used);
+            printf("TP/TPC Step %d/%d took %d ms (%d Terms total!)\n", master_step+1, num_estimation_steps, tmr.cpu_time_used, Nt);
         // No need to update / build the Btables on the last step, if SKIP_LAST_STEP is true
-        if(!skip_post_mu)
+        if( (!skip_post_mu) && (!DENSE_STORAGE) )
         {
             tmr.tic();
             // Now build the new Btable after adding and possibly coaligning Gamma
@@ -281,16 +299,15 @@ struct CauchyEstimator
                 terms_per_shape[terms[i].m] += num_new_children + 1;
             }
             tmr.toc(false);
-
+            Nt = Nt_new;
             if(print_basic_info)
             {
-                printf("MU step %d/%d took %d ms:\n", master_step+1, num_estimation_steps, tmr.cpu_time_used);
+                printf("MU step %d/%d took %d ms (%d terms total)\n", master_step+1, num_estimation_steps, tmr.cpu_time_used, Nt);
                 for(int i = 0; i < shape_range; i++)
                     if(terms_per_shape[i] > 0)
                         printf("MU: Shape %d now has %d terms\n", i, terms_per_shape[i]);
                 stats.get_elem_mem_usage(terms_per_shape, shape_range, d, true);
             }
-            Nt = Nt_new;
             //terms = (CauchyTerm*) realloc(terms,  Nt * sizeof(CauchyTerm) );
             //null_ptr_check(terms);
             // Compute the moments after MU
@@ -476,7 +493,10 @@ struct CauchyEstimator
         for(int i = 0; i < Nt; i++)
         {
             terms[i].cells_gtable = dce_helper.cell_counts_cen[d] / (1 + HALF_STORAGE);
-            gb_tables.set_term_btable_pointer( &(terms[i].enc_B), terms[i].cells_gtable, true);
+            if(!DENSE_STORAGE)
+                gb_tables.set_term_btable_pointer( &(terms[i].enc_B), terms[i].cells_gtable, true);
+            else
+                terms[i].enc_B = B_dense;
             gb_tables.set_term_gtable_pointer(&(terms[i].gtable), terms[i].cells_gtable, true);
             make_gtable_first(terms + i, G_SCALE_FACTOR);
             terms[i].become_parent();
@@ -546,10 +566,11 @@ struct CauchyEstimator
                 int max_Nt_reduced_shape = ffa.num_terms_after_reduction; // Max number of terms after reduction (before term approximation)
                 int Nt_reduced_shape = 0;
                 int Nt_removed_shape = 0;
-                int max_cells_shape = dce_helper.cell_counts_cen[m] / (1 + HALF_STORAGE);
+                int max_cells_shape = !DENSE_STORAGE ? dce_helper.cell_counts_cen[m] / (1 + HALF_STORAGE) : (1<<m) / (1+HALF_STORAGE);
                 int dce_temp_hashtable_size = max_cells_shape * dce_helper.storage_multiplier;
                 gb_tables.extend_gtables(max_cells_shape, max_Nt_reduced_shape);
-                gb_tables.extend_btables(max_cells_shape, max_Nt_reduced_shape);
+                if(!DENSE_STORAGE)
+                    gb_tables.extend_btables(max_cells_shape, max_Nt_reduced_shape);
 
                 // Now make B-Tables, G-Tables, for each reduction group
                 int** forward_F = ffa.Fs;
@@ -563,15 +584,23 @@ struct CauchyEstimator
                         int rt_idx = shape_idx[j];
                         CauchyTerm* child_j = terms + rt_idx;
                         // Make the Btable if not an old term
-                        if(child_j->parent != NULL)
+
+                        if(DENSE_STORAGE)
                         {
-                            // Set the child btable memory position
-                            gb_tables.set_term_btable_pointer(&(child_j->enc_B), max_cells_shape, false);
-                            // Make the Btable if not an old term
-                            make_new_child_btable(child_j, 
-                                dce_helper.B_mu_hash, child_j->parent->cells_gtable * dce_helper.storage_multiplier,
-                                dce_helper.B_coal_hash, dce_temp_hashtable_size,
-                                dce_helper.B_uncoal, dce_helper.F);
+                            child_j->enc_B = B_dense;
+                            child_j->cells_gtable = max_cells_shape;
+                        }
+                        else
+                        {
+                            if( (child_j->parent != NULL) )
+                            {
+                                // Set the child btable memory position
+                                gb_tables.set_term_btable_pointer(&(child_j->enc_B), max_cells_shape, false);
+                                make_new_child_btable(child_j, 
+                                    dce_helper.B_mu_hash, child_j->parent->cells_gtable * dce_helper.storage_multiplier,
+                                    dce_helper.B_coal_hash, dce_temp_hashtable_size,
+                                    dce_helper.B_uncoal, dce_helper.F);
+                            }
                         }
                         //printf("B%d is:\n", Nt_reduced_shape);
                         //print_B_encoded(child_j->enc_B, child_j->cells_gtable, child_j->m, true);
@@ -585,8 +614,9 @@ struct CauchyEstimator
                         else
                         {
                             gb_tables.incr_chunked_gtable_ptr(child_j->cells_gtable);
-                            if(child_j->parent != NULL)
-                                gb_tables.incr_chunked_btable_ptr(child_j->cells_gtable);
+                            if(!DENSE_STORAGE)
+                                if(child_j->parent != NULL)
+                                    gb_tables.incr_chunked_btable_ptr(child_j->cells_gtable);
                         }
                         
                         int num_term_combos = forward_F_counts[j];
@@ -605,53 +635,62 @@ struct CauchyEstimator
                                 // The only difference is the orientation of their hyperplanes
                                 // Update the Btable of the last potential root for child_k
                                 // Use the memory space currently pointed to by child_j only if child_k is not a parent 
-                                if(child_k->parent != NULL)
+                                if(DENSE_STORAGE)
                                 {
                                     child_k->enc_B = btable_for_red_group;
                                     child_k->cells_gtable = num_cells_of_red_group;
-                                    update_btable(A_lfr, child_k->enc_B, child_k->A, NULL, child_k->cells_gtable, m, d);
-                                    // Set memory position of child gtable k here
-                                    // This child can use the gtable memory position of child_j (since it was approximated out)
-                                    child_k->gtable = child_j->gtable;
                                 }
-                                // If child_k is a parent, its B is already in memory, no need to use new space
                                 else 
-                                {   
-                                    btable_for_red_group = child_k->enc_B;
-                                    if(child_k->cells_gtable == num_cells_of_red_group)
+                                {
+                                    if(child_k->parent != NULL)
                                     {
+                                        child_k->enc_B = btable_for_red_group;
+                                        child_k->cells_gtable = num_cells_of_red_group;
+                                        update_btable(A_lfr, child_k->enc_B, child_k->A, NULL, child_k->cells_gtable, m, d);
                                         // Set memory position of child gtable k here
                                         // This child can use the gtable memory position of child_j (since it was approximated out)
                                         child_k->gtable = child_j->gtable;
                                     }
-                                    // Only in the case of numerical round off error can two reducing terms
-                                    // have the same HPA (up to +/- direction of their normals)
-                                    // but a different numbers of cells. 
-                                    // So in the case where the two have different cell counts, do the following:
+                                    // If child_k is a parent, its B is already in memory, no need to use new space
+                                    else 
+                                    {   
+                                        btable_for_red_group = child_k->enc_B;
+                                        if(child_k->cells_gtable == num_cells_of_red_group)
+                                        {
+                                            // Set memory position of child gtable k here
+                                            // This child can use the gtable memory position of child_j (since it was approximated out)
+                                            child_k->gtable = child_j->gtable;
+                                        }
+                                        // Only in the case of numerical round off error can two reducing terms
+                                        // have the same HPA (up to +/- direction of their normals)
+                                        // but a different numbers of cells. 
+                                        // So in the case where the two have different cell counts, do the following:
 
-                                    // if the cells are less, 
-                                    // update cell_count of red group
-                                    // set gtable to child_j memory range (it will fit with certainty)
-                                    else if(child_k->cells_gtable < num_cells_of_red_group)
-                                    {
-                                        num_cells_of_red_group = child_k->cells_gtable;
-                                        child_k->gtable = child_j->gtable;
-                                    }
-                                    // if the cells are greater
-                                    // update cell_count of red group
-                                    // recheck gtable pointer memory address
-                                    else
-                                    {
-                                        num_cells_of_red_group = child_k->cells_gtable; 
-                                        gb_tables.set_term_gtable_pointer(&(child_k->gtable), num_cells_of_red_group, false); 
+                                        // if the cells are less, 
+                                        // update cell_count of red group
+                                        // set gtable to child_j memory range (it will fit with certainty)
+                                        else if(child_k->cells_gtable < num_cells_of_red_group)
+                                        {
+                                            num_cells_of_red_group = child_k->cells_gtable;
+                                            child_k->gtable = child_j->gtable;
+                                        }
+                                        // if the cells are greater
+                                        // update cell_count of red group
+                                        // recheck gtable pointer memory address
+                                        else
+                                        {
+                                            num_cells_of_red_group = child_k->cells_gtable; 
+                                            gb_tables.set_term_gtable_pointer(&(child_k->gtable), num_cells_of_red_group, false); 
+                                        }
                                     }
                                 }
                                 // If child term k is not approximated out, it becomes root
                                 if( !make_gtable(child_k, G_SCALE_FACTOR) )
                                 {
                                     rt_idx = cp_idx;
-                                    if(child_k->parent != NULL)
-                                        gb_tables.incr_chunked_btable_ptr(child_k->cells_gtable);
+                                    if(!DENSE_STORAGE)
+                                        if(child_k->parent != NULL)
+                                            gb_tables.incr_chunked_btable_ptr(child_k->cells_gtable);
                                     gb_tables.incr_chunked_gtable_ptr(child_k->cells_gtable);
                                     child_j = child_k;
                                     break;
@@ -667,38 +706,47 @@ struct CauchyEstimator
                             CauchyTerm* child_k = terms + cp_idx;
                             // Set memory position of child gtable k here
                             // Make the Btable if not an old term
-                            if(child_k->parent != NULL)
+
+                            if(DENSE_STORAGE)
                             {
-                                // Set the child btable memory position
                                 child_k->cells_gtable = child_j->cells_gtable;
-                                gb_tables.set_term_btable_pointer(&(child_k->enc_B), child_k->cells_gtable, false);
-                                update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
+                                child_k->enc_B = B_dense;
                             }
                             else
                             {
-                                // To deal with the case where numerical instability causes cell counts to be different, 
-                                // If the cell counts are different (due to instability), update child_k's btable to be compatible with the root
-                                if(child_k->cells_gtable != child_j->cells_gtable)
+                                if(child_k->parent != NULL)
                                 {
-                                    printf(RED"[BIG WARN FTR/Make Gtables:] child_k->cells_gtable != child_j->cells_gtable. We have code below to fix this! But EXITING now until this is commented out!" NC "\n");
-                                    exit(1);
-                                    // If child_k has more than child_j's cells,
-                                    // Downgrade child_k to be equal to child_j
-                                    if(child_k->cells_gtable > child_j->cells_gtable)
+                                    // Set the child btable memory position
+                                    child_k->cells_gtable = child_j->cells_gtable;
+                                    gb_tables.set_term_btable_pointer(&(child_k->enc_B), child_k->cells_gtable, false);
+                                    update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
+                                }
+                                else
+                                {
+                                    // To deal with the case where numerical instability causes cell counts to be different, 
+                                    // If the cell counts are different (due to instability), update child_k's btable to be compatible with the root
+                                    if(child_k->cells_gtable != child_j->cells_gtable)
                                     {
-                                        child_k->cells_gtable = child_j->cells_gtable;
-                                        update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
-                                    }
-                                    // If child_k has less than child_j's cells, 
-                                    // Upgrade child_k to be equal to child_j
-                                    // Here we need to abandon the old btable memory location of child_k and acquire a new one 
-                                    // This is to keep the btables consistent, 
-                                    // child_k's btable then be set to the (re-oriented) child_j's btable.
-                                    else
-                                    {
-                                        child_k->cells_gtable = child_j->cells_gtable;
-                                        gb_tables.set_term_btable_pointer(&(child_k->enc_B), child_k->cells_gtable, false);
-                                        update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
+                                        printf(RED"[BIG WARN FTR/Make Gtables:] child_k->cells_gtable != child_j->cells_gtable. We have code below to fix this! But EXITING now until this is commented out!" NC "\n");
+                                        exit(1);
+                                        // If child_k has more than child_j's cells,
+                                        // Downgrade child_k to be equal to child_j
+                                        if(child_k->cells_gtable > child_j->cells_gtable)
+                                        {
+                                            child_k->cells_gtable = child_j->cells_gtable;
+                                            update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
+                                        }
+                                        // If child_k has less than child_j's cells, 
+                                        // Upgrade child_k to be equal to child_j
+                                        // Here we need to abandon the old btable memory location of child_k and acquire a new one 
+                                        // This is to keep the btables consistent, 
+                                        // child_k's btable then be set to the (re-oriented) child_j's btable.
+                                        else
+                                        {
+                                            child_k->cells_gtable = child_j->cells_gtable;
+                                            gb_tables.set_term_btable_pointer(&(child_k->enc_B), child_k->cells_gtable, false);
+                                            update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
+                                        }
                                     }
                                 }
                             }
@@ -766,6 +814,7 @@ struct CauchyEstimator
         if(print_basic_info)
         {
             printf("Deallocating memory after FTR took %d ms\n", tmr.cpu_time_used);
+            printf("Total Terms after FTR: %d\n", Nt);
             for(int i = 0; i < shape_range; i++)
                 if(terms_per_shape[i] > 0)
                     printf("After FTR: Shape %d has %d terms\n", i, terms_per_shape[i]);
@@ -840,6 +889,9 @@ struct CauchyEstimator
         for(int i = 0; i < Nt; i++)
             terms[i].deinit();
         free(terms);
+
+        if(DENSE_STORAGE)
+            free(B_dense);
     }
 
 };
