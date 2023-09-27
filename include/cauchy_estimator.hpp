@@ -307,11 +307,21 @@ struct CauchyEstimator
                     }
                 }
             }
+            // Finalize cached moment information
+
             if(with_tp)
                 gb_tables.swap_btables();
-            
-            // Aggregate terms of similar shape into contiguous arrays
-            CauchyTerm** new_terms_dp = (CauchyTerm**) malloc( shape_range * sizeof(CauchyTerm*) );
+            if(!skip_post_mu)
+            {    
+                coalign_store.unallocate_unused_space();
+                // Aggregate terms of similar shape into contiguous arrays
+                CauchyTerm** new_terms_dp = (CauchyTerm**) malloc( shape_range * sizeof(CauchyTerm*) );
+                for(int m = 1; m < shape_range; m++)
+                {
+                    if(new_terms_per_shape[m] > 0)
+                        new_terms_dp[m] = (CauchyTerm*) malloc( new_terms_per_shape[m] * sizeof(CauchyTerm) );
+                }
+            }
             
 
         }
