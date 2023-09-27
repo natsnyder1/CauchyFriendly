@@ -5,6 +5,7 @@
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"
 #include "gtable.hpp"
+#include <cstdint>
 
 double normalize_l1(double* x, const int n)
 {
@@ -414,18 +415,27 @@ struct ChunkedPackedTableStorage
 		{
 			page_limits[i] = pages_at_start;
 			used_elems_per_page[i] = (BYTE_COUNT_TYPE*) calloc(page_limits[i], sizeof(BYTE_COUNT_TYPE));
+			null_ptr_check(used_elems_per_page[i]);
 			current_page_idxs[i] = 0;			
 		}
 		chunked_gtables = (GTABLE*) malloc(pages_at_start * sizeof(GTABLE));
+		null_dptr_check((void**)chunked_gtables);
 		chunked_gtable_ps = (GTABLE*) malloc(pages_at_start * sizeof(GTABLE));
+		null_dptr_check((void**)chunked_gtable_ps);
 		chunked_btables = (BKEYS*) malloc(pages_at_start * sizeof(BKEYS));
+		null_dptr_check((void**)chunked_btables);
 		chunked_btable_ps = (BKEYS*) malloc(pages_at_start * sizeof(BKEYS));
+		null_dptr_check((void**)chunked_btable_ps);
 		for(uint page_idx = 0; page_idx < pages_at_start; page_idx++)
 		{
-			chunked_gtable_ps[page_idx] = (GTABLE) malloc(page_size_bytes); //page_alloc();	
-			chunked_gtables[page_idx] = (GTABLE) malloc(page_size_bytes); //page_alloc();
-			chunked_btables[page_idx] = (BKEYS) malloc(page_size_bytes); //page_alloc();
-			chunked_btable_ps[page_idx] = (BKEYS) malloc(page_size_bytes); //page_alloc();
+			chunked_gtable_ps[page_idx] = (GTABLE) page_alloc();
+			null_ptr_check(chunked_gtable_ps[page_idx]);
+			chunked_gtables[page_idx] = (GTABLE) page_alloc();
+			null_ptr_check(chunked_gtables[page_idx]);
+			chunked_btables[page_idx] = (BKEYS) page_alloc();
+			null_ptr_check(chunked_btables[page_idx]);
+			chunked_btable_ps[page_idx] = (BKEYS) page_alloc();
+			null_ptr_check(chunked_btable_ps[page_idx]);
 		}
 	}
 
@@ -490,7 +500,7 @@ struct ChunkedPackedTableStorage
 		
 		for(uint new_page_idx = page_limits[0]; new_page_idx < num_new_total_pages; new_page_idx++)
 		{
-			chunked_gtables[new_page_idx] = (GTABLE) malloc(page_size_bytes); //page_alloc();
+			chunked_gtables[new_page_idx] = (GTABLE) page_alloc();
 			null_ptr_check(chunked_gtables[new_page_idx]);
 			used_elems_per_page[0][new_page_idx] = 0;
 		}
@@ -530,7 +540,7 @@ struct ChunkedPackedTableStorage
 		null_ptr_check(used_elems_per_page[2]);
 		for(uint new_page_idx = page_limits[2]; new_page_idx < num_new_total_pages; new_page_idx++)
 		{
-			chunked_btables[new_page_idx] = (BKEYS) malloc(page_size_bytes); //page_alloc();
+			chunked_btables[new_page_idx] = (BKEYS) page_alloc();
 			null_ptr_check(chunked_btables[new_page_idx]);
 			used_elems_per_page[2][new_page_idx] = 0;
 		}
@@ -566,7 +576,7 @@ struct ChunkedPackedTableStorage
 		null_ptr_check(used_elems_per_page[3]);
 		for(uint new_page_idx = page_limits[3]; new_page_idx < num_new_total_pages; new_page_idx++)
 		{
-			chunked_btable_ps[new_page_idx] = (BKEYS) malloc(page_size_bytes); //page_alloc();
+			chunked_btable_ps[new_page_idx] = (BKEYS) page_alloc();
 			null_ptr_check(chunked_btable_ps[new_page_idx]);
 			used_elems_per_page[3][new_page_idx] = 0;
 		}
@@ -761,6 +771,297 @@ struct ChunkedPackedTableStorage
 	}
 
 };
+
+// Provides a chunked, packed storage method for the A/p/q/b elements, along with the coalign (sign) maps
+template<typename T>
+struct ChunkedPackedElement
+{
+	T** chunked_elems;
+	uint page_limit;
+	uint current_page_idx;
+	BYTE_COUNT_TYPE* used_elems_per_page;
+	BYTE_COUNT_TYPE page_size_bytes; // size of each page
+	BYTE_COUNT_TYPE page_size_num_elements;
+	int mem_init_strategy; // 0: malloc, 1: calloc 2: page touching (after a malloc)
+	int SYSTEM_PAGE_SIZE;
+
+	void init(const uint pages_at_start, BYTE_COUNT_TYPE _page_size_bytes, const int _mem_init_strategy = 0, const int _SYSTEM_PAGE_SIZE = 4096)
+	{
+		page_size_bytes = _page_size_bytes; // number of bytes in the page allocated
+		mem_init_strategy = _mem_init_strategy;
+		SYSTEM_PAGE_SIZE = _SYSTEM_PAGE_SIZE;
+		page_size_num_elements = page_size_bytes / sizeof(T);
+
+		page_limit = pages_at_start;
+		used_elems_per_page = (BYTE_COUNT_TYPE*) calloc(page_limit, sizeof(BYTE_COUNT_TYPE));
+		null_ptr_check(used_elems_per_page);
+		current_page_idx = 0;
+		chunked_elems = (T**) malloc(pages_at_start * sizeof(T*));
+		null_dptr_check((void**)chunked_elems);
+		for(uint page_idx = 0; page_idx < pages_at_start; page_idx++)
+		{
+			chunked_elems[page_idx] = (T*) page_alloc();	
+			null_ptr_check(chunked_elems[page_idx]);
+		}
+	}
+
+	void* page_alloc()
+	{
+		switch (mem_init_strategy)
+		{
+			case 0: // Malloc
+			{
+				return malloc(page_size_bytes);
+			}
+			case 1: // Calloc
+			{
+				return calloc(page_size_bytes, 1);
+			}
+			case 2: // System Page Touching
+			{
+				uint8_t* buf = (uint8_t*) malloc(page_size_bytes);
+				for(BYTE_COUNT_TYPE i = 0; i < page_size_bytes; i+= SYSTEM_PAGE_SIZE)
+					buf[i] = 0;
+				return buf;
+			}
+			default:
+			{
+				printf("PAGE ALLOC METHOD NOT IMPLEMENTED!\n");
+				exit(1);
+			}
+		}
+	}
+
+	// extends the elem pages
+	void extend_elems(BYTE_COUNT_TYPE req_bytes)
+	{
+		// find how many bytes are left in the current page
+		const uint page_idx = current_page_idx;
+		BYTE_COUNT_TYPE bytes_remaining; // in current elem page
+		if(page_idx == page_limit)
+			bytes_remaining = 0;
+		else
+		{
+			bytes_remaining = page_size_bytes - (used_elems_per_page[page_idx] * sizeof(T));
+			// find how many bytes are left in the available pages
+			BYTE_COUNT_TYPE bytes_upper = (page_limit - (page_idx+1)) * page_size_bytes;
+			bytes_remaining += bytes_upper;
+		}
+		// only add additional pages if the amount of memory is less than required
+		if(req_bytes < bytes_remaining)
+			return;
+		// find max number of pages to add 
+		uint additional_pages = (req_bytes - bytes_remaining + page_size_bytes - 1) / page_size_bytes;
+		uint num_new_total_pages = additional_pages + page_limit;
+		// extend page limits by additional pages 
+		chunked_elems = (T**) realloc(chunked_elems, num_new_total_pages * sizeof(T*));
+		null_dptr_check((void**)chunked_elems);
+		used_elems_per_page = (BYTE_COUNT_TYPE*) realloc(used_elems_per_page, num_new_total_pages * sizeof(BYTE_COUNT_TYPE));
+		null_ptr_check(used_elems_per_page);
+		
+		for(uint new_page_idx = page_limit; new_page_idx < num_new_total_pages; new_page_idx++)
+		{
+			chunked_elems[new_page_idx] = (T*) page_alloc();
+			null_ptr_check(chunked_elems[new_page_idx]);
+			used_elems_per_page[new_page_idx] = 0;
+		}
+		page_limit = num_new_total_pages;
+	}
+
+	void copy_then_set_elem_ptr(T** elem, BYTE_COUNT_TYPE num_elems)
+	{
+		// Set A ptr
+		assert(current_page_idx < page_limit); // REMOVE
+		BYTE_COUNT_TYPE elems_used_in_page = used_elems_per_page[current_page_idx];
+		if( (elems_used_in_page + num_elems) > page_size_num_elements )
+		{
+			current_page_idx++;
+			elems_used_in_page = 0;
+		}
+		T* elem_addr = chunked_elems[current_page_idx] + elems_used_in_page;
+		memcpy(elem_addr, *elem, num_elems * sizeof(T));
+		*elem = elem_addr;
+		used_elems_per_page[current_page_idx] += num_elems;
+	}
+
+	void unallocate_unused_space()
+	{
+		for(int i = current_page_idx+1; i < page_limit; i++)
+			free(chunked_elems[i]);
+		if(current_page_idx < page_limit)
+		{
+			page_limit = current_page_idx + 1;
+			chunked_elems = (T**) realloc(chunked_elems, page_limit * sizeof(T*));
+			used_elems_per_page = (BYTE_COUNT_TYPE*) realloc(used_elems_per_page, page_limit * sizeof(BYTE_COUNT_TYPE));
+		}
+	}
+
+	void reset()
+	{
+		if(WITH_COALIGN_REALLOC)
+		{
+			for(uint page_idx = 0; page_idx < page_limit; page_idx++)
+				free(chunked_elems[page_idx]);
+			current_page_idx = 0;
+			used_elems_per_page = (BYTE_COUNT_TYPE*)realloc(used_elems_per_page, sizeof(BYTE_COUNT_TYPE));
+			null_ptr_check(used_elems_per_page);
+			chunked_elems = (T**) realloc(chunked_elems, sizeof(T*));
+		  	used_elems_per_page[0] = 0;
+			page_limit = 0;
+		}
+		else 
+		{
+			current_page_idx = 0;
+			memset(used_elems_per_page, 0, page_limit * sizeof(BYTE_COUNT_TYPE));
+			// In this case the page_limit is not reset
+		}
+	}
+
+	void deinit()
+	{
+		for(uint page_idx = 0; page_idx < page_limit; page_idx++)
+			free(chunked_elems[page_idx]);
+		free(chunked_elems);
+		free(used_elems_per_page);
+	}
+
+};
+
+
+struct CoalignmentElemStorage
+{
+	ChunkedPackedElement<double> chunked_As;
+	ChunkedPackedElement<double> chunked_ps;
+	ChunkedPackedElement<double> chunked_qs;
+	ChunkedPackedElement<double> chunked_bs;
+	ChunkedPackedElement<uint8_t> chunked_c_maps;
+	ChunkedPackedElement<int8_t> chunked_cs_maps;
+
+
+	void init(const uint pages_at_start, BYTE_COUNT_TYPE page_size_bytes, int mem_init_strategy = 0)
+	{
+		chunked_As.init(pages_at_start, page_size_bytes, mem_init_strategy);
+		chunked_ps.init(pages_at_start, page_size_bytes, mem_init_strategy);
+		chunked_qs.init(pages_at_start, page_size_bytes, mem_init_strategy);
+		chunked_bs.init(pages_at_start, page_size_bytes, mem_init_strategy);
+		chunked_c_maps.init(pages_at_start, page_size_bytes, mem_init_strategy);
+		chunked_cs_maps.init(pages_at_start, page_size_bytes, mem_init_strategy);
+	}
+
+	void extend_storage(BYTE_COUNT_TYPE ps_bytes, BYTE_COUNT_TYPE bs_bytes, const int d)
+	{
+		chunked_As.extend_elems(ps_bytes * d);
+		chunked_ps.extend_elems(ps_bytes);
+		chunked_qs.extend_elems(ps_bytes);
+		chunked_bs.extend_elems(bs_bytes);
+		chunked_c_maps.extend_elems(bs_bytes / d);
+		chunked_cs_maps.extend_elems(bs_bytes / d);
+	}
+
+	void set_term_ptrs(CauchyTerm* term, int m_precoalign)
+	{
+		BYTE_COUNT_TYPE m = term->m;
+		BYTE_COUNT_TYPE d = term->d;
+		chunked_As.copy_then_set_elem_ptr(&(term->A), m*d);
+		chunked_ps.copy_then_set_elem_ptr(&(term->p), m);
+		chunked_qs.copy_then_set_elem_ptr(&(term->q), m);
+		chunked_bs.copy_then_set_elem_ptr(&(term->b), d);
+		if(term->m < m_precoalign)
+		{
+			chunked_c_maps.copy_then_set_elem_ptr(&(term->c_map), m_precoalign);
+			chunked_cs_maps.copy_then_set_elem_ptr(&(term->cs_map), m_precoalign);
+		}
+		else 
+		{
+			term->c_map=NULL;
+			term->cs_map=NULL;
+		}
+	}
+
+	void unallocate_unused_space()
+	{
+		chunked_As.unallocate_unused_space();
+		chunked_ps.unallocate_unused_space();
+		chunked_qs.unallocate_unused_space();
+		chunked_bs.unallocate_unused_space();
+		chunked_c_maps.unallocate_unused_space();
+		chunked_cs_maps.unallocate_unused_space();
+	}
+
+	void reset()
+	{
+		chunked_As.reset();
+		chunked_ps.reset();
+		chunked_qs.reset();
+		chunked_bs.reset();
+		chunked_c_maps.reset();
+		chunked_cs_maps.reset();
+	}
+
+	void deinit()
+	{
+		chunked_As.deinit();
+		chunked_ps.deinit();
+		chunked_qs.deinit();
+		chunked_bs.deinit();
+		chunked_c_maps.deinit();
+		chunked_cs_maps.deinit();
+	}
+
+};
+
+struct ReductionElemStorage
+{
+	ChunkedPackedElement<double> chunked_As;
+	ChunkedPackedElement<double> chunked_ps;
+	ChunkedPackedElement<double> chunked_bs;
+
+	void init(const uint pages_at_start, BYTE_COUNT_TYPE page_size_bytes, int mem_init_strategy = 0)
+	{
+		chunked_As.init(pages_at_start, page_size_bytes, mem_init_strategy);
+		chunked_ps.init(pages_at_start, page_size_bytes, mem_init_strategy);
+		chunked_bs.init(pages_at_start, page_size_bytes, mem_init_strategy);
+	}
+
+	void extend_storage(BYTE_COUNT_TYPE ps_bytes, BYTE_COUNT_TYPE bs_bytes, const int d)
+	{
+		chunked_As.extend_elems(ps_bytes * d);
+		chunked_ps.extend_elems(ps_bytes);
+		chunked_bs.extend_elems(bs_bytes);
+	}
+
+	void set_term_ptrs(CauchyTerm* term, int m_precoalign)
+	{
+		BYTE_COUNT_TYPE m = term->m;
+		BYTE_COUNT_TYPE d = term->d;
+		chunked_As.copy_then_set_elem_ptr(&(term->A), m*d);
+		chunked_ps.copy_then_set_elem_ptr(&(term->p), m);
+		chunked_bs.copy_then_set_elem_ptr(&(term->b), d);
+	}
+
+	void unallocate_unused_space()
+	{
+		chunked_As.unallocate_unused_space();
+		chunked_ps.unallocate_unused_space();
+		chunked_bs.unallocate_unused_space();
+	}
+
+	void reset()
+	{
+		chunked_As.reset();
+		chunked_ps.reset();
+		chunked_bs.reset();
+	}
+
+	void deinit()
+	{
+		chunked_As.deinit();
+		chunked_ps.deinit();
+		chunked_bs.deinit();
+	}
+
+};
+
 
 // Cauchy Stats -- Used to determine different statistics as the estimator runs
 

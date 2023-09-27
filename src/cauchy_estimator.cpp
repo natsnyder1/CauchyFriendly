@@ -16,13 +16,13 @@ void test_cauchy_3_state_moshe()
   double p0[n] = {0.10, 0.08, 0.05}; //{0.0, 0.0, 0.0}; //
   double b0[n] = {0, 0, 0};
   const int steps = 8;
-  bool print_basic_info = false;
+  bool print_basic_info = true;
   CauchyEstimator cauchyEst(A0, p0, b0, steps, n, cmcc, p, print_basic_info);
   double zs[steps] = {0.056658570969158, -0.142753984516164, -1.205346279653962, 1.378810275944929, 
   -0.531562515031748, -1.019512573307872, -0.597247860048719, -0.710687942924685};
   //-0.325576, -0.05943287};//, 0.65387723, 0.438622377};
   //0.568228173};
-  for(int j = 0; j < 15; j++)
+  for(int j = 0; j < 1; j++)
   {
     for(int i = 0; i < steps; i++)
     {

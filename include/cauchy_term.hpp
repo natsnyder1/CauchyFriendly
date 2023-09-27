@@ -5,10 +5,43 @@
 #include "eval_gs.hpp"
 #include "cpu_linalg.hpp"
 #include "gtable.hpp"
+#include <cstdint>
+#include <cstring>
+
+
+struct ChildTermWorkSpace
+{
+    double* A;
+    double* p;
+    double* q;
+    double* b;
+    uint8_t* c_map;
+    int8_t* cs_map;
+
+    void init(const int max_shape, const int d)
+    {
+        int max_child_terms = max_shape + 1;
+        A = (double*) malloc( max_child_terms * max_shape * d * sizeof(double));
+        p = (double*) malloc( max_child_terms * max_shape * sizeof(double));
+        q = (double*) malloc( max_child_terms * max_shape * sizeof(double));
+        b = (double*) malloc( max_child_terms * max_shape * d * sizeof(double));
+        c_map = (uint8_t*) malloc( max_child_terms * max_shape * sizeof(uint8_t));
+        cs_map = (int8_t*) malloc( max_child_terms * max_shape * sizeof(int8_t));
+    }
+
+    void deinit()
+    {
+        free(A);
+        free(p);
+        free(q);
+        free(b);
+        free(c_map);
+        free(cs_map);
+    }
+};
 
 struct CauchyTerm
 {
-    CauchyTerm* parent;
     double* A;
     double* p;
     double* q;
@@ -28,60 +61,21 @@ struct CauchyTerm
     uint8_t z;
     int m;
     int d;
-    int m_alloc;
+    bool is_new_child;
 
-    // called for new terms after MU
-    void init(const int _m, const int _d)
+    // initialize the t-th child using temporary workspace
+    void init_mem(ChildTermWorkSpace* workspace, const int t)
     {
-        m = _m;
-        m_alloc = _m;
-        d = _d;
-        A = (double*) malloc(m * d * sizeof(double));
-        null_ptr_check(A);
-        p = (double*) malloc(m * sizeof(double));
-        null_ptr_check(p);
-        q = (double*) malloc(m * sizeof(double));
-        null_ptr_check(q);
-        b = (double*) malloc(d * sizeof(double));
-        null_ptr_check(b);
-        c_map = (uint8_t*) malloc(m * sizeof(uint8_t));
-        null_ptr_check(c_map);
-        cs_map = (int8_t*) malloc(m * sizeof(int8_t));
-        null_ptr_check(cs_map);
-    }
-
-    // Called for new terms (potentially) after MUC
-    void reinit(const int _m)
-    {
-        m_alloc = _m;
-        A = (double*) realloc(A, _m * d * sizeof(double));
-        null_ptr_check(A);
-        p = (double*) realloc(p, _m * sizeof(double));
-        null_ptr_check(p);
-        q = (double*) realloc(q, _m * sizeof(double));
-        null_ptr_check(q);
-    }
-
-    void deinit()
-    {
-        free(A);
-        free(p);
-        free(q);
-        free(b);
-        deinit_maps();
-    }
-
-    void deinit_maps()
-    {
-        if(c_map != NULL)
-            free(c_map);
-        if(cs_map != NULL)
-            free(cs_map);
-        c_map = NULL;
-        cs_map = NULL;
+        const int tm = t*m;
+        A = workspace->A + tm*d;
+        p = workspace->p + tm;
+        q = workspace->q + tm;
+        b = workspace->b + t*d;
+        c_map = workspace->c_map + tm;
+        cs_map = workspace->cs_map + tm;
     }
     
-    int msmt_update(CauchyTerm* child_terms, double msmt, double* H, double gamma, bool first_update, bool last_update)
+    int msmt_update(CauchyTerm* child_terms, double msmt, double* H, double gamma, bool first_update, bool last_update, ChildTermWorkSpace* workspace)
     {
         const int num_new_terms = m+1;
         // Run msmt update
@@ -132,11 +126,16 @@ struct CauchyTerm
                 if(!F_integrable[i])
                     INTEGRABLE_FLAG = false; // Raise non-integrable flag
         }
-        // For all integrable hyperplanes, create children
+        // For all integrable hyperplanes, create children using temporary memory space
         int num_integrable_terms = 0;
         for(int i = 0; i < m; i++)
+        {
             if(F_integrable[i])
-                child_terms[num_integrable_terms++].init(m, d);
+            {
+                child_terms[num_integrable_terms].init_mem(workspace, num_integrable_terms+1);
+                num_integrable_terms++;
+            }
+        }
         // Create zeta scalar using measurement
         double zeta = msmt - dot_prod(H, b, d);
         CauchyTerm* child;
@@ -194,7 +193,7 @@ struct CauchyTerm
                 child->Horthog_flag = hofs_t;
             }
         }
-        child->parent = NULL; // this child is its own parent
+        is_new_child = false;
         // If this is not the first estimation step, update the parent B using sign_AH 
         if(!first_update)
         {
@@ -205,7 +204,10 @@ struct CauchyTerm
             for(int i = 0; i < num_integrable_terms; i++)
             {
                 child_terms[i].enc_lhp = enc_lhp;
-                child_terms[i].parent = this;
+                child_terms[i].is_new_child = true;
+                // These are brought in as input to the make new child btable function
+                child_terms[i].enc_B = enc_B;
+                child_terms[i].cells_gtable = cells_gtable;
             }
             if(!last_update && !DENSE_STORAGE)
                 for(int i = 0; i < cells_gtable; i++)
@@ -386,20 +388,6 @@ struct CauchyTerm
         int new_shape = m;
         for(int i = 0; i < cmcc; i++)
             new_shape += F[i];
-
-        // If m_alloc is smaller than m, need to grow memory
-        // If were at last step, no need to grow coalign maps
-        if(WITH_COALIGN_REALLOC) 
-        {
-            if(new_shape > m) // only reinit if new_shape != m
-                reinit(new_shape);
-        }   
-        else
-        {
-            if(m_alloc < new_shape)
-                reinit(new_shape);
-        }
-        deinit_maps();
 
         if(new_shape > m)
         {
@@ -619,12 +607,6 @@ struct CauchyTerm
                 Horthog_flag = new_Horthog_flag;
             }
             m = new_shape;
-            // Reallocate term is desired in user settings
-            if(WITH_COALIGN_REALLOC)
-            {
-                reinit(new_shape);
-                m_alloc = new_shape;
-            }
         }
         return m;
     }
@@ -636,9 +618,28 @@ struct CauchyTerm
         cells_gtable_p = cells_gtable;
         gtable_p = gtable;
         gtable = NULL;
-        parent = NULL;
+        is_new_child = false;
     }
-
 };
+
+void setup_first_term(ChildTermWorkSpace* workspace, CauchyTerm* first_term, double* A0, double* p0, double* b0, const int d)
+{
+    memcpy(workspace->A, A0, d*d*sizeof(double));
+    memcpy(workspace->p, p0, d*sizeof(double));
+    memcpy(workspace->b, b0, d*sizeof(double));
+    first_term->A = workspace->A;
+    first_term->p = workspace->p;
+    first_term->q = workspace->q;
+    first_term->b = workspace->b;
+    first_term->c_map = NULL;
+    first_term->cs_map = NULL;
+    first_term->m = d;
+    first_term->d = d;
+}
+
+void transfer_term_to_workspace(ChildTermWorkSpace* workspace, CauchyTerm* term)
+{
+    
+}
 
 #endif //_CAUCHY_TERM_HPP_
