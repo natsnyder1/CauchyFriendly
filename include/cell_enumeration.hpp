@@ -115,7 +115,8 @@ void print_B_unencoded(int* B_enc, int cell_count, int m, bool with_sort = false
 // term must be a new child
 // new children point to their parent term
 // their will be a seg fault / invalid memory access if an old term in placed here
-void make_new_child_btable(CauchyTerm* term, 
+void make_new_child_btable(CauchyTerm* term,
+    BKEYS B_mu, int cells_parent,
     KeyValue* B_mu_hash, int size_B_mu_hash, 
     KeyValue* B_coal_hash, int size_B_coal_hash, 
     BKEYS B_uncoal, bool* F)
@@ -137,9 +138,8 @@ void make_new_child_btable(CauchyTerm* term,
         return;
     }
     
-    int pbc = term->parent->m;
+    int pbc = term->pbc;
     int bit_mask[pbc];
-    int cells_parent = term->parent->cells_gtable;
     
     uint8_t* c_map = term->c_map;
     memset(B_mu_hash, kByteEmpty, size_B_mu_hash * sizeof(KeyValue));
@@ -147,7 +147,6 @@ void make_new_child_btable(CauchyTerm* term,
 
     // Step 1: Hash all Sign-Vectors of B_mu
     BKEYS B = term->enc_B;
-    BKEYS B_mu = term->parent->enc_B;
     int count_B = 0;
     KeyValue* kv_query;
     KeyValue kv;
@@ -643,7 +642,7 @@ void tp_enu_warnings_check(double* A, double* b, double* v,
     }
 }
 
-void make_time_prop_btable(BKEYS B_parent, CauchyTerm* term, DiffCellEnumHelper* dce_helper)
+void make_time_prop_btable(CauchyTerm* term, DiffCellEnumHelper* dce_helper)
 {
     // If shape < d, return the trivial set
     const int m = term->m;

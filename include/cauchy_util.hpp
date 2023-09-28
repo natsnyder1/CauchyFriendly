@@ -5,7 +5,6 @@
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"
 #include "gtable.hpp"
-#include <cstdint>
 
 double normalize_l1(double* x, const int n)
 {
@@ -886,9 +885,10 @@ struct ChunkedPackedElement
 
 	void unallocate_unused_space()
 	{
-		for(int i = current_page_idx+1; i < page_limit; i++)
+		for(uint i = current_page_idx+1; i < page_limit; i++)
 			free(chunked_elems[i]);
-		if(current_page_idx < page_limit)
+		assert(page_limit > 0);
+		if(current_page_idx < (page_limit-1) )
 		{
 			page_limit = current_page_idx + 1;
 			chunked_elems = (T**) realloc(chunked_elems, page_limit * sizeof(T*));
@@ -1030,7 +1030,7 @@ struct ReductionElemStorage
 		chunked_bs.extend_elems(bs_bytes);
 	}
 
-	void set_term_ptrs(CauchyTerm* term, int m_precoalign)
+	void set_term_ptrs(CauchyTerm* term)
 	{
 		BYTE_COUNT_TYPE m = term->m;
 		BYTE_COUNT_TYPE d = term->d;
@@ -1136,7 +1136,7 @@ struct CauchyStats
 		return kv1->key - kv2->key;
 	}
 
-	void print_cell_count_histograms(CauchyTerm* terms, const int shape_range, int* terms_per_shape, int* cell_counts_cen, const int Nt)
+	void print_cell_count_histograms(CauchyTerm** terms_dp, const int shape_range, int* terms_per_shape, int* cell_counts_cen )
 	{
 		if(HALF_STORAGE)
 			printf("--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---\n");
@@ -1151,37 +1151,41 @@ struct CauchyStats
 			memset(table_counts[i], kByteEmpty, table_size_bytes);
 		}
 
-		// Now create the histogram tables of range of cell counts per shape
-		KeyValue* kv_query;
-		for(int i = 0; i < Nt; i++)
+		for(int shape = 1; shape < shape_range; shape++)
 		{
-			CauchyTerm* term = terms + i;
-			const int m = term->m;
-			const int cells_gtable = term->cells_gtable * (1+HALF_STORAGE);
-			const int max_cells = cell_counts_cen[m];
-			BYTE_COUNT_TYPE table_size = 2 * max_cells;
-			if( hashtable_find(table_counts[m], &kv_query, cells_gtable, table_size) )
+			// Now create the histogram tables of range of cell counts per shape
+			KeyValue* kv_query;
+			CauchyTerm* terms = terms_dp[shape];
+			int Nt_shape = terms_per_shape[shape];
+			for(int i = 0; i < Nt_shape; i++)
 			{
-				printf(RED "[ERROR Print Table Histograms:] hashtable_find reported failure! Debug Here!" NC "\n");
-				exit(1);
-			}
-			// If there is no entry, add entry 
-			if(kv_query == NULL)
-			{
-				KeyValue kv;
-				kv.key = cells_gtable;
-				kv.value = 1;
-				if( hashtable_insert(table_counts[m], &kv, table_size) )
+				CauchyTerm* term = terms + i;
+				const int m = term->m;
+				const int cells_gtable = term->cells_gtable * (1+HALF_STORAGE);
+				const int max_cells = cell_counts_cen[m];
+				BYTE_COUNT_TYPE table_size = 2 * max_cells;
+				if( hashtable_find(table_counts[m], &kv_query, cells_gtable, table_size) )
 				{
-					printf(RED "[ERROR Print Table Histograms:] hashtable_insert reported failure! Debug Here!" NC "\n");
+					printf(RED "[ERROR Print Table Histograms:] hashtable_find reported failure! Debug Here!" NC "\n");
 					exit(1);
 				}
+				// If there is no entry, add entry 
+				if(kv_query == NULL)
+				{
+					KeyValue kv;
+					kv.key = cells_gtable;
+					kv.value = 1;
+					if( hashtable_insert(table_counts[m], &kv, table_size) )
+					{
+						printf(RED "[ERROR Print Table Histograms:] hashtable_insert reported failure! Debug Here!" NC "\n");
+						exit(1);
+					}
+				}
+				else 
+					kv_query->value += 1;
 			}
-			else 
-				kv_query->value += 1;
 		}
-
-		for(int m = 0; m < shape_range; m++)
+		for(int m = 1; m < shape_range; m++)
 		{	
 			int Nt_shape = terms_per_shape[m];
 			if(Nt_shape > 0)

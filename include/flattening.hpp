@@ -148,11 +148,38 @@ bool make_gtable(
     }
     
     // enc_lp and enc_lm will be the same if this is an old term
-    if(term->parent == NULL)
+    if( !(term->is_new_child) )
     {
       enc_lp = b_enc & rev_phc_mask; // clear all Gamma bits
       enc_lm = enc_lp;
     }
+    // enc_lp and enc_lm dont need coalign maps if no coalignment happens
+    else if(term->c_map == NULL)
+    {
+      // Create lambda_p and lambda_m
+      k = 0;
+      l = 0;
+      enc_lp = 0;
+      enc_lm = 0;
+      while(k < phc)
+      {
+        if(k == z_idx)
+        {
+          enc_lm |= (1 << k);
+          k++;
+          if(k == phc)
+            break;
+        }
+        if(sign_b[l] < 0)
+        {
+          enc_lp |= (1 << k);
+          enc_lm |= (1 << k);
+        }
+        k++;
+        l++;
+      }
+    }
+    // using the coalignment maps to create enc_lp and enc_lp if coalignment occurs
     else 
     {
       // Create lambda_p and lambda_m by expanding out the sign vector sign_b found by inc_enu

@@ -27,7 +27,7 @@ int compare_pointmap(const void* pm1, const void* pm2)
         return 0;
 }
 
-void build_ordered_point_maps(double* points, double** ordered_points, int** forward_map, int** backward_map, const int n, const int d, const bool is_print)
+void build_ordered_point_maps(CauchyTerm* terms, double** ordered_points, int** forward_map, int** backward_map, const int n, const int d, const bool is_print)
 {
     // Helper variables
     int* fm; int* bm; double* op; int pi;
@@ -39,7 +39,7 @@ void build_ordered_point_maps(double* points, double** ordered_points, int** for
         // Construct PointMap for the j-th axis
         for(int j = 0; j < n; j++)
         {
-            pm[j].p = points[j*d + i];
+            pm[j].p = terms[j].b[i]; //points[j*d + i];
             pm[j].pi = j;
         }
         // Sort the PointMap array
@@ -59,7 +59,7 @@ void build_ordered_point_maps(double* points, double** ordered_points, int** for
         {
             printf("----points on %d-th axis:----\n", i);
             for(int j = 0; j < n; j++)
-                printf("%.1lf, ", points[j*d+i]);
+                printf("%.1lf, ", terms[j].b[i]);
             printf("\n");
             // Sanity check at this point
             printf("ordered_points[%d]: ", i);
@@ -156,10 +156,8 @@ int prune_candidate_list(int* candidate_list, int candidate_list_count, double q
     return new_candidate_list_count;
 }
 
-void fast_term_reduction(
-  double* bs, 
+void fast_term_reduction( 
   CauchyTerm* terms,
-  int* shape_idxs,
   int* F, 
   double** ordered_bs, 
   int** forward_map, 
@@ -183,7 +181,6 @@ void fast_term_reduction(
     bool reduction_checks_passed;
     double A_root, A_cmp;
     int pos_gate, neg_gate;
-    int i_idx, j_idx;
     start = start < 0 ? 0 : start;
     end = end < 0 ? n : end;
     for(i = start; i < end; i++)
@@ -192,7 +189,7 @@ void fast_term_reduction(
         if(F[i] == i)
         {
             // Find the candidate list for point i
-            point = bs + i*d;
+            point = terms[i].b;
             // Find the initial candidate list using the first coordinate axis
             op = ordered_bs[search_idxs[0]];
             fm = forward_map[search_idxs[0]];
@@ -217,9 +214,8 @@ void fast_term_reduction(
                 // If there are candidates after pruning, then these candidates fall within the hypercube, and these terms should be reduced together
                 if(candidate_list_count)
                 {
-                  i_idx = shape_idxs[i];
-                  pi = terms[i_idx].p;
-                  Ai = terms[i_idx].A;
+                  pi = terms[i].p;
+                  Ai = terms[i].A;
                   for(j = 0; j < candidate_list_count; j++)
                   {
                     // Although almost always the case, when the bs combined, so do the yeis...
@@ -227,9 +223,8 @@ void fast_term_reduction(
                     if(WITH_FTR_P_CHECK)
                     {
                       cl = candidate_list[j];
-                      j_idx = shape_idxs[cl];
                       reduction_checks_passed = true;
-                      pj = terms[j_idx].p;
+                      pj = terms[cl].p;
                       for(k = 0; k < m; k++)
                       {
                         if(fabs(pj[k] - pi[k]) > ep)
@@ -242,7 +237,7 @@ void fast_term_reduction(
                       {
                         if(reduction_checks_passed)
                         {
-                          Aj = terms[j_idx].A;
+                          Aj = terms[cl].A;
                           for(k = 0; k < m; k++)
                           {
                             pos_gate = true;

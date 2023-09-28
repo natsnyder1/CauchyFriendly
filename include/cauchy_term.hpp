@@ -5,9 +5,6 @@
 #include "eval_gs.hpp"
 #include "cpu_linalg.hpp"
 #include "gtable.hpp"
-#include <cstdint>
-#include <cstring>
-
 
 struct ChildTermWorkSpace
 {
@@ -42,15 +39,14 @@ struct ChildTermWorkSpace
 
 struct CauchyTerm
 {
+    int m;
+    int d;
     double* A;
     double* p;
     double* q;
     double* b;
     double c_val;
     double d_val;
-    uint8_t* c_map;
-    int8_t* cs_map;
-    int8_t phc;
     int cells_gtable_p;
     GTABLE gtable_p;
     int cells_gtable;
@@ -58,14 +54,18 @@ struct CauchyTerm
     GTABLE gtable;
     int enc_lhp;
     uint Horthog_flag;
+    uint8_t* c_map;
+    int8_t* cs_map;
+    int8_t phc;
+    uint8_t pbc;
     uint8_t z;
-    int m;
-    int d;
     bool is_new_child;
 
     // initialize the t-th child using temporary workspace
-    void init_mem(ChildTermWorkSpace* workspace, const int t)
+    void init_mem(ChildTermWorkSpace* workspace, const int t, int _m, int _d)
     {
+        m = _m;
+        d = _d;
         const int tm = t*m;
         A = workspace->A + tm*d;
         p = workspace->p + tm;
@@ -132,7 +132,7 @@ struct CauchyTerm
         {
             if(F_integrable[i])
             {
-                child_terms[num_integrable_terms].init_mem(workspace, num_integrable_terms+1);
+                child_terms[num_integrable_terms].init_mem(workspace, num_integrable_terms+1, m, d);
                 num_integrable_terms++;
             }
         }
@@ -157,6 +157,7 @@ struct CauchyTerm
                     child->gtable_p = gtable_p;
                     child->cells_gtable_p = cells_gtable_p;
                     child->phc = phc;
+                    child->pbc = m;
                     child->z = t;
                 }
                 // Store scalar values for child terms c_t and d_t
@@ -639,7 +640,15 @@ void setup_first_term(ChildTermWorkSpace* workspace, CauchyTerm* first_term, dou
 
 void transfer_term_to_workspace(ChildTermWorkSpace* workspace, CauchyTerm* term)
 {
-    
+    memcpy(workspace->A, term->A, term->m * term->d * sizeof(double));
+    memcpy(workspace->p, term->p, term->m * sizeof(double));
+    memcpy(workspace->b, term->b, term->d * sizeof(double));
+    term->A = workspace->A;
+    term->p = workspace->p;
+    term->q = workspace->q;
+    term->b = workspace->b;
+    term->c_map = NULL;
+    term->cs_map = NULL;
 }
 
 #endif //_CAUCHY_TERM_HPP_
