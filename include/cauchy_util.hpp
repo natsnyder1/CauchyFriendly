@@ -99,49 +99,6 @@ int precoalign_Gamma_beta(double* Gamma, double* beta, int cmcc, int d, double* 
 		return cmcc;
 }
 
-
-void get_contiguous_bs_from_term_list(double*** _bs, int*** _shape_idxs, CauchyTerm* terms, const int terms_total, int* terms_per_shape, const int shape_range, const int d)
-{
-	// _bs is a trip point to initialize double pointer bs
-	// _shape_idxs is a trip point to initialize double pointer shape_idxs
-	// bs[i] are the bs list (array) of all terms with i hyperplanes
-	// shape_idxs[i][j] is the index of the "bs[i] + d*j" vector in the term list
-	// counts[i] specifies how many terms have i hyperplanes
-
-	*_bs = (double**) malloc(shape_range * sizeof(double*));
-	null_dptr_check((void**)*_bs);
-	*_shape_idxs = (int**) malloc(shape_range * sizeof(int*));
-	null_dptr_check((void**)*_shape_idxs);
-	int* counts = (int*) malloc(shape_range * sizeof(int));
-	null_ptr_check(counts);
-	for(int i = 0; i < shape_range; i++)
-	{
-		if(terms_per_shape[i] > 0)
-		{    
-			(*_bs)[i] = (double*) malloc((size_t)terms_per_shape[i] * d * sizeof(double));
-			null_ptr_check((*_bs)[i]);
-			(*_shape_idxs)[i] = (int*) malloc((size_t)terms_per_shape[i] * sizeof(int));
-			null_ptr_check((*_shape_idxs)[i]);
-		}
-		else
-		{
-			(*_bs)[i] = (double*) malloc(0);
-			(*_shape_idxs)[i] = (int*) malloc(0);
-		}
-		counts[i] = 0;
-	}
-	double** bs = *_bs;
-	int** shape_idxs = *_shape_idxs;
-	for(int i = 0; i < terms_total; i++)
-	{
-		int m = terms[i].m;
-		int count = counts[m]++;
-		shape_idxs[m][count] = i;
-		memcpy( bs[m] + count*d, terms[i].b, d*sizeof(double) );
-	}
-	free(counts);
-}
-
 // Creates a forwards pointing flag array from the backward pointing flag array that is created by term reduction
 struct ForwardFlagArray
 {
@@ -587,13 +544,23 @@ struct ChunkedPackedTableStorage
 	{
 		BYTE_COUNT_TYPE elems_gtable = cells_gtable * GTABLE_SIZE_MULTIPLIER;
 		uint page_idx = current_page_idxs[0];
-		assert(page_idx < page_limits[0]); // REMOVE
 		BYTE_COUNT_TYPE elems_used_in_page = used_elems_per_page[0][page_idx];
 		if( (elems_used_in_page + elems_gtable) > page_size_gtable_num_elements )
 		{
 			page_idx = ++current_page_idxs[0];
 			elems_used_in_page = 0; // should be zero, we are incrementing to next page
-			assert(used_elems_per_page[0][page_idx] == 0); // REMOVE
+			if(page_idx == page_limits[0])
+			{
+				if(WITH_WARNINGS)
+				{
+					printf(YEL "[WARN set_term_gtable_pointer:]\n  Allocated memory after extending memory range was found to be insufficient.\n"
+						   YEL "  Consider increasing CP_STORAGE_PAGE_SIZE in cauchy_types.hpp! Extending Memory Range Again!"
+						   NC "\n");
+				}
+				BYTE_COUNT_TYPE gtable_type_size = GTABLE_SIZE_MULTIPLIER * sizeof(GTABLE_TYPE);
+				BYTE_COUNT_TYPE added_elems = (page_size_bytes + gtable_type_size -1) / gtable_type_size;
+				extend_gtables(added_elems, 3); // Enlarge memory range by 3 page sizes.
+			}
 		}
 		*gtable = chunked_gtables[page_idx] + elems_used_in_page;
 		if(mem_ptr_incr)
@@ -604,13 +571,22 @@ struct ChunkedPackedTableStorage
 	void set_term_btable_pointer(BKEYS* btable, int cells_gtable, const bool mem_ptr_incr = true)
 	{
 		uint page_idx = current_page_idxs[2];
-		assert(page_idx < page_limits[2]); // REMOVE
 		BYTE_COUNT_TYPE elems_used_in_page = used_elems_per_page[2][page_idx];
 		if( (elems_used_in_page + cells_gtable) > page_size_btable_num_elements )
 		{
 			page_idx = ++current_page_idxs[2];
 			elems_used_in_page = 0; // should be zero, we are incrementing to next page
-			assert(used_elems_per_page[2][page_idx] == 0); // REMOVE
+			if(page_idx == page_limits[2])
+			{
+				if(WITH_WARNINGS)
+				{
+					printf(YEL "[WARN set_term_btable_pointer:]\n  Allocated memory after extending memory range was found to be insufficient.\n"
+						   YEL "  Consider increasing CP_STORAGE_PAGE_SIZE in cauchy_types.hpp! Extending Memory Range Again!"
+						   NC "\n");
+				}
+				BYTE_COUNT_TYPE added_elems = (page_size_bytes + sizeof(BKEYS_TYPE) -1) / sizeof(BKEYS_TYPE);
+				extend_btables(added_elems, 3); // Enlarge memory range by 3 page sizes.
+			}
 		}
 		*btable = chunked_btables[page_idx] + elems_used_in_page;
 		if(mem_ptr_incr)
@@ -621,13 +597,21 @@ struct ChunkedPackedTableStorage
 	void set_term_bp_table_pointer(BKEYS* bp_table, int cells_gtable, const bool mem_ptr_incr = true)
 	{
 		uint page_idx = current_page_idxs[3];
-		assert(page_idx < page_limits[3]); // REMOVE
 		BYTE_COUNT_TYPE elems_used_in_page = used_elems_per_page[3][page_idx];
 		if( (elems_used_in_page + cells_gtable) > page_size_btable_num_elements )
 		{
 			page_idx = ++current_page_idxs[3];
 			elems_used_in_page = 0; // should be zero, we are incrementing to next page
-			assert(used_elems_per_page[3][page_idx] == 0); // REMOVE
+			if(page_idx == page_limits[3])
+			{
+				if(WITH_WARNINGS)
+				{
+					printf(YEL "[WARN set_term_bp_table_pointer:]\n  Allocated memory after extending memory range was found to be insufficient.\n"
+							YEL "  Consider increasing CP_STORAGE_PAGE_SIZE in cauchy_types.hpp! Extending Memory Range Again!"
+							NC "\n");
+				}
+				extend_bp_tables(3 * page_size_bytes); // Enlarge memory range by 3 page sizes.
+			}
 		}
 		*bp_table = chunked_btable_ps[page_idx] + elems_used_in_page;
 		if(mem_ptr_incr)
@@ -870,12 +854,22 @@ struct ChunkedPackedElement
 	void copy_then_set_elem_ptr(T** elem, BYTE_COUNT_TYPE num_elems)
 	{
 		// Set A ptr
-		assert(current_page_idx < page_limit); // REMOVE
 		BYTE_COUNT_TYPE elems_used_in_page = used_elems_per_page[current_page_idx];
 		if( (elems_used_in_page + num_elems) > page_size_num_elements )
 		{
 			current_page_idx++;
 			elems_used_in_page = 0;
+			//assert(current_page_idx < page_limit); // REMOVE
+			if(current_page_idx == page_limit)
+			{
+				if(WITH_WARNINGS)
+				{
+					printf(YEL "[WARN ChunkedPackedElement:]\n  Allocated memory after extending memory range was found to be insufficient.\n"
+						   YEL "  Consider increasing CP_STORAGE_PAGE_SIZE in cauchy_types.hpp! Extending Memory Range Again!"
+						   NC "\n");
+				}
+				extend_elems(3 * page_size_bytes); // Enlarge memory range by 3 page sizes.
+			}
 		}
 		T* elem_addr = chunked_elems[current_page_idx] + elems_used_in_page;
 		memcpy(elem_addr, *elem, num_elems * sizeof(T));
@@ -892,7 +886,9 @@ struct ChunkedPackedElement
 		{
 			page_limit = current_page_idx + 1;
 			chunked_elems = (T**) realloc(chunked_elems, page_limit * sizeof(T*));
+			null_dptr_check((void**)chunked_elems);
 			used_elems_per_page = (BYTE_COUNT_TYPE*) realloc(used_elems_per_page, page_limit * sizeof(BYTE_COUNT_TYPE));
+			null_ptr_check(used_elems_per_page);
 		}
 	}
 
@@ -906,6 +902,7 @@ struct ChunkedPackedElement
 			used_elems_per_page = (BYTE_COUNT_TYPE*)realloc(used_elems_per_page, sizeof(BYTE_COUNT_TYPE));
 			null_ptr_check(used_elems_per_page);
 			chunked_elems = (T**) realloc(chunked_elems, sizeof(T*));
+			null_dptr_check((void**)chunked_elems);
 		  	used_elems_per_page[0] = 0;
 			page_limit = 0;
 		}
@@ -917,6 +914,14 @@ struct ChunkedPackedElement
 		}
 	}
 
+	BYTE_COUNT_TYPE get_total_byte_count()
+	{
+		BYTE_COUNT_TYPE bytes_total = 0;
+		for(uint i = 0; i < page_limit; i++)
+			bytes_total += used_elems_per_page[i] * sizeof(T);
+		return bytes_total;
+	}
+
 	void deinit()
 	{
 		for(uint page_idx = 0; page_idx < page_limit; page_idx++)
@@ -926,7 +931,6 @@ struct ChunkedPackedElement
 	}
 
 };
-
 
 struct CoalignmentElemStorage
 {
@@ -998,6 +1002,25 @@ struct CoalignmentElemStorage
 		chunked_cs_maps.reset();
 	}
 
+	BYTE_COUNT_TYPE get_total_byte_count(bool with_print = false)
+	{
+		BYTE_COUNT_TYPE bytes_total = chunked_As.get_total_byte_count() + 
+			chunked_ps.get_total_byte_count() + chunked_qs.get_total_byte_count() + 
+			chunked_bs.get_total_byte_count() + chunked_c_maps.get_total_byte_count() +
+			chunked_cs_maps.get_total_byte_count();
+		if(with_print)
+		{
+			printf("--- Coalign Element Storage: Memory Usage Breakdown: ---\n");
+			printf("  As use: %.3lf MBs\n", ((double)chunked_As.get_total_byte_count()) / (1024*1024) );
+			printf("  ps/qs each use: %.3lf MBs\n", ((double)chunked_ps.get_total_byte_count()) / (1024*1024) );
+			printf("  bs use: %.3lf MBs\n", ((double)chunked_bs.get_total_byte_count()) / (1024*1024) );
+			printf("  c_maps/cs_maps each use: %.3lf MBs\n", ((double)chunked_c_maps.get_total_byte_count()) / (1024*1024) );
+			printf("  *Total: %.3lf MBs\n", ((double)bytes_total) / (1024*1024));
+			printf("------ End of Coalign Element Storage Breakdown: -------\n");
+		}
+		return bytes_total;
+	}
+
 	void deinit()
 	{
 		chunked_As.deinit();
@@ -1053,6 +1076,22 @@ struct ReductionElemStorage
 		chunked_bs.reset();
 	}
 
+	BYTE_COUNT_TYPE get_total_byte_count(bool with_print = false)
+	{
+		BYTE_COUNT_TYPE bytes_total = chunked_As.get_total_byte_count() + 
+			chunked_ps.get_total_byte_count() + chunked_bs.get_total_byte_count();
+		if(with_print)
+		{
+			printf("--- Reduction Element Storage: Memory Usage Breakdown: ---\n");
+			printf("  As use: %.3lf MBs\n", ((double)chunked_As.get_total_byte_count()) / (1024*1024) );
+			printf("  ps use: %.3lf MBs\n", ((double)chunked_ps.get_total_byte_count()) / (1024*1024) );
+			printf("  bs use: %.3lf MBs\n", ((double)chunked_bs.get_total_byte_count()) / (1024*1024) );
+			printf("  *Total: %.3lf MBs\n", ((double)bytes_total) / (1024*1024));
+			printf("------ End of Reduction Element Storage Breakdown: -------\n");
+		}
+		return bytes_total;
+	}
+
 	void deinit()
 	{
 		chunked_As.deinit();
@@ -1062,9 +1101,7 @@ struct ReductionElemStorage
 
 };
 
-
 // Cauchy Stats -- Used to determine different statistics as the estimator runs
-
 struct CauchyStats
 {
 
@@ -1074,7 +1111,7 @@ struct CauchyStats
 		BYTE_COUNT_TYPE** used_elems_per_page = gb_tables->used_elems_per_page;
 		BYTE_COUNT_TYPE page_size_bytes = gb_tables->page_size_bytes;
 		uint* page_limits = gb_tables->page_limits;
-		printf("--- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage: ---\n");
+		printf("------- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage Breakdown: -------\n");
 		double gtables_bytes = 0;
 		double gtable_ps_bytes = 0;
 		double btables_bytes = 0;
@@ -1090,43 +1127,14 @@ struct CauchyStats
 		BYTE_COUNT_TYPE page_size_mbs = page_size_bytes / (1024*1024);
 		if(with_print)
 		{
-			printf("  Gtables: Allocated pages: %d x %llu MBs per page. In Use: %.3lf MBs\n", page_limits[0], page_size_mbs, gtables_bytes / (1024*1024));
-			printf("  Gtable_ps: Allocated pages: %d x %llu MBs per page. In Use: %.3lf MBs\n", page_limits[1], page_size_mbs, gtable_ps_bytes / (1024*1024));
-			printf("  Btables: Allocated pages: %d x %llu MBs per page. In Use: %.3lf MBs\n", page_limits[2], page_size_mbs, btables_bytes / (1024*1024));
-			printf("  Btable_ps: Allocated pages: %d x %llu MBs per page. In Use: %.3lf MBs\n", page_limits[3], page_size_mbs, btable_ps_bytes / (1024*1024));
-			printf("--- Total G/Btable Memory Pressure: %.3lf ---\n", (gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes) / (1024*1024));
+			printf("  Gtables use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[0], page_size_mbs, gtables_bytes / (1024*1024));
+			printf("  Gtable_ps use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[1], page_size_mbs, gtable_ps_bytes / (1024*1024));
+			printf("  Btables use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[2], page_size_mbs, btables_bytes / (1024*1024));
+			printf("  Btable_ps use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[3], page_size_mbs, btable_ps_bytes / (1024*1024));
+			printf("  *Total Table Memory: %.3lf MBs ---\n", (gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes) / (1024*1024));
 		}
+		printf("---- End of Gtables, Gtable_ps, Btables, Btable_ps Memory Usage Breakdown ----\n");
 		return gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes;
-	}
-
-	// Prints the memory usage of the A,p,b elements of all terms
-	BYTE_COUNT_TYPE get_elem_mem_usage(int* terms_per_shape, int shape_range, int d, bool with_print)
-	{
-		BYTE_COUNT_TYPE mem_usage[3];
-		memset(mem_usage, 0, 3 * sizeof(BYTE_COUNT_TYPE));
-		for(int i = 0; i < shape_range; i++)
-		{
-			BYTE_COUNT_TYPE Nt_shape = terms_per_shape[i];
-			if(Nt_shape > 0)
-			{
-				mem_usage[0] += Nt_shape * i * d * sizeof(double);// A
-				mem_usage[1] += Nt_shape * i * sizeof(double); // p 
-				mem_usage[2] += Nt_shape * d * sizeof(double); // b
-			}
-		}
-		if(with_print)
-		{
-			double A_mbs = ((double)mem_usage[0]) / (1024*1024);
-			double p_mbs = ((double)mem_usage[1]) / (1024*1024);
-			double b_mbs = ((double)mem_usage[2]) / (1024*1024);
-			printf("--- Memory Usage of A/p/q/b Parameters: ---\n");
-			printf("  As use %.3lf MBs\n", A_mbs);
-			printf("  ps (and qs) each use %.3lf MBs\n", p_mbs);
-			printf("  bs use %.3lf MBs\n", b_mbs);
-			printf("  Total: %.3lf Mbs---\n", A_mbs + 2*p_mbs + b_mbs);
-			printf("--- End of A/p/q/b Summary: ---\n");
-		}
-		return mem_usage[0] + 2*mem_usage[1] + mem_usage[2];
 	}
 
 	static int kv_sort(const void* _kv1, const void* _kv2)
@@ -1138,16 +1146,18 @@ struct CauchyStats
 
 	void print_cell_count_histograms(CauchyTerm** terms_dp, const int shape_range, int* terms_per_shape, int* cell_counts_cen )
 	{
+		printf("<-------------------------- Table Cell Count Summary: -------------------------->\n");
 		if(HALF_STORAGE)
-			printf("--- Table Cell Count Summary. Half Storage Used. Results are therefore doubled! ---\n");
-		else
-			printf("--- Table Cell Count Summary ---\n");
-
+		{
+			printf("Note: HALF_STORAGE method was selected in cauchy_types.hpp\n");
+			printf("Note: The cell counts below are therefore doubled!\n");
+		}
 		KeyValue* table_counts[shape_range];
 		for(int i = 0; i < shape_range; i++)
 		{	
 			BYTE_COUNT_TYPE table_size_bytes = 2 * cell_counts_cen[i] * sizeof(KeyValue);
 			table_counts[i] = (KeyValue*) malloc( table_size_bytes );
+			null_ptr_check(table_counts[i]);
 			memset(table_counts[i], kByteEmpty, table_size_bytes);
 		}
 
@@ -1194,6 +1204,7 @@ struct CauchyStats
 				BYTE_COUNT_TYPE table_size = 2 * max_cells;
 				int counts = 0;
 				KeyValue* enteries = (KeyValue*) malloc(table_size * sizeof(KeyValue));
+				null_ptr_check(enteries);
 				printf("Tables of Shape %d: %d Terms Total! Max Cells is: %d\n", m, Nt_shape, max_cells);
 				for(uint i = 0; i < table_size; i++)
 					if(table_counts[m][i].key != kEmpty)
@@ -1205,20 +1216,36 @@ struct CauchyStats
 				free(enteries);
 			}
 		}
-		printf("--- End of Cell Count Summary ---\n");
+		printf("<------------------------- End of Cell Count Summary: -------------------------->\n");
+
 		for(int i = 0; i < shape_range; i++)
 			free(table_counts[i]);
 	}
 
-	void print_total_estimator_memory(ChunkedPackedTableStorage* gb_tables, const BYTE_COUNT_TYPE Nt, const int shape_range, int* terms_per_shape, const int d)
+	void print_total_estimator_memory(ChunkedPackedTableStorage* gb_tables, 
+		CoalignmentElemStorage* coalign_storage,
+		ReductionElemStorage* reduce_storage,
+		const BYTE_COUNT_TYPE Nt, 
+		bool before_ftr)
 	{
-		printf("---------- CF Memory Breakdown ---------- \n");
-		BYTE_COUNT_TYPE elem_mem_usage = get_elem_mem_usage(terms_per_shape, shape_range, d, true);
+		BYTE_COUNT_TYPE coalign_store_bytes;
+		BYTE_COUNT_TYPE reduce_store_bytes;
+		printf("<----------------------------- CF Memory Breakdown ----------------------------->\n");
+		if(before_ftr)
+		{
+			reduce_store_bytes = reduce_storage->get_total_byte_count(true);
+			coalign_store_bytes = coalign_storage->get_total_byte_count(true);
+		}
+		else
+		{
+			coalign_store_bytes = coalign_storage->get_total_byte_count(true);
+			reduce_store_bytes = reduce_storage->get_total_byte_count(true);
+		}
 		BYTE_COUNT_TYPE tables_mem = get_table_memory_usage(gb_tables, true);
 		BYTE_COUNT_TYPE term_mem_usage = Nt * sizeof(CauchyTerm);
-		printf("Term Structure Memory Usage: %llu MBs\n", term_mem_usage / (1024*1024));
-		printf("Total CF Memory Usage: %llu MBs\n", (elem_mem_usage + tables_mem +  term_mem_usage) / (1024*1024) );
-		printf("---------- End of CF Memory Breakdown ---------- \n");
+		printf("*Term Structure Memory Usage: %.3lf MBs\n", ((double)term_mem_usage) / (1024*1024));
+		printf("*Peak CF Memory Usage: %.3lf MBs\n", ((double)(coalign_store_bytes + reduce_store_bytes + tables_mem +  term_mem_usage)) / (1024*1024) );
+		printf("<------------------------- End of CF Memory Breakdown -------------------------->\n");
 	}
 
 };

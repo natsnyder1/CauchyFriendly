@@ -75,6 +75,7 @@ void print_B_encoded(int *B_enc, int cell_count, int m, bool with_sort)
     {
         printf("B_enc for opposite halfspace is:\n");
         int* B_enc_opp = (int*) malloc(cell_count * sizeof(int));
+        null_ptr_check(B_enc_opp);
         memcpy(B_enc_opp, B_enc, cell_count * sizeof(int));
         int rev_mask = (1<<m) - 1;
         for(int i = 0; i < cell_count; i++)
@@ -357,8 +358,11 @@ struct DiffCellEnumHelper
         for(int c = 1; c < cmcc_range; c++)
         {
             combos_of_Gam[c] = (int**)malloc(shape_range * sizeof(int*));
+            null_dptr_check((void**)combos_of_Gam[c]);
             anti_combos_of_Gam[c] = (int**)malloc(shape_range * sizeof(int*));
+            null_dptr_check((void**)anti_combos_of_Gam[c]);
             counts_of_Gam[c] = (int*) malloc(shape_range * sizeof(int));
+            null_dptr_check((void**)counts_of_Gam[c]);
             for(int i = 0; i < d; i++)
             {
                 combos_of_Gam[c][i] = (int*) malloc(0);
@@ -374,6 +378,7 @@ struct DiffCellEnumHelper
                     combos_of_Gam[c][m] = combos;
                     counts_of_Gam[c][m] = nchoosek(m,d);
                     anti_combos_of_Gam[c][m] = (int*) malloc(0);
+                    null_ptr_check(anti_combos_of_Gam[c][m]);
                 }
                 else
                 {
@@ -391,6 +396,7 @@ struct DiffCellEnumHelper
         }
         // Define perturbations for Gamma HP and other HPS
         b_pert = (double*) malloc( max_shape * sizeof(double));
+        null_ptr_check(b_pert);
         for(int i = 0; i < max_shape; i++)
             b_pert[i] = 2*random_uniform() - 1;
         

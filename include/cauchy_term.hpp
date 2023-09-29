@@ -19,11 +19,17 @@ struct ChildTermWorkSpace
     {
         int max_child_terms = max_shape + 1;
         A = (double*) malloc( max_child_terms * max_shape * d * sizeof(double));
+        null_ptr_check(A);
         p = (double*) malloc( max_child_terms * max_shape * sizeof(double));
+        null_ptr_check(p);
         q = (double*) malloc( max_child_terms * max_shape * sizeof(double));
+        null_ptr_check(q);
         b = (double*) malloc( max_child_terms * max_shape * d * sizeof(double));
+        null_ptr_check(b);
         c_map = (uint8_t*) malloc( max_child_terms * max_shape * sizeof(uint8_t));
+        null_ptr_check(c_map);
         cs_map = (int8_t*) malloc( max_child_terms * max_shape * sizeof(int8_t));
+        null_ptr_check(cs_map);
     }
 
     void deinit()

@@ -648,6 +648,14 @@ double sum_vec(double* x, const int n)
     return sum;
 }
 
+int sum_vec(int* x, const int n)
+{
+    int sum = 0;
+    for(int i = 0; i < n; i++)
+        sum += x[i];
+    return sum;
+}
+
 template<typename T>
 T array_max(T* arr, const int N)
 {

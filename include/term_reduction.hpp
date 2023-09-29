@@ -327,9 +327,11 @@ struct FastTermRedHelper
     {
       if(TR_SEARCH_IDXS_ORDERING[i] >= d)
       {
-        printf("TR_SEARCH_IDXS_ORDERING in cauchy_type.hpp not set correctly for d=%d states!\n", d);
-        printf("Please modify this array to have unique integers [0,...,d-1] in a specified order\n");
-        printf("Exiting! Please Fix!\n");
+        printf(RED "[ERROR FastTermRedHelper initialization:]\n"
+                   "  TR_SEARCH_IDXS_ORDERING in cauchy_type.hpp not set correctly for d=%d states!\n"
+                   "  Please modify this array to have unique integers [0,...,%d] in a specified order\n"
+                   "  Exiting! Please Fix!\n"
+               NC  "\n", d, d-1);
         exit(1);
       }
       else
@@ -340,9 +342,11 @@ struct FastTermRedHelper
       if(F_sip[i] == 0)
       {
         // indices not set correctly
-        printf("TR_SEARCH_IDXS_ORDERING in cauchy_type.hpp contains duplicate! Must have unique integers [0,,,d-1] arranged in a user-defined pattern!\n");
-        printf("Please modify this array to have unique integers [0,...,d-1] in a specified order\n");
-        printf("Exiting! Please Fix!\n");
+        printf(RED "[ERROR FastTermRedHelper initialization:]\n"
+                   "  TR_SEARCH_IDXS_ORDERING in cauchy_type.hpp not set correctly for d=%d states!\n"
+                   "  Please modify this array to have unique integers [0,...,%d] in a specified order\n"
+                   "  Exiting! Please Fix!\n"
+               NC  "\n", d, d-1);
         exit(1);
       }
     }
