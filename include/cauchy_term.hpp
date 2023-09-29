@@ -216,9 +216,46 @@ struct CauchyTerm
                 child_terms[i].enc_B = enc_B;
                 child_terms[i].cells_gtable = cells_gtable;
             }
+            // Update the parents B^{k|k-1} to B_mu^{k|k-1}
             if(!last_update && !DENSE_STORAGE)
-                for(int i = 0; i < cells_gtable; i++)
-                    enc_B[i] ^= enc_lhp;
+            {
+                // If we use full storage, then this will always work
+                if(FULL_STORAGE)
+                    for(int i = 0; i < cells_gtable; i++)
+                        enc_B[i] ^= enc_lhp;
+                // If we use half storage, then we need to consider the following conditions
+                else
+                {
+                    // If phc < m, then we are okay, this means the last bit will never flip negative
+                    if(phc < m)
+                    {
+                        for(int i = 0; i < cells_gtable; i++)
+                            enc_B[i] ^= enc_lhp;
+                    }
+                    // phc == m
+                    else
+                    {   
+                        // If phc == m, but enc_lhp has its (m-1)'th bit set, reverse enc_lhp when updating enc_B
+                        // This is because enc_B must be positive in its (m-1)'th bit for half storage  
+                        int two_to_m_minus1 = 1<<(m-1);
+                        if(enc_lhp & two_to_m_minus1)
+                        {
+                            int rev_mask = (1<<m) - 1;
+                            int rev_enc_lhp = enc_lhp ^ rev_mask;
+                            for(int i = 0; i < cells_gtable; i++)
+                                enc_B[i] ^= rev_enc_lhp;
+                        }
+                        // If phc == m, but enc_lhp does not have its (m-1)'th bit set, we are okay
+                        else 
+                        {
+                            for(int i = 0; i < cells_gtable; i++)
+                                enc_B[i] ^= enc_lhp;
+                        }
+                    }
+                    
+                }
+                
+            }
         }
         return num_integrable_terms; // new children + old child
     }
@@ -386,8 +423,8 @@ struct CauchyTerm
                     if(pos_gate || neg_gate)
                     {
                         //printf("Term %d with shape %d has (pos) coalignment of (%d, %d)\n", i, m, j, k);
-                        F[k] = 0;
-                        p[j] += beta[k];
+                        F[j] = 0;
+                        p[k] += beta[j];
                     }
                 }
             }

@@ -1010,13 +1010,12 @@ struct CoalignmentElemStorage
 			chunked_cs_maps.get_total_byte_count();
 		if(with_print)
 		{
-			printf("--- Coalign Element Storage: Memory Usage Breakdown: ---\n");
+			printf("-Coalign Element Storage: Memory Usage Breakdown:\n");
 			printf("  As use: %.3lf MBs\n", ((double)chunked_As.get_total_byte_count()) / (1024*1024) );
 			printf("  ps/qs each use: %.3lf MBs\n", ((double)chunked_ps.get_total_byte_count()) / (1024*1024) );
 			printf("  bs use: %.3lf MBs\n", ((double)chunked_bs.get_total_byte_count()) / (1024*1024) );
 			printf("  c_maps/cs_maps each use: %.3lf MBs\n", ((double)chunked_c_maps.get_total_byte_count()) / (1024*1024) );
 			printf("  *Total: %.3lf MBs\n", ((double)bytes_total) / (1024*1024));
-			printf("------ End of Coalign Element Storage Breakdown: -------\n");
 		}
 		return bytes_total;
 	}
@@ -1082,12 +1081,11 @@ struct ReductionElemStorage
 			chunked_ps.get_total_byte_count() + chunked_bs.get_total_byte_count();
 		if(with_print)
 		{
-			printf("--- Reduction Element Storage: Memory Usage Breakdown: ---\n");
+			printf("-Reduction Element Storage: Memory Usage Breakdown:\n");
 			printf("  As use: %.3lf MBs\n", ((double)chunked_As.get_total_byte_count()) / (1024*1024) );
 			printf("  ps use: %.3lf MBs\n", ((double)chunked_ps.get_total_byte_count()) / (1024*1024) );
 			printf("  bs use: %.3lf MBs\n", ((double)chunked_bs.get_total_byte_count()) / (1024*1024) );
 			printf("  *Total: %.3lf MBs\n", ((double)bytes_total) / (1024*1024));
-			printf("------ End of Reduction Element Storage Breakdown: -------\n");
 		}
 		return bytes_total;
 	}
@@ -1111,7 +1109,7 @@ struct CauchyStats
 		BYTE_COUNT_TYPE** used_elems_per_page = gb_tables->used_elems_per_page;
 		BYTE_COUNT_TYPE page_size_bytes = gb_tables->page_size_bytes;
 		uint* page_limits = gb_tables->page_limits;
-		printf("------- Gtables, Gtable_ps, Btables, Btable_ps Memory Usage Breakdown: -------\n");
+		printf("-Gtables, Gtable_ps, Btables, Btable_ps Memory Usage Breakdown:\n");
 		double gtables_bytes = 0;
 		double gtable_ps_bytes = 0;
 		double btables_bytes = 0;
@@ -1133,7 +1131,6 @@ struct CauchyStats
 			printf("  Btable_ps use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[3], page_size_mbs, btable_ps_bytes / (1024*1024));
 			printf("  *Total Table Memory: %.3lf MBs ---\n", (gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes) / (1024*1024));
 		}
-		printf("---- End of Gtables, Gtable_ps, Btables, Btable_ps Memory Usage Breakdown ----\n");
 		return gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes;
 	}
 
@@ -1146,7 +1143,7 @@ struct CauchyStats
 
 	void print_cell_count_histograms(CauchyTerm** terms_dp, const int shape_range, int* terms_per_shape, int* cell_counts_cen )
 	{
-		printf("<-------------------------- Table Cell Count Summary: -------------------------->\n");
+		printf("<-------------------------------- Table Cell Count Summary: ------------------------------->\n");
 		if(HALF_STORAGE)
 		{
 			printf("Note: HALF_STORAGE method was selected in cauchy_types.hpp\n");
@@ -1216,7 +1213,7 @@ struct CauchyStats
 				free(enteries);
 			}
 		}
-		printf("<------------------------- End of Cell Count Summary: -------------------------->\n");
+		printf(">------------------------------ End of Cell Count Summary: --------------------------------<\n");
 
 		for(int i = 0; i < shape_range; i++)
 			free(table_counts[i]);
@@ -1230,14 +1227,15 @@ struct CauchyStats
 	{
 		BYTE_COUNT_TYPE coalign_store_bytes;
 		BYTE_COUNT_TYPE reduce_store_bytes;
-		printf("<----------------------------- CF Memory Breakdown ----------------------------->\n");
 		if(before_ftr)
 		{
+			printf("<------------------------------ TP to MUC CF Memory Breakdown ----------------------------->\n");
 			reduce_store_bytes = reduce_storage->get_total_byte_count(true);
 			coalign_store_bytes = coalign_storage->get_total_byte_count(true);
 		}
 		else
 		{
+			printf("<----------------------------- FTR/Gtable CF Memory Breakdown ----------------------------->\n");
 			coalign_store_bytes = coalign_storage->get_total_byte_count(true);
 			reduce_store_bytes = reduce_storage->get_total_byte_count(true);
 		}
@@ -1245,7 +1243,7 @@ struct CauchyStats
 		BYTE_COUNT_TYPE term_mem_usage = Nt * sizeof(CauchyTerm);
 		printf("*Term Structure Memory Usage: %.3lf MBs\n", ((double)term_mem_usage) / (1024*1024));
 		printf("*Peak CF Memory Usage: %.3lf MBs\n", ((double)(coalign_store_bytes + reduce_store_bytes + tables_mem +  term_mem_usage)) / (1024*1024) );
-		printf("<------------------------- End of CF Memory Breakdown -------------------------->\n");
+		printf(">------------------------------ End of CF Memory Breakdown --------------------------------<\n");
 	}
 
 };

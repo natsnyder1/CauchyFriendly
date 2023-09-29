@@ -22,7 +22,7 @@
 #define FULL_STORAGE false
 // Sets whether to keep the B tables in memory, or simply temporary memory 
 // This has no effect for both the dense gtable method and the binsearch method
-#define KEEP_BTABLES false 
+#define KEEP_BTABLES false
 // Helper declarations that are automatically set
 #define HALF_STORAGE (!FULL_STORAGE)
 #define DISCARD_BTABLES (!KEEP_BTABLES)
