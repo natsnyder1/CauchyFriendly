@@ -4,8 +4,10 @@
 #include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"
+#include "gtable.hpp"
 #include "random_variables.hpp"
 #include <algorithm>
+#include <cstring>
 
 BYTE_COUNT_TYPE binomialCoeff(int n, int k)
 {
@@ -57,6 +59,16 @@ int cell_count_general(int hyp, int dim)
 int sort_func_B_enc(const void* p1, const void* p2)
 {
   return *((int*)p1) - *((int*)p2);
+}
+
+int is_Bs_different(int* B1, int* B2, int cells)
+{
+    for(int i = 0; i < cells; i++)
+    {
+        if(B1[i] != B2[i])
+            return true;
+    }
+    return false;
 }
 
 void print_B_encoded(int *B_enc, int cell_count, int m, bool with_sort)
@@ -295,11 +307,18 @@ struct DiffCellEnumHelper
 
     // Variables for TP DCE
     int cmcc;
-    int*** combos_of_Gam;
-    int** counts_of_Gam;
-    int*** anti_combos_of_Gam;
+    int** combos;
+    int* combo_counts;
+    int** anti_combos;
+
+    int** combos_fast;
+    int* combo_counts_fast;
+    int** anti_combos_fast;
+
     int* cell_counts_gen;
     int* SSav;
+    int** SSnav; // Sign Sequences not around vertex
+
     double* b_pert;
 
     bool* F; // used for masking in both TP and MU sections
@@ -343,57 +362,49 @@ struct DiffCellEnumHelper
     void make_tp_dce_helpers()
     {
         init_encoded_sign_sequences_around_vertex();
-        int cmcc_range = cmcc+1;
-        combos_of_Gam = (int***) malloc(cmcc_range * sizeof(int**));
-        null_tptr_check((void***)combos_of_Gam);
-        anti_combos_of_Gam = (int***) malloc(cmcc_range * sizeof(int**));
-        null_tptr_check((void***)anti_combos_of_Gam);
-        counts_of_Gam = (int**) malloc(cmcc_range * sizeof(int*));
-        null_dptr_check((void**)counts_of_Gam);
-        // if cmcc = 0, nothing to do in TP routine
-        combos_of_Gam[0] = (int**)malloc(0);
-        anti_combos_of_Gam[0] = (int**)malloc(0);
-        counts_of_Gam[0] = (int*)malloc(0);
-        const int shape_range = max_shape+1;
-        for(int c = 1; c < cmcc_range; c++)
+        int shape_range = max_shape + 1;
+        combos = (int**) malloc(shape_range * sizeof(int*));
+        null_dptr_check((void**)combos);
+        anti_combos = (int**) malloc(shape_range * sizeof(int*));
+        null_dptr_check((void**)anti_combos);
+        combo_counts = (int*) malloc(shape_range * sizeof(int));
+        null_ptr_check(combo_counts);
+        
+        // Helpers for regular TP DCE
+        // TP DCE method is not used when the count of HPs are less than d
+        for(int i = 0; i <= d; i++)
         {
-            combos_of_Gam[c] = (int**)malloc(shape_range * sizeof(int*));
-            null_dptr_check((void**)combos_of_Gam[c]);
-            anti_combos_of_Gam[c] = (int**)malloc(shape_range * sizeof(int*));
-            null_dptr_check((void**)anti_combos_of_Gam[c]);
-            counts_of_Gam[c] = (int*) malloc(shape_range * sizeof(int));
-            null_dptr_check((void**)counts_of_Gam[c]);
-            for(int i = 0; i < d; i++)
-            {
-                combos_of_Gam[c][i] = (int*) malloc(0);
-                anti_combos_of_Gam[c][i] = (int*) malloc(0);
-                counts_of_Gam[c][i] = 0;
-            }
-            for(int m = d; m < shape_range; m++)
-            {
-                int* combos = combinations(m, d);
-                // If m=d or m <= c there are no anti combos
-                if( ( m==d ) || ( m <= c ) )
-                {
-                    combos_of_Gam[c][m] = combos;
-                    counts_of_Gam[c][m] = nchoosek(m,d);
-                    anti_combos_of_Gam[c][m] = (int*) malloc(0);
-                    null_ptr_check(anti_combos_of_Gam[c][m]);
-                }
-                else
-                {
-                    //int select_c[c]; // select last c indices
-                    //for(int i = 0; i < c; i++)
-                    //    select_c[i] = m-c+i;
-                    int combo_counts = nchoosek(m,d);
-                    //int counts_of_Gam_cm;
-                    combos_of_Gam[c][m] = combos; //selective_combinations(combos, select_c, combo_counts, c, d, &counts_of_Gam_cm);
-                    counts_of_Gam[c][m] = combo_counts; //counts_of_Gam_cm;
-                    anti_combos_of_Gam[c][m] = init_anti_combos(combos_of_Gam[c][m], counts_of_Gam[c][m], m, d);
-                    //free(combos);
-                }
-            }
+            combos[i] = (int*) malloc(0);
+            anti_combos[i] = (int*) malloc(0);
+            combo_counts[i] = 0;
         }
+        for(int m = d+1; m < shape_range; m++)
+        {
+            combos[m] = combinations(m, d);
+            combo_counts[m] = nchoosek(m,d);
+            anti_combos[m] = init_anti_combos(combos[m], combo_counts[m], m, d);
+        }
+
+        init_encoded_sign_sequences_not_around_vertex();
+        combos_fast = (int**) malloc(shape_range * sizeof(int*));
+        null_dptr_check((void**)combos_fast);
+        anti_combos_fast = (int**) malloc(shape_range * sizeof(int*));
+        null_dptr_check((void**)anti_combos_fast);
+        combo_counts_fast = (int*) malloc(shape_range * sizeof(int));
+        null_ptr_check(combo_counts_fast);
+        for(int i = 0; i < d; i++)
+        {
+            combos_fast[i] = (int*) malloc(0);
+            anti_combos_fast[i] = (int*) malloc(0);
+            combo_counts_fast[i] = 0;
+        }
+        for(int m = d; m < shape_range; m++)
+        {
+            combos_fast[m] = combinations(m, d-1);
+            combo_counts_fast[m] = nchoosek(m,d-1);
+            anti_combos_fast[m] = init_anti_combos(combos_fast[m], combo_counts_fast[m], m, d-1);
+        }
+
         // Define perturbations for Gamma HP and other HPS
         b_pert = (double*) malloc( max_shape * sizeof(double));
         null_ptr_check(b_pert);
@@ -412,6 +423,30 @@ struct DiffCellEnumHelper
         for(int i = 0; i < num_cells_around_vetex; i++)
             for(int j = 0; j < d; j++)
                 SSav[i*d + j] = (i & (1 << j) ) >> j;
+    }
+
+    // Initialized encoded sign sequences for encircling a vertex, with -1 encoded as 1 and 1 encoded as 0
+    // The arrays are returned sized (2^mi x mi), for mi in [1,...,max_shape-d]
+    // Since d HPs form the vertex, we only need these helpers for max_shape - d HPs
+    void init_encoded_sign_sequences_not_around_vertex()
+    {
+        int shape_range = max_shape + 1 - d;
+        SSnav = (int**) malloc(shape_range * sizeof(int*));
+        null_dptr_check((void**)SSnav);
+        SSnav[0] = (int*) malloc(0);
+        for(int i = 1; i < shape_range; i++)
+        {
+            int two_to_i = (1<<i);
+            SSnav[i] = (int*) malloc( two_to_i * i * sizeof(int) );
+            null_ptr_check(SSnav[i]);
+            
+            for(int j = 0; j < two_to_i; j++)
+            {
+                for(int k = 0; k < i; k++)
+                    SSnav[i][j*i + k] = (j & (1 << k)) ? 1 : 0;
+            }
+
+        }
     }
 
     int* combinations(int n, int k)
@@ -435,42 +470,6 @@ struct DiffCellEnumHelper
             //std::cout << std::endl;
         } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
         return combos;
-    }
-
-    // Returns only the combinations which contain the select indices
-    int* selective_combinations(int* combos, int* select, int len_combos, int len_select, int d, int* len_selective_combos)
-    {
-        int select_counts = 0;
-        int* select_combos = (int*) malloc(len_combos * d * sizeof(int));
-        null_ptr_check(select_combos);
-        for(int i = 0; i < len_combos; i++)
-        {
-            int* combo = combos + i*d;
-            bool is_select_in_combo = false;
-            for(int j = 0; j < d; j++)
-            {
-                int c = combo[j];
-                for(int k = 0; k < len_select; k++)
-                {
-                    if(c == select[k])
-                    {
-                        is_select_in_combo = true;
-                        break;
-                    }
-                }
-                if(is_select_in_combo)
-                    break;
-            }
-            if(is_select_in_combo)
-            {
-                memcpy(select_combos + select_counts*d, combo, d * sizeof(int));
-                select_counts++;
-            }
-        }
-        select_combos = (int*) realloc(select_combos, select_counts * d * sizeof(int));
-        null_ptr_check(select_combos);
-        *len_selective_combos = select_counts;
-        return select_combos;
     }
     // Returns the integers of m that are not in combos
     // anti_combos array is sized num_combos x (m-n) on return
@@ -501,28 +500,16 @@ struct DiffCellEnumHelper
     
     void print_tp_info()
     {
-        int cmcc_range = cmcc + 1;
         int shape_range = max_shape + 1;
-        for(int c = 1; c < cmcc_range; c++)
+        for(int m = d+1-FAST_TP_DCE; m < shape_range; m++)
         {
-            for(int m = d; m < shape_range; m++)
-            {
-                int* cG = combos_of_Gam[c][m];
-                int num_cG = counts_of_Gam[c][m];
-                int* acG = anti_combos_of_Gam[c][m];
-                int num_acG = m - d;
-                printf("Combos of Gamma for m=%d, cmcc=%d, has shape (%d x %d):\n", m, c, num_cG, d);
-                print_mat(cG, num_cG, d);
-                if( (num_acG > 0) && (m > c ) )
-                {
-                    printf("Combos of Anti Gamma for m=%d, cmcc=%d, has shape (%d x %d):\n", m, c, num_cG, m-d);
-                    print_mat(acG, num_cG, m-d);
-                }
-                else
-                {
-                    printf("No anti combos for m=%d, cmcc=%d, d=%d\n", m, c, d);
-                }
-            }
+            int* combos_m = combos[m];
+            int combo_count = combo_counts[m];
+            int* anti_combos_m = anti_combos[m];
+            printf("Combos for m=%d has shape (%d x %d):\n", m, combo_count, d-FAST_TP_DCE);
+            print_mat(combos_m, combo_count, d-FAST_TP_DCE);
+            printf("Anti Combos for m=%d, has shape (%d x %d):\n", m, combo_count, m-d+FAST_TP_DCE);
+            print_mat(anti_combos_m, combo_count, m-d+FAST_TP_DCE);
         }
     }
     
@@ -539,26 +526,25 @@ struct DiffCellEnumHelper
 
         // De-init TP helpers
         free(SSav);
-        int cmcc_range = cmcc + 1;
-        for(int c = 1; c < cmcc_range; c++)
+        int shape_range = max_shape + 1;
+        for(int m = 0; m < shape_range; m++)
         {
-            int shape_range = max_shape + 1;
-            for(int m = 0; m < shape_range; m++)
-            {
-                free(combos_of_Gam[c][m]);
-                free(anti_combos_of_Gam[c][m]);
-            }
-            free(combos_of_Gam[c]);
-            free(anti_combos_of_Gam[c]);
-            free(counts_of_Gam[c]);
+            free(combos[m]);
+            free(anti_combos[m]);
+            free(combos_fast[m]);
+            free(anti_combos_fast[m]);
         }
-        free(combos_of_Gam[0]);
-        free(anti_combos_of_Gam[0]);
-        free(counts_of_Gam[0]);
-        free(combos_of_Gam);
-        free(anti_combos_of_Gam);
-        free(counts_of_Gam);
+        free(combos);
+        free(anti_combos);
+        free(combo_counts);
+        free(combos_fast);
+        free(anti_combos_fast);
+        free(combo_counts_fast);
+
         free(b_pert);
+        for(int m = 0; m < shape_range-d; m++)
+            free(SSnav[m]);
+        free(SSnav);
     }
 
 };
@@ -662,10 +648,9 @@ void make_time_prop_btable(CauchyTerm* term, DiffCellEnumHelper* dce_helper)
     }
     // Otherwise, begin routine
     int phc = term->phc;
-    int num_cmcc = m - phc;
-    int* combos_of_Gam = dce_helper->combos_of_Gam[num_cmcc][m];
-    int counts_of_Gam = dce_helper->counts_of_Gam[num_cmcc][m];
-    int* anti_combos_of_Gam = dce_helper->anti_combos_of_Gam[num_cmcc][m];
+    int* combos = dce_helper->combos[m];
+    int combo_counts = dce_helper->combo_counts[m];
+    int* anti_combos = dce_helper->anti_combos[m];
     int num_anti_combo = m - d;
     double Ac[d*d];
     double work[d*d]; // workspace for Ac when solving
@@ -673,12 +658,7 @@ void make_time_prop_btable(CauchyTerm* term, DiffCellEnumHelper* dce_helper)
     double bc[d];
     double vertex[d];
     double b_pert[m];
-    //memset(b_pert, 0, m*sizeof(double));
     memcpy(b_pert, dce_helper->b_pert, m * sizeof(double));
-    //for(int i = 0; i < num_cmcc; i++)
-        //b_pert[m-num_cmcc+i] = -GAMMA_PERTURB_EPS;
-        //b_pert[m-num_cmcc+i] = -fabs(b_pert[m-num_cmcc+i]);
-
     double* A = term->A;
     int two_to_d = 1 << d;
     // We need to find all sign vectors of sgn(A_tp* \nu - b), where \Gamma are the last (cmcc) HPs in A_tp
@@ -706,41 +686,12 @@ void make_time_prop_btable(CauchyTerm* term, DiffCellEnumHelper* dce_helper)
 
     int count_Btp_set = 0;
     KeyValue kv;
-    /* Moshes way not working...reverting to old way
-    for(int i = 0; i < cells_parent; i++)
-    {
-        int b_enc = B_parent[i];
-        F[b_enc] = 0;
-        kv.key = b_enc;
-        kv.value = count_Btp_set;
-        Btp_intermediate[count_Btp_set++] = b_enc;
-        if( hashtable_insert(Btp_hash, &kv, Btp_hash_table_size) )
-        {
-            printf(RED "[Error TP DCE #1]: hashtable insert has failed! Debug here!" NC "\n");
-            exit(1);
-        }
-        // If we used half storage, store the opposite temporarily 
-        if(HALF_STORAGE)
-        {
-            b_enc ^= rev_phc_mask;
-            F[b_enc] = 0;
-            kv.key = b_enc;
-            kv.value = count_Btp_set;
-            Btp_intermediate[count_Btp_set++] = b_enc;
-            if( hashtable_insert(Btp_hash, &kv, Btp_hash_table_size) )
-            {
-                printf(RED "[Error TP DCE #2]: hashtable insert has failed! Debug here!" NC "\n");
-                exit(1);
-            }
-        }
-    }
-    */
     // We need to loop through the combinations of Gamma, find vertices, and encircle them
     KeyCValue* kcv_query;
-    for(int i = 0; i < counts_of_Gam; i++)
+    for(int i = 0; i < combo_counts; i++)
     {
         // Form a vertex point corresponding to Gamma 
-        int* combo = combos_of_Gam + i*d;
+        int* combo = combos + i*d;
         for(int j = 0; j < d; j++)
         {
             memcpy(Ac + j * d, A + combo[j] * d, d*sizeof(double));
@@ -763,7 +714,7 @@ void make_time_prop_btable(CauchyTerm* term, DiffCellEnumHelper* dce_helper)
             solve_trf(Ac, P, bc, vertex, d);
         }
         // Find signs of HPs not in vertex
-        int* anti_combo = anti_combos_of_Gam + i * num_anti_combo;
+        int* anti_combo = anti_combos + i * num_anti_combo;
         if(WITH_WARNINGS)
             tp_enu_warnings_check(A, b_pert, vertex, combo, anti_combo, m, d, -1, i);
         int enc_sv_niv = 0;
@@ -851,6 +802,255 @@ void make_time_prop_btable(CauchyTerm* term, DiffCellEnumHelper* dce_helper)
     }
     assert(count_Btp <= (dce_helper->cell_counts_cen[m] / (1 + HALF_STORAGE)) );
     term->cells_gtable = count_Btp;
+}
+
+// Moshes method of TP DCE by only shifting Gamma
+// Called if the FAST_TP_DCE setting is set true
+// If there are multiple Gammas, the algorithm is applied sequentially to each Gamma column
+void make_time_prop_btable_fast(CauchyTerm* term, DiffCellEnumHelper* dce_helper)
+{
+    // If shape < d, return the trivial set
+    if(term->m < term->d)
+    {
+        int two_to_m = FULL_STORAGE ? 1 << term->m : 1<<(term->m-1);
+        for(int i = 0; i < two_to_m; i++)
+            term->enc_B[i] = i;
+        return;
+    }
+    // Otherwise, begin routine
+    int d = term->d;
+    int dm1 = d-1;
+    double Ac[d*d];
+    double work[d*d]; // workspace for Ac when solving
+    int P[d]; // Perm. Matrix for PLU solving
+    double bc[d];
+    double vertex[d];
+    double* A = term->A;
+    memset(bc, 0, dm1*sizeof(double));
+    bc[dm1] = -GAMMA_PERTURB_EPS;
+    int two_to_d_minus1 = 1 << dm1;
+    int cells_parent = term->cells_gtable_p;
+    int* Btp = term->enc_B;
+    BTABLE Btp_hash = dce_helper->B_mu_hash; // renaming temp space
+    BKEYS Btp_intermediate = dce_helper->B_uncoal; // renaming temp space
+    bool* F = dce_helper->F; // Flags for unvisited sign vectors
+
+    // Loop until all columns of Gamma added to the HPA have been dealt with
+    // Start with the parent hyperplanes, adding columns of Gamma one at a time
+    int count_Gam = 0;
+    for(int phc = term->phc; phc < term->m; phc++)
+    {
+        const int m = phc+1; // m is always 1 more than the number of "parent hyperplanes" (due to the addition of the new column of Gamma)
+        const int* combos = dce_helper->combos_fast[phc];
+        const int combo_counts = dce_helper->combo_counts_fast[phc];
+        const int* anti_combos = dce_helper->anti_combos_fast[phc];
+        const int num_anti_combo = m - d;
+        const int cells_gen = dce_helper->cell_counts_gen[m];
+        const int Btp_hash_table_size = cells_gen * dce_helper->storage_multiplier;
+        const int parent_table_size = cells_parent * GTABLE_SIZE_MULTIPLIER;
+        const int two_to_m_minus1 = 1<<(m-1);
+        const int rev_phc_mask = (1<<phc)-1; // reverses sv of length phc with xor operator
+        const int rev_m_mask = (1<<m)-1; // reverses sv of length m with xor operator
+        const int gamma_mask = rev_phc_mask; // clears gamma bits with and operator
+        int zero_resids[m];
+        memcpy(Ac + dm1*d, A + phc*d, d*sizeof(double)); // last HP in Ac is always constant (Gamma)
+        memset(Btp_hash, kByteEmpty, Btp_hash_table_size * sizeof(BTABLE_TYPE));
+        memset(F, 1, (1<<m) * sizeof(bool) );
+
+        int count_Btp_set = 0;
+        KeyValue kv;
+        // The parent table of SVs is immediately added to our hash set
+        // This is because we shift Gamma to have a positive halfspace w.r.t the origin
+        // Therefore, all parent SVs are inserted into this hashtable
+        // If count_Gam == 0, extract the keys of gtable_p, otherwise, the keys are already in Btp
+        if(count_Gam == 0)
+            gtable_p_get_keys(term->gtable_p, parent_table_size, Btp); // returns cells_parent, which is already loaded
+        
+        for(int i = 0; i < cells_parent; i++)
+        {        
+            int b_enc = Btp[i];
+            F[b_enc] = 0;
+            kv.key = b_enc;
+            kv.value = count_Btp_set;
+            Btp_intermediate[count_Btp_set++] = b_enc;
+            if( hashtable_insert(Btp_hash, &kv, Btp_hash_table_size) )
+            {
+                printf(RED "[Error TP DCE #1]: hashtable insert has failed! Debug here!" NC "\n");
+                exit(1);
+            }
+            // If we used half storage, store the opposite temporarily 
+            if(HALF_STORAGE)
+            {
+                b_enc ^= rev_phc_mask;
+                F[b_enc] = 0;
+                kv.key = b_enc;
+                kv.value = count_Btp_set;
+                Btp_intermediate[count_Btp_set++] = b_enc;
+                if( hashtable_insert(Btp_hash, &kv, Btp_hash_table_size) )
+                {
+                    printf(RED "[Error TP DCE #2]: hashtable insert has failed! Debug here!" NC "\n");
+                    exit(1);
+                }
+            }
+        }
+
+        // Now we need to loop through all combinations of (m-1) choose (d-1), find vertices, encircle them
+        KeyValue* kv_query;
+        for(int i = 0; i < combo_counts; i++)
+        {
+            // Form a vertex point corresponding to Gamma 
+            const int* combo = combos + i*dm1;
+            for(int j = 0; j < dm1; j++)
+                memcpy(Ac + j * d, A + combo[j] * d, d*sizeof(double));
+            memcpy(Ac + dm1*d, A + phc*d, d*sizeof(double));
+            // Solve for vertex:
+            if(STABLE_SOLVE)
+            {
+                double cond_num = cond('1', Ac, work, P, d, PLU_EPS);
+                if(cond_num > COND_EPS)
+                    continue;
+                solve_trf(Ac, P, bc, vertex, d);
+            }
+            else
+            {
+                if( PLU(Ac, P, d, PLU_EPS) )
+                    continue;
+                if( (fabs(Ac[0]) / (fabs(Ac[d*d-1]) + 1e-25)) > COND_EPS)
+                    continue;
+                solve_trf(Ac, P, bc, vertex, d);
+            }
+            // Find signs of HPs not in vertex
+            const int* anti_combo = anti_combos + i * num_anti_combo;
+            //if(WITH_WARNINGS)
+            //    fast_tp_enu_warnings_check(A, vertex, combo, anti_combo, m, d, -1, i);
+            int enc_sv_niv = 1 << phc;
+            int zero_resid_count = 0;
+            for(int j = 0; j < num_anti_combo; j++)
+            {
+                int ac = anti_combo[j];
+                double resid = dot_prod(A + ac*d, vertex, d);
+                if( fabs(resid) < 1e-10 )
+                    zero_resids[zero_resid_count++] = ac;
+                else if( resid < 0 )
+                    enc_sv_niv |= (1 << ac);
+            }
+            int two_to_zero_resid_count = (1 << zero_resid_count);
+            int* SSnav = dce_helper->SSnav[zero_resid_count];
+            // Use sign sequences around vertex array to fill in all signs around  
+            for(int j = 0; j < two_to_d_minus1; j++)
+            {
+                int* ssav = dce_helper->SSav + j*d;
+                int enc_sv = enc_sv_niv;
+                for(int k = 0; k < dm1; k++)
+                    if(ssav[k])
+                        enc_sv |= (1 << combo[k]);
+                
+                // Add \pm1 to the encirclement if the residuals for 'niv' HPS are zero
+                if(zero_resid_count > 0)
+                {
+                    for(int k = 0; k < two_to_zero_resid_count; k++)
+                    {   
+                        int enc_sv_r = enc_sv;
+                        int* ssnav = SSnav + k*zero_resid_count;
+                        for(int l = 0; l < zero_resid_count; l++)
+                            if(ssnav[l])
+                                enc_sv_r |= (1 << zero_resids[l]);
+
+                        if(F[enc_sv_r])
+                        {
+                            F[enc_sv_r] = 0;
+                            // Obtain the partial sign sequence without the sign of Gamma
+                            int enc_psv = enc_sv_r & gamma_mask; //int enc_psv
+                            if(hashtable_find(Btp_hash, &kv_query, enc_psv, Btp_hash_table_size))
+                            {
+                                printf(RED "[Error TP DCE #3]: hashtable find has failed! Debug here!" NC "\n");
+                                exit(1);
+                            }
+                            if(kv_query != NULL)
+                            {
+                                // Add this sign vector since enc_psv is a member of the parent set
+                                kv.key = enc_sv_r;
+                                kv.value = count_Btp_set;
+                                if( hashtable_insert(Btp_hash, &kv, Btp_hash_table_size) )
+                                {
+                                    printf(RED "[Error TP DCE #4]: hashtable insert has failed! Debug here!" NC "\n");
+                                    exit(1);
+                                }
+                                Btp_intermediate[count_Btp_set++] = enc_sv_r;
+                                assert(count_Btp_set <= cells_gen);
+                            }
+                        }
+                    }
+                }
+                // Only process this sign vector if it has not yet been processed
+                else if(F[enc_sv])
+                {
+                    F[enc_sv] = 0;
+                    // Obtain the partial sign sequence without the sign of Gamma
+                    int enc_psv = enc_sv & gamma_mask; //int enc_psv
+                    if(hashtable_find(Btp_hash, &kv_query, enc_psv, Btp_hash_table_size))
+                    {
+                        printf(RED "[Error TP DCE #5]: hashtable find has failed! Debug here!" NC "\n");
+                        exit(1);
+                    }
+                    if(kv_query != NULL)
+                    {
+                        // Add this sign vector since enc_psv is a member of the parent set
+                        kv.key = enc_sv;
+                        kv.value = count_Btp_set;
+                        if( hashtable_insert(Btp_hash, &kv, Btp_hash_table_size) )
+                        {
+                            printf(RED "[Error TP DCE #6]: hashtable insert has failed! Debug here!" NC "\n");
+                            exit(1);
+                        }
+                        Btp_intermediate[count_Btp_set++] = enc_sv;
+                        assert(count_Btp_set <= cells_gen);
+                    }
+                }
+            }
+            if(count_Btp_set == cells_gen)
+                break;
+        }
+        // Begin Check 2.) All sign vectors must have an opposite sign vector
+        memset(F, 1, count_Btp_set);
+        int count_Btp = 0;
+        for(int i = 0; i < count_Btp_set; i++)
+        {
+            if(F[i])
+            {
+                int b = Btp_intermediate[i];
+                int b_rev = b ^ rev_m_mask;
+                if( hashtable_find(Btp_hash, &kv_query, b_rev, Btp_hash_table_size) )
+                {
+                    printf(RED "[Error TP DCE #5]: hashtable find has failed! Debug here!" NC "\n");
+                    exit(1);
+                }
+
+                // If its opposite has been found, add them to Bprop_pred. Mark both in F
+                if(kv_query != NULL)
+                {
+                    F[i] = 0; // dont really need to mark this, I think
+                    F[kv_query->value] = 0;
+                    if(FULL_STORAGE)
+                    {
+                        Btp[count_Btp++] = b;
+                        Btp[count_Btp++] = b_rev;
+                    }
+                    else
+                    {
+                        if(b & two_to_m_minus1)
+                            Btp[count_Btp++] = b_rev;
+                        else 
+                            Btp[count_Btp++] = b;
+                    }
+                }
+            }
+        }
+        cells_parent = count_Btp;
+        assert(count_Btp <= (dce_helper->cell_counts_cen[m] / (1 + HALF_STORAGE)) );
+        count_Gam++;
+        term->cells_gtable = count_Btp;
+    }
 }
 
 #endif

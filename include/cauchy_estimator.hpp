@@ -122,18 +122,21 @@ struct CauchyEstimator
                 gtable_insert = (GTABLE_INSERT_TYPE) g_insert_hashtable;
                 gtable_add = (GTABLE_ADD_TYPE) gs_add_hashtable;
                 gtable_p_find = (GTABLE_P_FIND_TYPE) gp_find_hashtable;
+                gtable_p_get_keys = (GTABLE_P_GET_KEYS_TYPE) gtable_p_get_keys_hashtable;
                 break;
             case GTABLE_BINSEARCH_STORAGE:
                 lookup_g_numerator = (LOOKUP_G_NUMERATOR_TYPE)g_num_binsearch;
                 gtable_insert = (GTABLE_INSERT_TYPE) g_insert_binsearch;
                 gtable_add = (GTABLE_ADD_TYPE) gs_add_binsearch;
                 gtable_p_find = (GTABLE_P_FIND_TYPE) gp_find_binsearch;
+                gtable_p_get_keys = (GTABLE_P_GET_KEYS_TYPE) gtable_p_get_keys_binsearch;
                 break;
             case GTABLE_DENSE_STORAGE:
                 lookup_g_numerator = (LOOKUP_G_NUMERATOR_TYPE)g_num_dense;
                 gtable_insert = (GTABLE_INSERT_TYPE) g_insert_dense;
                 gtable_add = (GTABLE_ADD_TYPE) gs_add_dense;
                 gtable_p_find = NULL;
+                gtable_p_get_keys = NULL;
                 break;
             default:
                 printf("CHOSEN GTABLE/BTABLE METHOD NOT IMPLEMENTED YET! EXITING!\n");
@@ -433,8 +436,11 @@ struct CauchyEstimator
                             else
                             {
                                 gb_tables.set_term_bp_table_pointer( &(parent->enc_B), dce_helper.cell_counts_cen[m_tp] / (1 + HALF_STORAGE), false);
-                                make_time_prop_btable(parent, &dce_helper);
-                                gb_tables.incr_chunked_bp_table_ptr(parent->cells_gtable);        
+                                if(FAST_TP_DCE)
+                                    make_time_prop_btable_fast(parent, &dce_helper);
+                                else
+                                    make_time_prop_btable(parent, &dce_helper);
+                                gb_tables.incr_chunked_bp_table_ptr(parent->cells_gtable);
                             }
                         }
                     }
@@ -521,6 +527,7 @@ struct CauchyEstimator
                         printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
                 print_conditional_mean_variance();
                 stats.print_total_estimator_memory(&gb_tables, &coalign_store, &reduce_store, Nt, true);
+                //stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper.cell_counts_cen);
             }
             // Free unused memory
             if(with_tp && !DENSE_STORAGE)
@@ -967,3 +974,41 @@ struct CauchyEstimator
 };
 
 #endif //_CAUCHY_ESTIMATOR_HPP_
+
+
+ //Compare code for FAST TP DCE vs REG TP DCE
+/*
+    int* tmp_benc_ptr = parent->enc_B;
+    int cells_fast = parent->cells_gtable;
+    int* b_enc2 = (int*) malloc(dce_helper.cell_counts_cen[m_tp] / (1 + HALF_STORAGE) * sizeof(int));
+    parent->enc_B = b_enc2;
+    parent->cells_gtable = 0;
+    make_time_prop_btable(parent, &dce_helper);
+    // Sort both benc arrays 
+    qsort(tmp_benc_ptr, cells_fast, sizeof(int), sort_func_B_enc);
+    qsort(parent->enc_B, parent->cells_gtable, sizeof(int), sort_func_B_enc);
+    // Check the results of both b methods
+    if(cells_fast != parent->cells_gtable)
+    {
+        printf("Shape m=%d, term %i\n", parent->m, i);
+        printf("Btables do not match! Cell counts differ! (fast=%d cells, vs reg=%d)\n", cells_fast, parent->cells_gtable);
+        printf("B from Fast method:\n");
+        print_mat(tmp_benc_ptr, 1, cells_fast);
+        printf("B from Reg method:\n");
+        print_mat(parent->enc_B, 1, parent->cells_gtable);
+        exit(1);
+    }
+    if(is_Bs_different(tmp_benc_ptr, parent->enc_B, cells_fast))
+    {
+        printf("Shape m=%d, term %i\n", parent->m, i);
+        printf("Btables do not match! Counts are same (i.e, %d cells), but have different values!\n", cells_fast);
+        printf("B from Fast method:\n");
+        print_mat(tmp_benc_ptr, 1, cells_fast);
+        printf("B from Reg method:\n");
+        print_mat(parent->enc_B, 1, parent->cells_gtable);
+        exit(1);
+    }
+    parent->enc_B = tmp_benc_ptr;
+    parent->cells_gtable = cells_fast;
+    free(b_enc2);
+*/

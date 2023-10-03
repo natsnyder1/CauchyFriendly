@@ -324,9 +324,23 @@ void gp_find_binsearch(KeyCValue* gtable_p, KeyCValue** kcv_query, int enc_psv, 
     else
         *kcv_query = gtable_p + idx;
 }
-
-
 // -------------- END OF METHODS FOR FINDING PARENT GTABLE VALUE ---------------------- // 
 
+// -------------- METHODS FOR RETRIVING PARENT GTABLE KEYS ----------------------------- // 
+int gtable_p_get_keys_hashtable(KeyCValue* gtable_p, int gtable_p_table_size, int* keys)
+{
+    int key_count = 0;
+    for(int i = 0; i < gtable_p_table_size; i++)
+        if(gtable_p[i].key != kEmpty)
+            keys[key_count++] = gtable_p[i].key;
+    return key_count;
+}       
+int gtable_p_get_keys_binsearch(KeyCValue* gtable_p, int gtable_p_table_size, int* keys)
+{
+    int key_count = 0;
+    for(int i = 0; i < gtable_p_table_size; i++)
+        keys[key_count++] = gtable_p[i].key;
+    return key_count;
+}       
 
 #endif //_EVAL_GS_HPP_

@@ -22,6 +22,7 @@
 #define FULL_STORAGE false
 // Sets whether to keep the B tables in memory, or simply temporary memory 
 // This has no effect for both the dense gtable method and the binsearch method
+// (This has not been implemented yet. Savings of at most 16% memory)
 #define KEEP_BTABLES false
 // Helper declarations that are automatically set
 #define HALF_STORAGE (!FULL_STORAGE)
@@ -67,7 +68,8 @@ typedef void (*GTABLE_ADD_TYPE)(int enc_bi, int enc_bj, GTABLE gtable_i, GTABLE 
 GTABLE_ADD_TYPE gtable_add;
 typedef void (*GTABLE_P_FIND_TYPE)(GTABLE gtable_p, KeyCValue** kv, uint32_t key, uint32_t gtable_size, int cells_parent);
 GTABLE_P_FIND_TYPE gtable_p_find;
-
+typedef int (*GTABLE_P_GET_KEYS_TYPE)(GTABLE gtable_p, int gtable_p_table_size, int* keys);
+GTABLE_P_GET_KEYS_TYPE gtable_p_get_keys;
 
 // NULL Pointer checker
 void null_ptr_check(void* ptr)

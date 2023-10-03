@@ -85,7 +85,7 @@ void test_cauchy_3_state_moshe_3msmts()
                     0, 0, 1.0};
   double p0[n] = {0.1, 0.08, 0.05};
   double b0[n] = {0, 0, 0};
-  const int steps = 5;
+  const int steps = 4;
   bool print_basic_info = true;
   CauchyEstimator cauchyEst(A0, p0, b0, steps, n, cmcc, p, print_basic_info);
   // zs for reg conditions
@@ -103,8 +103,8 @@ void test_cauchy_3_state_moshe_3msmts()
     {0.10943250903225685, 0.32131358116921616, -0.39352816664526724, 
     0.76258687662854907, -0.25344840215960657, 0.1578820974338809, 
     0.52543601367678883, -0.67309502187832315, -0.37267005411252474, 
-    2.7335350536863903, -0.3754139600950176, 0.6986657326616188, 
-    0.52558307773279223, 0.82802377147093642, 0.98211422248186553};
+    2.7335350536863903, -0.3754139600950176, 0.6986657326616188}; 
+    //0.52558307773279223, 0.82802377147093642, 0.98211422248186553};
   //*/
   // Runs estimator step by step
   for(int j = 0; j < 1; j++)
@@ -209,9 +209,9 @@ int main()
     printf("Size of Cauchy Term is %lu\n", sizeof(CauchyTerm));
     printf("Size of Cauchy Estimator is %lu\n", sizeof(CauchyEstimator));
     test_cauchy_3_state_moshe();
-    //test_cauchy_4_state_moshe();
-    //test_cauchy_3_state_moshe_3msmts();
-    //test_cauchy_5_state_moshe();
-    //test_cauchy_four_state_two_pnoise();
+    test_cauchy_4_state_moshe();
+    test_cauchy_3_state_moshe_3msmts();
+    test_cauchy_5_state_moshe();
+    test_cauchy_four_state_two_pnoise();
     return 0;
 }
