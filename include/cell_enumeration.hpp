@@ -7,7 +7,6 @@
 #include "gtable.hpp"
 #include "random_variables.hpp"
 #include <algorithm>
-#include <cstring>
 
 BYTE_COUNT_TYPE binomialCoeff(int n, int k)
 {
@@ -306,7 +305,6 @@ struct DiffCellEnumHelper
     int storage_multiplier;
 
     // Variables for TP DCE
-    int cmcc;
     int** combos;
     int* combo_counts;
     int** anti_combos;
@@ -323,7 +321,7 @@ struct DiffCellEnumHelper
 
     bool* F; // used for masking in both TP and MU sections
 
-    void init(int _max_shape, int _d, int _storage_multiplier, int _cmcc)
+    void init(int _max_shape, int _d, int _storage_multiplier)
     {   
         if(_max_shape > 28)
             printf(YEL "[WARNING DCE HELPER:] F is a mask defined as 2^max_shape for speed during lookups (to avoid a hashtable).\n" 
@@ -331,7 +329,6 @@ struct DiffCellEnumHelper
 
         max_shape = _max_shape;
         d = _d;
-        cmcc = _cmcc;
         // These storage places are used in both MU and TP 
         // TP requires at most cells_gen[m_max], so they are initialized to maximum size
         storage_multiplier = _storage_multiplier;
@@ -361,56 +358,59 @@ struct DiffCellEnumHelper
 
     void make_tp_dce_helpers()
     {
-        init_encoded_sign_sequences_around_vertex();
         int shape_range = max_shape + 1;
-        combos = (int**) malloc(shape_range * sizeof(int*));
-        null_dptr_check((void**)combos);
-        anti_combos = (int**) malloc(shape_range * sizeof(int*));
-        null_dptr_check((void**)anti_combos);
-        combo_counts = (int*) malloc(shape_range * sizeof(int));
-        null_ptr_check(combo_counts);
-        
-        // Helpers for regular TP DCE
-        // TP DCE method is not used when the count of HPs are less than d
-        for(int i = 0; i <= d; i++)
+        init_encoded_sign_sequences_around_vertex();
+        if(!FAST_TP_DCE)
         {
-            combos[i] = (int*) malloc(0);
-            anti_combos[i] = (int*) malloc(0);
-            combo_counts[i] = 0;
+            combos = (int**) malloc(shape_range * sizeof(int*));
+            null_dptr_check((void**)combos);
+            anti_combos = (int**) malloc(shape_range * sizeof(int*));
+            null_dptr_check((void**)anti_combos);
+            combo_counts = (int*) malloc(shape_range * sizeof(int));
+            null_ptr_check(combo_counts);
+            
+            // Helpers for regular TP DCE
+            // TP DCE method is not used when the count of HPs are less than d
+            for(int i = 0; i <= d; i++)
+            {
+                combos[i] = (int*) malloc(0);
+                anti_combos[i] = (int*) malloc(0);
+                combo_counts[i] = 0;
+            }
+            for(int m = d+1; m < shape_range; m++)
+            {
+                combos[m] = combinations(m, d);
+                combo_counts[m] = nchoosek(m,d);
+                anti_combos[m] = init_anti_combos(combos[m], combo_counts[m], m, d);
+            }
+            // Define perturbations for Gamma HP and other HPS
+            b_pert = (double*) malloc( max_shape * sizeof(double));
+            null_ptr_check(b_pert);
+            for(int i = 0; i < max_shape; i++)
+                b_pert[i] = 2*random_uniform() - 1;
         }
-        for(int m = d+1; m < shape_range; m++)
+        else 
         {
-            combos[m] = combinations(m, d);
-            combo_counts[m] = nchoosek(m,d);
-            anti_combos[m] = init_anti_combos(combos[m], combo_counts[m], m, d);
+            init_encoded_sign_sequences_not_around_vertex();
+            combos_fast = (int**) malloc(shape_range * sizeof(int*));
+            null_dptr_check((void**)combos_fast);
+            anti_combos_fast = (int**) malloc(shape_range * sizeof(int*));
+            null_dptr_check((void**)anti_combos_fast);
+            combo_counts_fast = (int*) malloc(shape_range * sizeof(int));
+            null_ptr_check(combo_counts_fast);
+            for(int i = 0; i < d; i++)
+            {
+                combos_fast[i] = (int*) malloc(0);
+                anti_combos_fast[i] = (int*) malloc(0);
+                combo_counts_fast[i] = 0;
+            }
+            for(int m = d; m < shape_range; m++)
+            {
+                combos_fast[m] = combinations(m, d-1);
+                combo_counts_fast[m] = nchoosek(m,d-1);
+                anti_combos_fast[m] = init_anti_combos(combos_fast[m], combo_counts_fast[m], m, d-1);
+            }
         }
-
-        init_encoded_sign_sequences_not_around_vertex();
-        combos_fast = (int**) malloc(shape_range * sizeof(int*));
-        null_dptr_check((void**)combos_fast);
-        anti_combos_fast = (int**) malloc(shape_range * sizeof(int*));
-        null_dptr_check((void**)anti_combos_fast);
-        combo_counts_fast = (int*) malloc(shape_range * sizeof(int));
-        null_ptr_check(combo_counts_fast);
-        for(int i = 0; i < d; i++)
-        {
-            combos_fast[i] = (int*) malloc(0);
-            anti_combos_fast[i] = (int*) malloc(0);
-            combo_counts_fast[i] = 0;
-        }
-        for(int m = d; m < shape_range; m++)
-        {
-            combos_fast[m] = combinations(m, d-1);
-            combo_counts_fast[m] = nchoosek(m,d-1);
-            anti_combos_fast[m] = init_anti_combos(combos_fast[m], combo_counts_fast[m], m, d-1);
-        }
-
-        // Define perturbations for Gamma HP and other HPS
-        b_pert = (double*) malloc( max_shape * sizeof(double));
-        null_ptr_check(b_pert);
-        for(int i = 0; i < max_shape; i++)
-            b_pert[i] = 2*random_uniform() - 1;
-        
     }
 
     // Returns encoded sign sequences for encircling a vertex, with -1 encoded as 1 and 1 encoded as 0
@@ -523,28 +523,36 @@ struct DiffCellEnumHelper
 
         free(cell_counts_gen);
         free(F);
+        free(SSav);
 
         // De-init TP helpers
-        free(SSav);
         int shape_range = max_shape + 1;
-        for(int m = 0; m < shape_range; m++)
+        if(!FAST_TP_DCE)
         {
-            free(combos[m]);
-            free(anti_combos[m]);
-            free(combos_fast[m]);
-            free(anti_combos_fast[m]);
+            for(int m = 0; m < shape_range; m++)
+            {
+                free(combos[m]);
+                free(anti_combos[m]);
+            }
+            free(combos);
+            free(anti_combos);
+            free(combo_counts);
+            free(b_pert);
         }
-        free(combos);
-        free(anti_combos);
-        free(combo_counts);
-        free(combos_fast);
-        free(anti_combos_fast);
-        free(combo_counts_fast);
-
-        free(b_pert);
-        for(int m = 0; m < shape_range-d; m++)
-            free(SSnav[m]);
-        free(SSnav);
+        else 
+        {
+            for(int m = 0; m < shape_range; m++)
+            {
+                free(combos_fast[m]);
+                free(anti_combos_fast[m]);
+            }
+            free(combos_fast);
+            free(anti_combos_fast);
+            free(combo_counts_fast);
+            for(int m = 0; m < shape_range-d; m++)
+                free(SSnav[m]);
+            free(SSnav);
+        }
     }
 
 };

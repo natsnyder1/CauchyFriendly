@@ -619,6 +619,15 @@ void add_vecs(double* x, const double* y, const int n, double scale = 1.0)
     for(int i = 0; i < n; i++)
         x[i] += scale*y[i];
 }
+
+// x += scale*y
+void add_vecs(C_COMPLEX_TYPE* x, const C_COMPLEX_TYPE* y, const int n)
+{
+    for(int i = 0; i < n; i++)
+        x[i] += y[i];
+}
+
+
 // z = x - y
 void sub_vecs(const double* x, const double* y, double* z, const int n)
 {

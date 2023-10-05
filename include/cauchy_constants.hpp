@@ -24,7 +24,7 @@ const uint8_t COALIGN_MAP_NOVAL = 255;
 const bool WITH_COALIGN_REALLOC = true;
 
 // Chunked Packed Storage Settings
-const unsigned long long CP_STORAGE_PAGE_SIZE = 25 * 1024 * 1024; // Should be around 50 MB or larger (can be like 250MB or 1G too)
+const unsigned long long CP_STORAGE_PAGE_SIZE = 5 * 1024 * 1024; // Should be around 50 MB or larger (can be like 250MB or 1G too)
 const int CP_STORAGE_ALLOC_METHOD = 0; // 0: malloc, 1: calloc 2: page touching (after a malloc)
 
 // Gtable-Settings
@@ -50,6 +50,11 @@ const double REDUCTION_EPS = 1e-8; // 1e-8
 const bool WITH_FTR_P_CHECK = true;
 const bool WITH_FTR_HPA_CHECK = true;
 int TR_SEARCH_IDXS_ORDERING[12] = {0,1,2,3,4,5,6,7,8,9,10,11};
+
+// Distributed Computation Settings
+const int NUM_CPUS = 8;
+const int MIN_TERMS_PER_THREAD_TP_TO_MUC = 200;
+
 
 // Log Error Warnings and Colors
 #define RED "\e[0;31m"

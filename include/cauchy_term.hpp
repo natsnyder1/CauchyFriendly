@@ -664,6 +664,20 @@ struct CauchyTerm
         gtable = NULL;
         is_new_child = false;
     }
+
+    // Helper function to set all pointers to NULL
+    void become_null()
+    {
+        A = NULL;
+        p = NULL;
+        q = NULL;
+        b = NULL;
+        gtable_p = NULL;
+        enc_B = NULL;
+        gtable = NULL;
+        c_map = NULL;
+        cs_map = NULL;
+    }
 };
 
 void setup_first_term(ChildTermWorkSpace* workspace, CauchyTerm* first_term, double* A0, double* p0, double* b0, const int d)

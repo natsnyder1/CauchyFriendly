@@ -1020,6 +1020,20 @@ struct CoalignmentElemStorage
 		return bytes_total;
 	}
 
+	BYTE_COUNT_TYPE get_total_byte_count(BYTE_COUNT_TYPE* As_bytes, BYTE_COUNT_TYPE* ps_bytes, BYTE_COUNT_TYPE* bs_bytes, BYTE_COUNT_TYPE* c_maps_bytes)
+	{
+		BYTE_COUNT_TYPE a_bytes = chunked_As.get_total_byte_count();
+		BYTE_COUNT_TYPE p_bytes = chunked_ps.get_total_byte_count();
+		BYTE_COUNT_TYPE b_bytes = chunked_bs.get_total_byte_count();
+		BYTE_COUNT_TYPE cm_bytes = chunked_c_maps.get_total_byte_count();
+		*As_bytes += a_bytes;
+		*ps_bytes += p_bytes;
+		*bs_bytes += b_bytes;
+		*c_maps_bytes += cm_bytes;
+		return a_bytes + 2*p_bytes + b_bytes + 2*cm_bytes;
+	}
+
+
 	void deinit()
 	{
 		chunked_As.deinit();
@@ -1090,6 +1104,17 @@ struct ReductionElemStorage
 		return bytes_total;
 	}
 
+	BYTE_COUNT_TYPE get_total_byte_count(BYTE_COUNT_TYPE* As_bytes, BYTE_COUNT_TYPE* ps_bytes, BYTE_COUNT_TYPE* bs_bytes)
+	{
+		BYTE_COUNT_TYPE a_bytes = chunked_As.get_total_byte_count();
+		BYTE_COUNT_TYPE p_bytes = chunked_ps.get_total_byte_count();
+		BYTE_COUNT_TYPE b_bytes = chunked_bs.get_total_byte_count();
+		*As_bytes += a_bytes;
+		*ps_bytes += p_bytes;
+		*bs_bytes += b_bytes;
+		return a_bytes + p_bytes + b_bytes;
+	}
+
 	void deinit()
 	{
 		chunked_As.deinit();
@@ -1103,33 +1128,46 @@ struct ReductionElemStorage
 struct CauchyStats
 {
 
-	BYTE_COUNT_TYPE get_table_memory_usage(ChunkedPackedTableStorage* gb_tables, bool with_print)
+	BYTE_COUNT_TYPE get_table_memory_usage(ChunkedPackedTableStorage* gb_tables, int max_threads, bool with_print)
 	{
-		uint* current_page_idxs = gb_tables->current_page_idxs;
-		BYTE_COUNT_TYPE** used_elems_per_page = gb_tables->used_elems_per_page;
-		BYTE_COUNT_TYPE page_size_bytes = gb_tables->page_size_bytes;
-		uint* page_limits = gb_tables->page_limits;
-		printf("-Gtables, Gtable_ps, Btables, Btable_ps Memory Usage Breakdown:\n");
-		double gtables_bytes = 0;
-		double gtable_ps_bytes = 0;
-		double btables_bytes = 0;
-		double btable_ps_bytes = 0;
-		for(uint i = 0; i <= current_page_idxs[0]; i++)
-			gtables_bytes += used_elems_per_page[0][i] * sizeof(GTABLE_TYPE);
-		for(uint i = 0; i <= current_page_idxs[1]; i++)
-			gtable_ps_bytes += used_elems_per_page[1][i] * sizeof(GTABLE_TYPE);
-		for(uint i = 0; i <= current_page_idxs[2]; i++)
-			btables_bytes += used_elems_per_page[2][i] * sizeof(BKEYS_TYPE);
-		for(uint i = 0; i <= current_page_idxs[3]; i++)
-			btable_ps_bytes += used_elems_per_page[3][i] * sizeof(BKEYS_TYPE);
-		BYTE_COUNT_TYPE page_size_mbs = page_size_bytes / (1024*1024);
+
+		BYTE_COUNT_TYPE gtables_bytes = 0;
+		BYTE_COUNT_TYPE gtable_ps_bytes = 0;
+		BYTE_COUNT_TYPE btables_bytes = 0;
+		BYTE_COUNT_TYPE btable_ps_bytes = 0;
+		BYTE_COUNT_TYPE page_size_mbs = gb_tables[0].page_size_bytes / (1024*1024);
+
+		uint num_gtable_pages = 0;
+		uint num_gtable_p_pages = 0;
+		uint num_btable_pages = 0;
+		uint num_btable_p_pages = 0;
+
+		for(int tid = 0; tid < max_threads; tid++)
+		{
+			uint* current_page_idxs = gb_tables[tid].current_page_idxs;
+			BYTE_COUNT_TYPE** used_elems_per_page = gb_tables[tid].used_elems_per_page;
+			for(uint i = 0; i <= current_page_idxs[0]; i++)
+				gtables_bytes += used_elems_per_page[0][i] * sizeof(GTABLE_TYPE);
+			for(uint i = 0; i <= current_page_idxs[1]; i++)
+				gtable_ps_bytes += used_elems_per_page[1][i] * sizeof(GTABLE_TYPE);
+			for(uint i = 0; i <= current_page_idxs[2]; i++)
+				btables_bytes += used_elems_per_page[2][i] * sizeof(BKEYS_TYPE);
+			for(uint i = 0; i <= current_page_idxs[3]; i++)
+				btable_ps_bytes += used_elems_per_page[3][i] * sizeof(BKEYS_TYPE);		
+			uint* page_limits = gb_tables[tid].page_limits;
+			num_gtable_pages += page_limits[0];
+			num_gtable_p_pages += page_limits[1];
+			num_btable_pages += page_limits[2];
+			num_btable_p_pages += page_limits[3];
+		}
 		if(with_print)
 		{
-			printf("  Gtables use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[0], page_size_mbs, gtables_bytes / (1024*1024));
-			printf("  Gtable_ps use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[1], page_size_mbs, gtable_ps_bytes / (1024*1024));
-			printf("  Btables use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[2], page_size_mbs, btables_bytes / (1024*1024));
-			printf("  Btable_ps use: %d x %llu MBs/page. In Use: %.3lf MBs\n", page_limits[3], page_size_mbs, btable_ps_bytes / (1024*1024));
-			printf("  *Total Table Memory: %.3lf MBs ---\n", (gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes) / (1024*1024));
+			printf("-Gtables, Gtable_ps, Btables, Btable_ps Memory Usage Breakdown:\n");
+			printf("  Gtables use: %d x %llu MBs/page. In Use: %.3lf MBs\n", num_gtable_pages, page_size_mbs, ((double)gtables_bytes) / (1024*1024));
+			printf("  Gtable_ps use: %d x %llu MBs/page. In Use: %.3lf MBs\n", num_gtable_p_pages, page_size_mbs, ((double)gtable_ps_bytes) / (1024*1024));
+			printf("  Btables use: %d x %llu MBs/page. In Use: %.3lf MBs\n", num_btable_pages, page_size_mbs, ((double)btables_bytes) / (1024*1024));
+			printf("  Btable_ps use: %d x %llu MBs/page. In Use: %.3lf MBs\n", num_btable_p_pages, page_size_mbs, ((double)btable_ps_bytes) / (1024*1024));
+			printf("  *Total Table Memory: %.3lf MBs ---\n", ((double)(gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes)) / (1024*1024));
 		}
 		return gtables_bytes + gtable_ps_bytes + btables_bytes + btable_ps_bytes;
 	}
@@ -1219,27 +1257,66 @@ struct CauchyStats
 			free(table_counts[i]);
 	}
 
+	BYTE_COUNT_TYPE print_coalign_storage_memory(CoalignmentElemStorage* coalign_storage, const int num_threads_tp_to_muc)
+	{
+		BYTE_COUNT_TYPE coalign_store_bytes = 0;
+		BYTE_COUNT_TYPE coalign_store_As_bytes = 0;
+		BYTE_COUNT_TYPE coalign_store_ps_bytes = 0;
+		BYTE_COUNT_TYPE coalign_store_bs_bytes = 0;
+		BYTE_COUNT_TYPE coalign_store_c_maps_bytes = 0;
+		for(int i = 0; i < num_threads_tp_to_muc; i++)
+			coalign_store_bytes += coalign_storage[i].get_total_byte_count(&coalign_store_As_bytes, &coalign_store_ps_bytes, &coalign_store_bs_bytes, &coalign_store_c_maps_bytes);
+		printf("-Coalign Element Storage: Memory Usage Breakdown: (threaded %d)\n", num_threads_tp_to_muc);
+		printf("  As use: %.3lf MBs\n", ((double)coalign_store_As_bytes) / (1024*1024) );
+		printf("  ps/qs each use: %.3lf MBs\n", ((double)coalign_store_ps_bytes) / (1024*1024) );
+		printf("  bs use: %.3lf MBs\n", ((double)coalign_store_bs_bytes) / (1024*1024) );
+		printf("  c_maps/cs_maps each use: %.3lf MBs\n", ((double)coalign_store_c_maps_bytes) / (1024*1024) );
+		printf("  *Total: %.3lf MBs\n", ((double)coalign_store_bytes) / (1024*1024));
+		return coalign_store_bytes;
+	}
+
+	BYTE_COUNT_TYPE print_reduce_storage_memory(ReductionElemStorage* reduce_storage, const int num_threads_ftr_gtables)
+	{
+		BYTE_COUNT_TYPE reduce_store_bytes = 0;
+		BYTE_COUNT_TYPE reduce_store_As_bytes = 0;
+		BYTE_COUNT_TYPE reduce_store_ps_bytes = 0;
+		BYTE_COUNT_TYPE reduce_store_bs_bytes = 0;
+
+		for(int i = 0; i < num_threads_ftr_gtables; i++)
+			reduce_store_bytes += reduce_storage[i].get_total_byte_count(&reduce_store_As_bytes, &reduce_store_ps_bytes, &reduce_store_bs_bytes);
+		printf("-Reduction Element Storage: Memory Usage Breakdown: (threaded %d)\n", num_threads_ftr_gtables);
+		printf("  As use: %.3lf MBs\n", ((double)reduce_store_As_bytes) / (1024*1024) );
+		printf("  ps use: %.3lf MBs\n", ((double)reduce_store_ps_bytes) / (1024*1024) );
+		printf("  bs use: %.3lf MBs\n", ((double)reduce_store_bs_bytes) / (1024*1024) );
+		printf("  *Total: %.3lf MBs\n", ((double)reduce_store_bytes) / (1024*1024));
+		return reduce_store_bytes;
+	}
+
 	void print_total_estimator_memory(ChunkedPackedTableStorage* gb_tables, 
 		CoalignmentElemStorage* coalign_storage,
 		ReductionElemStorage* reduce_storage,
 		const BYTE_COUNT_TYPE Nt, 
-		bool before_ftr)
+		bool before_ftr, 
+		const int num_threads_tp_to_muc,
+		const int num_threads_ftr_gtables)
 	{
 		BYTE_COUNT_TYPE coalign_store_bytes;
 		BYTE_COUNT_TYPE reduce_store_bytes;
 		if(before_ftr)
 		{
-			printf("<------------------------------ TP to MUC CF Memory Breakdown ----------------------------->\n");
-			reduce_store_bytes = reduce_storage->get_total_byte_count(true);
-			coalign_store_bytes = coalign_storage->get_total_byte_count(true);
+			printf("<------------------------------ TP to MUC CF Memory Breakdown ----------------------------->\n");		
+			reduce_store_bytes = print_reduce_storage_memory(reduce_storage, num_threads_ftr_gtables);		
+			coalign_store_bytes = print_coalign_storage_memory(coalign_storage, num_threads_tp_to_muc);
 		}
 		else
 		{
 			printf("<----------------------------- FTR/Gtable CF Memory Breakdown ----------------------------->\n");
-			coalign_store_bytes = coalign_storage->get_total_byte_count(true);
-			reduce_store_bytes = reduce_storage->get_total_byte_count(true);
+			coalign_store_bytes = print_coalign_storage_memory(coalign_storage, num_threads_tp_to_muc);
+			reduce_store_bytes = print_reduce_storage_memory(reduce_storage, num_threads_ftr_gtables);		
 		}
-		BYTE_COUNT_TYPE tables_mem = get_table_memory_usage(gb_tables, true);
+
+		int max_threads = num_threads_ftr_gtables > num_threads_tp_to_muc ? num_threads_ftr_gtables : num_threads_tp_to_muc;
+		BYTE_COUNT_TYPE tables_mem = get_table_memory_usage(gb_tables, max_threads, true);
 		BYTE_COUNT_TYPE term_mem_usage = Nt * sizeof(CauchyTerm);
 		printf("*Term Structure Memory Usage: %.3lf MBs\n", ((double)term_mem_usage) / (1024*1024));
 		printf("*Peak CF Memory Usage: %.3lf MBs\n", ((double)(coalign_store_bytes + reduce_store_bytes + tables_mem +  term_mem_usage)) / (1024*1024) );
