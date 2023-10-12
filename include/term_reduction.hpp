@@ -275,145 +275,13 @@ void fast_term_reduction(
     free(candidate_list);
 }
 
-// Helper Elements for Fast Incremental Enumeration and Fast Term Reduction
-struct FastTermRedHelper
-{
-  int max_num_terms;
-  int d;
-  // Term reduction helpers
-  int* F;
-  int* F_TR;
-  // Fast term reduction helpers
-  double** ordered_points;
-  int** forward_map;
-  int** backward_map;
-
-  void init(int _d, int _max_num_terms)
-  {
-    max_num_terms = _max_num_terms;
-    d = _d;
-    F = (int*) malloc( max_num_terms * sizeof(int));
-    null_ptr_check(F);
-    for(int i = 0; i < max_num_terms; i++)
-      F[i] = i;
-    // Term reduction flags
-    F_TR = (int*)malloc(max_num_terms * sizeof(int));
-    null_ptr_check(F_TR);
-    init_ordered_point_maps();
-    assert_TR_search_index_pattern();
-  }
-
-  void realloc_helpers(int _max_num_terms)
-  {
-    F = (int*) realloc(F, _max_num_terms * sizeof(int));
-    null_ptr_check(F);
-    if(_max_num_terms > max_num_terms)
-      for(int i = max_num_terms; i < _max_num_terms; i++)
-        F[i] = i;
-    max_num_terms = _max_num_terms;
-    // Allocate memory for the helper element arrays
-    F_TR = (int*) realloc(F_TR, max_num_terms * sizeof(int));
-    null_ptr_check(F_TR);
-    realloc_ordered_point_maps();
-    assert_TR_search_index_pattern();
-  }
-
-  void assert_TR_search_index_pattern()
-  {
-    // Make absolutely sure search index pattern is set correctly
-    bool F_sip[d];
-    memset(F_sip, 0, d*sizeof(bool));
-    for(int i = 0; i < d; i++)
-    {
-      if(TR_SEARCH_IDXS_ORDERING[i] >= d)
-      {
-        printf(RED "[ERROR FastTermRedHelper initialization:]\n"
-                   "  TR_SEARCH_IDXS_ORDERING in cauchy_type.hpp not set correctly for d=%d states!\n"
-                   "  Please modify this array to have unique integers [0,...,%d] in a specified order\n"
-                   "  Exiting! Please Fix!\n"
-               NC  "\n", d, d-1);
-        exit(1);
-      }
-      else
-        F_sip[TR_SEARCH_IDXS_ORDERING[i]] = 1;
-    }
-    for(int i = 0; i < d; i++)
-    {
-      if(F_sip[i] == 0)
-      {
-        // indices not set correctly
-        printf(RED "[ERROR FastTermRedHelper initialization:]\n"
-                   "  TR_SEARCH_IDXS_ORDERING in cauchy_type.hpp not set correctly for d=%d states!\n"
-                   "  Please modify this array to have unique integers [0,...,%d] in a specified order\n"
-                   "  Exiting! Please Fix!\n"
-               NC  "\n", d, d-1);
-        exit(1);
-      }
-    }
-  }
-
-  void init_ordered_point_maps()
-  {
-      int n = max_num_terms;
-      ordered_points = (double**) malloc(d * sizeof(double*));
-      null_dptr_check((void**)ordered_points);
-      forward_map = (int**) malloc(d * sizeof(int*));
-      null_dptr_check((void**)forward_map);
-      backward_map = (int**) malloc(d * sizeof(int*));
-      null_dptr_check((void**)backward_map);
-      for(int i = 0; i < d; i++)
-      {
-          ordered_points[i] = (double*) malloc(n * sizeof(double));
-          null_ptr_check(ordered_points[i]);
-          forward_map[i] = (int*) malloc(n * sizeof(int));
-          null_ptr_check(forward_map[i]);
-          backward_map[i] = (int*) malloc(n * sizeof(int));
-          null_ptr_check(backward_map[i]);
-      }
-  }
-
-  void realloc_ordered_point_maps()
-  {
-      int n = max_num_terms;
-      for(int i = 0; i < d; i++)
-      {
-        ordered_points[i] = (double*) realloc(ordered_points[i], n * sizeof(double));
-        null_ptr_check(ordered_points[i]);
-        forward_map[i] = (int*) realloc(forward_map[i], n * sizeof(int));
-        null_ptr_check(forward_map[i]);
-        backward_map[i] = (int*) realloc(backward_map[i], n * sizeof(int));
-        null_ptr_check(backward_map[i]);
-      }
-  }
-
-  void dealloc_ordered_point_maps()
-  {
-      for(int i = 0; i < d; i++)
-      {
-          free(ordered_points[i]);
-          free(forward_map[i]);
-          free(backward_map[i]);
-      }
-      free(ordered_points);
-      free(forward_map);
-      free(backward_map);
-  }
-
-  void deinit()
-  {
-    free(F);
-    free(F_TR);
-    dealloc_ordered_point_maps();
-  }
-};
-
-
 // ----- End Fast Term Reduction Method ----- //
 
 
 // ----- Begin Threaded Fast Term Reduction Method ----- //
 
 /*
+// Tim sort functions
 #define MIN_MERGE 32
 // Function to merge two sorted subarrays of PointMap
 void merge(PointMap* arr, int left, int mid, int right) {
@@ -503,7 +371,7 @@ void timSort(PointMap* arr, int n)
 }
 */
 
-/*
+
 struct threadsort_struct
 {
     PointMap* point_map;
@@ -614,12 +482,11 @@ void threaded_pointmap_sort(PointMap* point_map_data, const int n, const int num
 
 struct bopm_struct
 {
-    double* points;
+    CauchyTerm* terms;
     double* op;
     int* fm;
     int* bm;
     int n;
-    int d;
     int i;
     int num_threads;
 };
@@ -627,12 +494,11 @@ struct bopm_struct
 void* threaded_bopm(void* args)
 {
     bopm_struct* bopm = (bopm_struct*) args;
-    double* points = bopm->points;
+    CauchyTerm* terms = bopm->terms;
     double* op = bopm->op;
     int* fm = bopm->fm;
     int* bm = bopm->bm;
     int n = bopm->n;
-    int d = bopm->d;
     int i = bopm->i;
     int num_threads = bopm->num_threads;
     PointMap* pm = (PointMap*) malloc(n * sizeof(PointMap));
@@ -641,7 +507,7 @@ void* threaded_bopm(void* args)
     // Construct PointMap for the j-th axis
     for(int j = 0; j < n; j++)
     {
-        pm[j].p = points[j*d + i];
+        pm[j].p = terms[j].b[i];//points[j*d + i];
         pm[j].pi = j;
     }
 
@@ -657,7 +523,7 @@ void* threaded_bopm(void* args)
     return NULL;
 }
 
-void threaded_build_ordered_point_maps(double* points, 
+void threaded_build_ordered_point_maps(CauchyTerm* terms, 
   double** ordered_points, int** forward_map, 
   int** backward_map, const int n, const int d, const int num_threads)
 {
@@ -665,12 +531,11 @@ void threaded_build_ordered_point_maps(double* points,
     bopm_struct bopm[d];
     for(int i = 0; i < d; i++)
     {
-        bopm[i].points = points;
+        bopm[i].terms = terms;
         bopm[i].op = ordered_points[i];
         bopm[i].fm = forward_map[i];
         bopm[i].bm = backward_map[i];
         bopm[i].n = n;
-        bopm[i].d = d;
         bopm[i].i = i;
         bopm[i].num_threads = num_threads;
         pthread_create(&tids[i], NULL, threaded_bopm, &bopm[i]);   
@@ -679,11 +544,11 @@ void threaded_build_ordered_point_maps(double* points,
         pthread_join(tids[i], NULL);
 }
 
+
+
 struct ftr_struct
 {
-  double* bs;
-  C_COMPLEX_TYPE* yeis;
-  double* As;
+  CauchyTerm* terms;
   int* F;
   double** ordered_bs;
   int** forward_map;
@@ -700,9 +565,7 @@ void* threaded_fast_term_reduction_callback(void* args)
 {
     ftr_struct* ftr_args = (ftr_struct*) args;
     fast_term_reduction(
-        ftr_args->bs, 
-        ftr_args->yeis,
-        ftr_args->As,
+        ftr_args->terms,
         ftr_args->F, 
         ftr_args->ordered_bs, 
         ftr_args->forward_map, 
@@ -775,9 +638,8 @@ void merge_flag_arrays(ftr_struct* ftr_args, const int num_threads)
     }
 }
 
-void threaded_fast_term_reduction(double* bs, 
-  C_COMPLEX_TYPE* yeis,
-  double* As,
+void threaded_fast_term_reduction(
+  CauchyTerm* terms,
   int* F, 
   double** ordered_bs, 
   int** forward_map, 
@@ -792,9 +654,7 @@ void threaded_fast_term_reduction(double* bs,
     // Divide fast term reduction into several chunks
     for(int i = 0; i < num_threads; i++)
     {
-        ftr_args[i].bs = bs;
-        ftr_args[i].yeis = yeis;
-        ftr_args[i].As = As;
+        ftr_args[i].terms = terms;
         Fs[i] = (int*) malloc(n * sizeof(int));
         memcpy(Fs[i] + i*chunk_size, F + i*chunk_size, (n - i*chunk_size) * sizeof(int));
         //memcpy(Fs[i], F, n * sizeof(int));
@@ -822,8 +682,6 @@ void threaded_fast_term_reduction(double* bs,
     free(Fs);
 }
 
-
-*/
 // ----- End Threaded Fast Term Reduction Method ----- //
 
 #endif // _TERM_REDUCTION_HPP_

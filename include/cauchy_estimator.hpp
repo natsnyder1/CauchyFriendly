@@ -37,7 +37,7 @@ struct DIST_TP_TO_MUC_STRUCT
     double* H;
     double* processed_Gamma;
     double* processed_beta;
-    int processed_cmcc;
+    int processed_pncc;
     double msmt;
     double gamma;
     int tid;
@@ -47,11 +47,10 @@ struct DIST_TP_TO_MUC_STRUCT
 struct CauchyEstimator
 {
     int d; // state dimension
-    int cmcc; // control matrix column count (columns of Gamma)
+    int pncc; // process noise column count (columns of Gamma)
     int p; // number of measurements processed per step
     int Nt; // total number of terms
-    int num_estimation_steps;
-    int current_estimation_step;
+    int num_estimation_steps; // total number of estimation steps this estimator (window) will conduct
     int master_step; // when multiple measurements are in play, this keep track of the number of times msmt_update is called (child generation)
     CauchyTerm** terms_dp; // terms of the cauchy estimator, organized by shape
     double* A0_init;
@@ -63,32 +62,37 @@ struct CauchyEstimator
     int shape_range;
     int* B_dense;
     double* root_point;
+    double G_SCALE_FACTOR;
     C_COMPLEX_TYPE* conditional_mean;
     C_COMPLEX_TYPE* conditional_variance;
     C_COMPLEX_TYPE fz;
-    double G_SCALE_FACTOR;
     FastTermRedHelper ftr_helper; // Fast term reduction
     DiffCellEnumHelper* dce_helper; // DCE method
-    ChunkedPackedTableStorage* gb_tables; // g and b-tables
-    CoalignmentElemStorage* coalign_store;
-    ReductionElemStorage reduce_store;
-    ChildTermWorkSpace childterms_workspace;
+    ChildTermWorkSpace childterms_workspace; // Used to store the terms temporarily during TP/TPC/MU/MUC
+    CoalignmentElemStorage* coalign_store; // Memory manager for storing terms after MUC
+    ReductionElemStorage* reduce_store; // Memory manager for storing terms after term reduction
+    ChunkedPackedTableStorage* gb_tables; // Memory manager for storing g and b-tables
     CauchyStats stats; // Used to Gather Memory Stats
     bool print_basic_info;
     bool skip_post_mu;
     int num_threads_tp_to_muc;
+    int num_threads_make_gtables;
+    int win_num;
+    int numeric_moment_errors;
+    C_COMPLEX_TYPE last_fz;
+    C_COMPLEX_TYPE* last_conditional_mean;
+    C_COMPLEX_TYPE* last_conditional_variance;
 
-
-    CauchyEstimator(double* _A0, double* _p0, double* _b0, int _steps, int _d, int _cmcc, int _p, const bool _print_basic_info = true)
+    CauchyEstimator(double* _A0, double* _p0, double* _b0, int _steps, int _d, int _pncc, int _p, const bool _print_basic_info = true)
     {
         // Init state dimensions and shape / term counters
         Nt = 1;
         master_step = 0;
         d = _d;
-        cmcc = _cmcc;
+        pncc = _pncc;
         p = _p;
         num_estimation_steps = p*_steps;
-        int max_hp_shape = (_steps-1) * cmcc + d;
+        int max_hp_shape = (_steps-1) * pncc + d;
         shape_range = max_hp_shape + 1;
         terms_per_shape = (int*) calloc(shape_range , sizeof(int));
         null_ptr_check(terms_per_shape);
@@ -110,6 +114,10 @@ struct CauchyEstimator
         null_ptr_check(conditional_mean);
         conditional_variance = (C_COMPLEX_TYPE*) malloc(d * d * sizeof(C_COMPLEX_TYPE));
         null_ptr_check(conditional_variance);
+        last_conditional_mean = (C_COMPLEX_TYPE*) malloc(d * sizeof(C_COMPLEX_TYPE));
+        null_ptr_check(last_conditional_mean);
+        last_conditional_variance = (C_COMPLEX_TYPE*) malloc(d * d * sizeof(C_COMPLEX_TYPE));
+        null_ptr_check(last_conditional_variance);
 
         // Init Gtable helpers
         root_point = (double*) malloc( d * sizeof(double));
@@ -134,20 +142,22 @@ struct CauchyEstimator
         null_ptr_check(gb_tables);
         coalign_store = (CoalignmentElemStorage*) malloc( NUM_CPUS * sizeof(CoalignmentElemStorage) );
         null_ptr_check(coalign_store);
-        
+        reduce_store = (ReductionElemStorage*) malloc(NUM_CPUS * sizeof(ReductionElemStorage));
+        null_ptr_check(reduce_store);
+
         dce_helper->init(shape_range-1, d, DCE_STORAGE_MULT);
         gb_tables->init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
         coalign_store->init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
+        reduce_store->init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
         // Until needed, initialize the other gbtables / coalign store containers to 0
         for(int i = 1; i < NUM_CPUS; i++)
         {
             dce_helper[i].init(shape_range-1, d, DCE_STORAGE_MULT);
             gb_tables[i].init(0, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
             coalign_store[i].init(0, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
+            reduce_store[i].init(0, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
         }
-
         ftr_helper.init(d, 1<<d);
-        reduce_store.init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
         
         childterms_workspace.init(shape_range-1, d);
         print_basic_info = _print_basic_info;
@@ -159,6 +169,14 @@ struct CauchyEstimator
 
         // Set threading arguments
         num_threads_tp_to_muc = 1;
+        num_threads_make_gtables = 1;
+        win_num = 0;
+        numeric_moment_errors = 0;
+    }
+
+    void set_win_num(int _win_num)
+    {
+        win_num = _win_num;
     }
 
     void set_function_pointers()
@@ -307,7 +325,6 @@ struct CauchyEstimator
 
     void finalize_cached_moments()
     {
-        assert(creal(fz) > 0);
         G_SCALE_FACTOR = RECIPRICAL_TWO_PI / creal(fz);
         C_COMPLEX_TYPE Ifz = I*fz; //CMPLX(cimag(fz), creal(fz)); // imaginary fz
         for(int i = 0; i < d; i++)
@@ -320,6 +337,162 @@ struct CauchyEstimator
                 conditional_variance[i*d + j] = (conditional_variance[i*d+j] / fz) - conditional_mean[i] * conditional_mean[j];
             }
         }
+        // Run numeric checks on fz, conditional mean, conditional variance
+        moments_numerical_check();
+    }
+
+    void moments_numerical_check()
+    {
+        // if this is the first measurement update of the current step, 
+        bool first_msmt_of_current_step = (master_step % p) == 0;
+        bool not_last_msmt_of_current_step = ( (master_step % p) != (p-1) ); // These flags will not be set when p=1 (first msmt == last)
+        bool last_msmt_of_current_step = (master_step % p) == (p-1);
+        if(first_msmt_of_current_step)
+        {
+            // Reset the Current Step Error Messages 
+            // Do Not Exist (DNE) flags get pulled high
+            // Calculating valid mean/covariance information at the current step pulls the DNE flags low
+            numeric_moment_errors |= (1<<ERROR_MEAN_AT_CURRENT_STEP_DNE);
+            numeric_moment_errors |= (1<<ERROR_COVARIANCE_AT_CURRENT_STEP_DNE);
+            // Current step error flags get pulled low
+            // Calculating invalid mean/covariance sets these flags to high
+            numeric_moment_errors &= ~(1<<ERROR_MEAN_UNSTABLE_CURRENT_STEP_FINAL_MSMT);
+            numeric_moment_errors &= ~(1<<ERROR_MEAN_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT);
+            numeric_moment_errors &= ~(1<<ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT);
+            numeric_moment_errors &= ~(1<<ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_FINAL_MSMT);
+        }
+        
+        // Set new bit flag array to store results of the moments at this estimation step
+        int new_numeric_moment_errors = 0;
+
+        // Check fz: For the normalization factor, two checks must be met
+        //         : Check 1.) fz must be strictly positive
+        //         : Check 2.) Ratio of imaginary to real value must be smaller than the allowable threshold ratio
+        if( creal(fz) <= 0 )
+            new_numeric_moment_errors |= (1 << ERROR_FZ_NEGATIVE); // catastrohpic. estimator has failed
+        if( fabs( cimag(fz) / ( 1e-15 + creal(fz) ) ) > THRESHOLD_FZ_IMAG_TO_REAL )
+            new_numeric_moment_errors |= (1 << ERROR_FZ_UNSTABLE);
+
+        bool mean_okay = true;
+        // Check mean: For the conditional mean, two checks must be met
+        //        : Check 1.) Ratio of all imaginary to real values of the conditional mean must be smaller than the allowable threshold ratio
+        //        : Check 2.) All imaginary values of the conditional mean must be smaller than the predefined hard limit
+        for(int i = 0; i < d; i++)
+        {
+            double mean_i_real = creal(conditional_mean[i]);
+            double mean_i_imag = cimag(conditional_mean[i]);
+            double ratio = fabs( mean_i_imag / (1e-15 + mean_i_real) );
+            if( (ratio > THRESHOLD_MEAN_IMAG_TO_REAL) || (mean_i_imag > HARD_LIMIT_IMAGINARY_MEAN) )
+            {
+                new_numeric_moment_errors |= (1<<ERROR_MEAN_UNSTABLE_ANY_STEP);
+                if(not_last_msmt_of_current_step)
+                    new_numeric_moment_errors |= (1<<ERROR_MEAN_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT);
+                if(last_msmt_of_current_step)
+                    new_numeric_moment_errors |= (1<<ERROR_MEAN_UNSTABLE_CURRENT_STEP_FINAL_MSMT);
+                mean_okay = false;
+            }
+        }
+        bool cov_okay = true;
+        // Check variance: For the conditional variance, four checks must be met
+        //        : 1.) Eigenvalues must all be positive
+        //        : 2.) Correlation matrix must contain values between +/- 1
+        //        : 3.) Ratio of all imaginary to real values of the conditional variance must be less than threshold
+        //        : 4.) All imaginary parts of the conditional variance must be lower than the predefined hard limit
+        int cov_error_flags = covariance_checker(conditional_variance, d, win_num, master_step+1, num_estimation_steps, true);
+        if( cov_error_flags )
+        {
+            new_numeric_moment_errors |= (1<<ERROR_COVARIANCE_UNSTABLE_ANY_STEP);
+            if(not_last_msmt_of_current_step)
+                new_numeric_moment_errors |= (1<<ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT);
+            if(last_msmt_of_current_step)
+                new_numeric_moment_errors |= (1<<ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_FINAL_MSMT);
+            cov_okay = false;
+        }
+        // Add new moment errors to the running bit flag array
+        numeric_moment_errors |= new_numeric_moment_errors;
+        // If the mean / covariance estimates passes checks at the current step, we know there does exists usable moments
+        // This implies that the moments may have become numerically unstable at a point this step, but there does exists usable information
+        // Its the job of the window manager to decide whether to use this information, if errors have occured
+        if(mean_okay)
+            numeric_moment_errors &= ~( 1 << ERROR_MEAN_AT_CURRENT_STEP_DNE ); // Set DNE Mean Bit low
+        if(cov_okay)
+            numeric_moment_errors &= ~( 1 << ERROR_COVARIANCE_AT_CURRENT_STEP_DNE ); // Set DNE Variance Bit low
+
+        if( (new_numeric_moment_errors != 0) && print_basic_info )
+        {
+            print_current_step_numeric_moment_errors(new_numeric_moment_errors, cov_error_flags);
+        }
+
+        // It is the job of the estimator to keep the best information available for the window manager to use
+        // If the mean is okay at current step, transfer "conditional_mean" to the "last_conditional_mean" memory space
+        if(mean_okay)
+            memcpy(last_conditional_mean, conditional_mean, d*sizeof(C_COMPLEX_TYPE));
+        // If the mean has become unusable at the current step, transfer "last_conditional_mean" to the "conditional_mean" memory space
+        else
+            memcpy(conditional_mean, last_conditional_mean, d*sizeof(C_COMPLEX_TYPE));
+        // If the covariance is okay at current step, transfer "conditional_variance" to the "last_conditional_varaince" memory space
+        if(cov_okay)
+            memcpy(last_conditional_variance, conditional_variance, d*d*sizeof(C_COMPLEX_TYPE));
+        // If the covariance has become unusable at the current step, transfer "last_conditional_variance" to the "conditional_variance" memory space
+        else
+            memcpy(conditional_variance, last_conditional_variance, d*d*sizeof(C_COMPLEX_TYPE));
+        
+        // If both the mean and covariance are not okay, we use purely the last measurements information. Revert fz to last_fz
+        if( (!mean_okay) && (!cov_okay) )
+            fz = last_fz;
+        // Otherwise we are using some of the information from this MU. Store fz into last_fz
+        else 
+            last_fz = fz;
+    }
+
+    void print_current_step_numeric_moment_errors(int current_step_numeric_moment_error_flags, int cov_error_flags)
+    {
+        printf(YEL "[WARN: Numeric Moment Errors] Window=%d, Step=%d/%d, MU %d/%d\n", win_num, (master_step / p) + 1, num_estimation_steps/p, (master_step % p), p);
+        if( current_step_numeric_moment_error_flags & (1 << ERROR_FZ_NEGATIVE) )
+        {
+            printf(YEL "  ERROR_FZ_NEGATIVE has been set! fz=%.4E + %.4Ej\n", creal(fz), cimag(fz));
+        }
+        if( current_step_numeric_moment_error_flags & (1 << ERROR_FZ_UNSTABLE) )
+        {
+            printf(YEL "  ERROR_FZ_UNSTABLE has been set! fz=%.4E + %.4Ej\n", creal(fz), cimag(fz));
+        }
+        if( current_step_numeric_moment_error_flags & (1 << ERROR_MEAN_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT) )
+        {
+            printf(YEL "  ERROR_MEAN_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT has been set!\n");
+            print_cvec(conditional_mean, d, 4);
+        }
+        if( current_step_numeric_moment_error_flags & (1 << ERROR_MEAN_UNSTABLE_CURRENT_STEP_FINAL_MSMT) )
+        {
+            printf(YEL "  ERROR_MEAN_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT has been set!\n");
+            print_cvec(conditional_mean, d, 4);
+        }
+        if( current_step_numeric_moment_error_flags & (1 << ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT) )
+        {
+            printf(YEL "  ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT has been set!\n");
+            print_cmat(conditional_variance, d, d, 16);
+            print_covariance_error_flags(cov_error_flags);
+        }
+        if( current_step_numeric_moment_error_flags & (1 << ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_FINAL_MSMT) )
+        {
+            printf(YEL "  ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_FINAL_MSMT has been set!\n");
+            print_cmat(conditional_variance, d, d, 16);
+            print_covariance_error_flags(cov_error_flags);
+        }
+        printf(NC "\n");
+    }
+
+    void print_covariance_error_flags(int cov_error_flags)
+    {
+        if(cov_error_flags == 0)
+            return;
+        if(cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_EIGENVALUES))
+            printf("Covariance has invalid (negative) eigenvalues!\n");
+        if(cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_CORRELATION))
+            printf("Covariance has invalid correlations!\n");
+        if(cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_I2R_RATIO))
+            printf("Covariance maximum imaginary to real ratio is too large!\n");
+        if(cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_IMAGINARY_VALUE))
+            printf("Covariances maximum imaginary value is too large!\n");
     }
 
     void print_conditional_mean_variance()
@@ -411,9 +584,9 @@ struct CauchyEstimator
 
     void step_tp_to_muc(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma)
     {
-        double tmp_Gamma[d*cmcc];
-        double tmp_beta[cmcc];
-        int tmp_cmcc = 0;
+        double tmp_Gamma[d*pncc];
+        double tmp_beta[pncc];
+        int tmp_pncc = 0;
         const bool with_tp = ((master_step % p) == 0);
         fz = 0;
         memset(conditional_mean, 0, d * sizeof(C_COMPLEX_TYPE));
@@ -422,7 +595,7 @@ struct CauchyEstimator
         tmr_mu.tic();
         // Transpose, normalize, and pre-coalign Gamma and beta
         if(with_tp)
-            tmp_cmcc = precoalign_Gamma_beta(Gamma, beta, cmcc, d, tmp_Gamma, tmp_beta);
+            tmp_pncc = precoalign_Gamma_beta(Gamma, beta, pncc, d, tmp_Gamma, tmp_beta);
         
         // Allocate structures for the maximum number of new terms we'd generate at this step
         int* new_terms_per_shape = (int*) calloc(shape_range, sizeof(int));
@@ -435,7 +608,7 @@ struct CauchyEstimator
             int Nt_alloc = 0;
             for(int m = 1; m < shape_range; m++)
                 if(terms_per_shape[m] > 0)
-                    Nt_alloc += terms_per_shape[m] * (m + tmp_cmcc);
+                    Nt_alloc += terms_per_shape[m] * (m + tmp_pncc);
             new_child_terms = (CauchyTerm*) malloc(Nt_alloc * sizeof(CauchyTerm));
         }
         null_ptr_check(new_child_terms);
@@ -450,7 +623,7 @@ struct CauchyEstimator
                 BYTE_COUNT_TYPE new_shape;
                 if(with_tp)
                 {
-                    new_shape = m + tmp_cmcc;
+                    new_shape = m + tmp_pncc;
                     if( (!DENSE_STORAGE) && (!skip_post_mu) )
                     {
                         BYTE_COUNT_TYPE bytes_max_cells = (((BYTE_COUNT_TYPE)dce_helper->cell_counts_cen[new_shape]) / (1 + HALF_STORAGE)) * Nt_shape * sizeof(BKEYS_TYPE);
@@ -477,7 +650,7 @@ struct CauchyEstimator
                     if( with_tp )
                     {
                         parent->time_prop(Phi);
-                        int m_tp = parent->tp_coalign(tmp_Gamma, tmp_beta, tmp_cmcc);
+                        int m_tp = parent->tp_coalign(tmp_Gamma, tmp_beta, tmp_pncc);
                         if( (!DENSE_STORAGE) && (!skip_post_mu) )
                         {
                             if(parent->m == parent->phc)
@@ -494,6 +667,19 @@ struct CauchyEstimator
                                 else
                                     make_time_prop_btable(parent, dce_helper);
                                 gb_tables->incr_chunked_bp_table_ptr(parent->cells_gtable);
+                                // Nats check
+                                /*
+                                if(  (dce_helper->cell_counts_cen[m_tp] - dce_helper->cell_counts_cen[m]) != ((parent->cells_gtable - parent->cells_gtable_p) * (1 + HALF_STORAGE) ) )
+                                {
+                                    printf(YEL "--For term %d, m_tp=%d (after TP), m_old=%d (before tp), the following has occured:\n", i, m_tp, m);
+                                    printf(YEL "  Max cells cen m_tp: %d\n", dce_helper->cell_counts_cen[m_tp]);
+                                    printf(YEL "  Max cells cen m: %d\n", dce_helper->cell_counts_cen[m]);
+                                    printf(YEL "  Cells gtable: %d\n", parent->cells_gtable * (1 + HALF_STORAGE));
+                                    printf(YEL "  Cells gtable_p: %d\n", parent->cells_gtable_p * (1 + HALF_STORAGE));
+                                    printf(YEL "  Max cells diff: %d\t cells gtable diff: %d\n", dce_helper->cell_counts_cen[m_tp] - dce_helper->cell_counts_cen[m],  (parent->cells_gtable - parent->cells_gtable_p) * (1 + HALF_STORAGE) );
+                                    printf(NC "--\n");
+                                }
+                                */
                             }
                         }
                     }
@@ -517,6 +703,8 @@ struct CauchyEstimator
                             coalign_store->set_term_ptrs(children+j, m_precoalign);
                         }
                     }
+                    else
+                        new_terms_per_shape[parent->m] += num_children + 1;
                 }
             }
         }
@@ -579,42 +767,49 @@ struct CauchyEstimator
                     if(terms_per_shape[m] > 0)
                         printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
                 print_conditional_mean_variance();
-                stats.print_total_estimator_memory(gb_tables, coalign_store, &reduce_store, Nt, true, num_threads_tp_to_muc, 1);
+                stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
                 //stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
             }
             // Free unused memory
+            coalign_store->unallocate_unused_space();
             if(with_tp && !DENSE_STORAGE)
                 gb_tables->swap_btables();
-            reduce_store.reset();
-            coalign_store->unallocate_unused_space();
+            for(int i = 0; i < num_threads_make_gtables; i++)
+                reduce_store[i].reset();
         }
         else 
         {
             tmr_mu.toc(false);
             // Print Stats
+            ptr_swap<int>(&terms_per_shape, &new_terms_per_shape);
+            free(new_child_terms);
+            free(new_terms_per_shape);
             if(print_basic_info)
             {
-                printf("Step %d/%d: (SKIP_LAST_STEP is used!)\n", master_step+1, num_estimation_steps);
+                printf("Step %d/%d:\n", master_step+1, num_estimation_steps);
                 if(with_tp)
                     printf("TP to MU: Took %d ms\n", tmr_mu.cpu_time_used);
                 else 
                     printf("MU to MU: Took %d ms\n", tmr_mu.cpu_time_used);
-                printf("Total Terms after MUC: %d\n", Nt);
+                printf("Total Terms after MU: %d\n", Nt);
                 printf("Note: No added memory pressure (SKIP_LAST_STEP=true)\n");
+                for(int m = 1; m < shape_range; m++)
+                    if(terms_per_shape[m] > 0)
+                        printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
                 print_conditional_mean_variance();
+                stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
             }
-            free(new_child_terms);
-            free(new_terms_per_shape);
         }
         // I dont think this needs to be set, but if we do enter here after threading was used, threads used should be set to 1
         num_threads_tp_to_muc = 1;
+        num_threads_make_gtables = 1;
     }
 
     void threaded_step_tp_to_muc(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma)
     {
-        double tmp_Gamma[d*cmcc];
-        double tmp_beta[cmcc];
-        int tmp_cmcc = 0;
+        double tmp_Gamma[d*pncc];
+        double tmp_beta[pncc];
+        int tmp_pncc = 0;
         const bool with_tp = ((master_step % p) == 0);
         fz = 0;
         memset(conditional_mean, 0, d * sizeof(C_COMPLEX_TYPE));
@@ -623,7 +818,7 @@ struct CauchyEstimator
         tmr_mu.tic();
         // Transpose, normalize, and pre-coalign Gamma and beta
         if(with_tp)
-            tmp_cmcc = precoalign_Gamma_beta(Gamma, beta, cmcc, d, tmp_Gamma, tmp_beta);
+            tmp_pncc = precoalign_Gamma_beta(Gamma, beta, pncc, d, tmp_Gamma, tmp_beta);
         
         int num_chunks = (Nt + MIN_TERMS_PER_THREAD_TP_TO_MUC -1) / MIN_TERMS_PER_THREAD_TP_TO_MUC;
         num_threads_tp_to_muc = num_chunks > NUM_CPUS ? NUM_CPUS : num_chunks;
@@ -645,7 +840,7 @@ struct CauchyEstimator
             tid_args[i].H = H;
             tid_args[i].processed_Gamma = with_tp ? tmp_Gamma : NULL;
             tid_args[i].processed_beta = with_tp ? tmp_beta : NULL;
-            tid_args[i].processed_cmcc = tmp_cmcc;
+            tid_args[i].processed_pncc = tmp_pncc;
             tid_args[i].msmt = msmt;
             tid_args[i].gamma = gamma;
             tid_args[i].tid = i;
@@ -673,37 +868,47 @@ struct CauchyEstimator
             for(int j = 0; j < num_threads_tp_to_muc; j++)
                 terms_per_shape[m] += tid_args[j].new_terms_per_shape[m];
         Nt = 0;
-        // This part could be threaded if its seen to be slow
-        CauchyTerm** new_terms_dp = (CauchyTerm**) malloc( shape_range * sizeof(CauchyTerm*) );
-        for(int m = 0; m < shape_range; m++)
+        if(!skip_post_mu)
         {
-            free(terms_dp[m]);
-            new_terms_dp[m] = (CauchyTerm*) malloc(terms_per_shape[m] * sizeof(CauchyTerm));
-            if(terms_per_shape[m] > 0)
+            // This part could be threaded if its seen to be slow
+            CauchyTerm** new_terms_dp = (CauchyTerm**) malloc( shape_range * sizeof(CauchyTerm*) );
+            for(int m = 0; m < shape_range; m++)
             {
-                Nt += terms_per_shape[m];
-                int count_m = 0;
-                for(int j = 0; j < num_threads_tp_to_muc; j++)
+                free(terms_dp[m]);
+                new_terms_dp[m] = (CauchyTerm*) malloc(terms_per_shape[m] * sizeof(CauchyTerm));
+                if(terms_per_shape[m] > 0)
                 {
-                    int terms_chunk_m = tid_args[j].new_terms_per_shape[m];
-                    if( terms_chunk_m > 0 )
+                    Nt += terms_per_shape[m];
+                    int count_m = 0;
+                    for(int j = 0; j < num_threads_tp_to_muc; j++)
                     {
-                        memcpy(new_terms_dp[m] + count_m, tid_args[j].new_terms_dp[m], terms_chunk_m * sizeof(CauchyTerm) );
-                        count_m += terms_chunk_m;
+                        int terms_chunk_m = tid_args[j].new_terms_per_shape[m];
+                        if( terms_chunk_m > 0 )
+                        {
+                            memcpy(new_terms_dp[m] + count_m, tid_args[j].new_terms_dp[m], terms_chunk_m * sizeof(CauchyTerm) );
+                            count_m += terms_chunk_m;
+                        }
                     }
                 }
+                // Clean up terms of terms array of each threads
+                for(int j = 0; j < num_threads_tp_to_muc; j++)
+                    free(tid_args[j].new_terms_dp[m]);
             }
-            // Clean up terms of terms array of each threads
-            for(int j = 0; j < num_threads_tp_to_muc; j++)
-                free(tid_args[j].new_terms_dp[m]);
+            for(int i = 0; i < num_threads_tp_to_muc; i++)
+            {
+                free(tid_args[i].new_terms_per_shape);
+                free(tid_args[i].new_terms_dp);
+            }
+            ptr_swap<CauchyTerm*>(&new_terms_dp, &terms_dp);
+            free(new_terms_dp);
         }
-        for(int i = 0; i < num_threads_tp_to_muc; i++)
+        else 
         {
-            free(tid_args[i].new_terms_per_shape);
-            free(tid_args[i].new_terms_dp);
+            for(int m = 0; m < shape_range; m++)
+                Nt += terms_per_shape[m];
+            for(int i = 0; i < num_threads_tp_to_muc; i++)
+                free(tid_args[i].new_terms_per_shape);
         }
-        ptr_swap<CauchyTerm*>(&new_terms_dp, &terms_dp);
-        free(new_terms_dp);
         free(tid_args);
         // Print Stats
         tmr_mu.toc(false);
@@ -711,19 +916,32 @@ struct CauchyEstimator
         {
             printf("Step %d/%d:\n", master_step+1, num_estimation_steps);
             if(with_tp)
-                printf("TP to MUC [Threaded %d]: Took %d ms\n", num_threads_tp_to_muc, tmr_mu.cpu_time_used);
-            else 
-                printf("MU to MUC [Threaded %d]: Took %d ms\n", num_threads_tp_to_muc, tmr_mu.cpu_time_used);
-            printf("Total Terms after MUC: %d\n", Nt);
+                if(skip_post_mu)
+                    printf("TP to MU [Threaded %d]: Took %d ms\n", num_threads_tp_to_muc, tmr_mu.cpu_time_used);
+                else
+                    printf("TP to MUC [Threaded %d]: Took %d ms\n", num_threads_tp_to_muc, tmr_mu.cpu_time_used);
+            else
+                if(skip_post_mu) 
+                    printf("MU [Threaded %d]: Took %d ms\n", num_threads_tp_to_muc, tmr_mu.cpu_time_used);
+                else
+                    printf("MU to MUC [Threaded %d]: Took %d ms\n", num_threads_tp_to_muc, tmr_mu.cpu_time_used);
+            if(skip_post_mu)
+            {
+                printf("Total Terms after MU: %d\n", Nt);
+                printf("Note: No added memory pressure (SKIP_LAST_STEP=true)\n");
+            }
+            else
+                printf("Total Terms after MUC: %d\n", Nt);
             for(int m = 1; m < shape_range; m++)
                 if(terms_per_shape[m] > 0)
                     printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
             print_conditional_mean_variance();
-            stats.print_total_estimator_memory(gb_tables, coalign_store, &reduce_store, Nt, true, num_threads_tp_to_muc, 1);
+            stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
             //stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
         }
         // Unallocate the reduce_storage
-        reduce_store.reset();
+        for(int i = 0; i < num_threads_make_gtables; i++)
+            reduce_store[i].reset();
     }
 
     void fast_term_reduction_and_create_gtables()
@@ -750,270 +968,132 @@ struct CauchyEstimator
         {
             if(terms_per_shape[m] > 0)
             {
-                tmr.tic();
-                CauchyTerm* terms = terms_dp[m];
                 int Nt_shape = terms_per_shape[m];
+                CauchyTerm* terms = terms_dp[m];
                 memcpy(ftr_helper.F_TR, ftr_helper.F, Nt_shape * sizeof(int) );
+                
+                // helper variables
+                int bopm_cpu_time;
+                int ftr_cpu_time;
+                bool is_ftr_threaded = false;
+                bool is_make_gtables_threaded = false;
+                int num_gtable_tids = 1;
+                
+                // Distributed Construction of helper arrays for FTR, and FTR itself
+                if( (NUM_CPUS_FTR > 1) && (Nt_shape > MIN_TERMS_PER_THREAD_FTR) )
+                {
+                    is_ftr_threaded = true;
+                    const int term_chunk_per_cpu = Nt_shape / NUM_CPUS_FTR; // This should be chosen is a wiser way depending on term size
+                    tmr.tic();
+                    threaded_build_ordered_point_maps(terms, 
+                        ftr_helper.ordered_points, ftr_helper.forward_map, 
+                        ftr_helper.backward_map, Nt_shape, d, NUM_CPUS_FTR);
+                    tmr.toc(false);
+                    bopm_cpu_time = tmr.cpu_time_used;
 
-                build_ordered_point_maps(
-                    terms,
-                    ftr_helper.ordered_points, 
-                    ftr_helper.forward_map, 
-                    ftr_helper.backward_map, 
-                    Nt_shape,
-                    d, false);
-      
-                fast_term_reduction(
-                    terms,
-                    ftr_helper.F_TR, 
-                    ftr_helper.ordered_points,
-                    ftr_helper.forward_map, 
-                    ftr_helper.backward_map,
-                    REDUCTION_EPS, Nt_shape, m, d);
+                    // Run threaded FTR
+                    tmr.tic();
+                    threaded_fast_term_reduction(
+                        terms,
+                        ftr_helper.F_TR,
+                        ftr_helper.ordered_points, 
+                        ftr_helper.forward_map, 
+                        ftr_helper.backward_map,
+                        REDUCTION_EPS, Nt_shape, 
+                        m, d,
+                        NUM_CPUS_FTR, term_chunk_per_cpu);
+                    tmr.toc(false);
+                    ftr_cpu_time = tmr.cpu_time_used;
+                }
+                // Serially Construct of helper arrays for FTR, and FTR itself
+                else 
+                {
+                    tmr.tic();
+                    build_ordered_point_maps(
+                        terms,
+                        ftr_helper.ordered_points, 
+                        ftr_helper.forward_map, 
+                        ftr_helper.backward_map, 
+                        Nt_shape,
+                        d, false);
+                    tmr.toc(false);
+                    bopm_cpu_time = tmr.cpu_time_used;
+
+                    // Run FTR
+                    tmr.tic();
+                    fast_term_reduction(
+                        terms,
+                        ftr_helper.F_TR, 
+                        ftr_helper.ordered_points,
+                        ftr_helper.forward_map, 
+                        ftr_helper.backward_map,
+                        REDUCTION_EPS, Nt_shape, m, d);
+                    tmr.toc(false);
+                    ftr_cpu_time = tmr.cpu_time_used;
+                }
+
                 // Build the term reduction lists: 
-                // example ffa.Fs[3] = [7,9,11] means terms at indices 7,9,11 reduce with the term at index 3
-                ForwardFlagArray ffa(ftr_helper.F_TR, Nt_shape);
-                tmr.toc(false);
-                if(print_basic_info)
-                    printf("[FTR Shape %d:], %d/%d terms remain (Took %d ms)\n", m, ffa.num_terms_after_reduction, Nt_shape, tmr.cpu_time_used);
-
                 tmr.tic();
-                int max_Nt_reduced_shape = ffa.num_terms_after_reduction; // Max number of terms after reduction (before term approximation)
+                ForwardFlagArray ffa(ftr_helper.F_TR, Nt_shape, NUM_CPUS);
+                tmr.toc(false);
+                int ffa_cpu_time = tmr.cpu_time_used;
+
+                // Build Gtables for shape m
+                tmr.tic();
                 int Nt_reduced_shape = 0;
                 int Nt_removed_shape = 0;
-                int max_cells_shape = !DENSE_STORAGE ? dce_helper->cell_counts_cen[m] / (1 + HALF_STORAGE) : (1<<m) / (1+HALF_STORAGE);
-                int dce_temp_hashtable_size = max_cells_shape * dce_helper->storage_multiplier;
-                gb_tables->extend_gtables(max_cells_shape, max_Nt_reduced_shape);
-                BYTE_COUNT_TYPE ps_bytes = ((BYTE_COUNT_TYPE)max_Nt_reduced_shape) * m * sizeof(double);
-                BYTE_COUNT_TYPE bs_bytes = ((BYTE_COUNT_TYPE)max_Nt_reduced_shape) * d * sizeof(double);
-                reduce_store.extend_storage(ps_bytes, bs_bytes, d);
-                if(!DENSE_STORAGE)
-                    gb_tables->extend_btables(max_cells_shape, max_Nt_reduced_shape);
-                ftr_terms_dp[m] = (CauchyTerm*) malloc( max_Nt_reduced_shape * sizeof(CauchyTerm) );
+                ftr_terms_dp[m] = (CauchyTerm*) malloc( ffa.num_terms_after_reduction * sizeof(CauchyTerm) );
                 null_ptr_check(ftr_terms_dp[m]);
                 CauchyTerm* ftr_terms = ftr_terms_dp[m];
-                // Now make B-Tables, G-Tables, for each reduction group
-                int** forward_F = ffa.Fs;
-                int* forward_F_counts = ffa.F_counts;
-                int* backward_F = ftr_helper.F_TR;             
-                for(int j = 0; j < Nt_shape; j++)
+                if( (NUM_CPUS > 1) && (Nt_shape > MIN_TERMS_PER_THREAD_GTABLE) )
                 {
-                    // Check whether we need to process term j (if it has reductions or is unique)
-                    if(backward_F[j] == j)
-                    {
-                        int rt_idx = j;
-                        CauchyTerm* child_j = terms + rt_idx;
-                        // Make the Btable if not an old term
-
-                        if(DENSE_STORAGE)
-                        {
-                            child_j->enc_B = B_dense;
-                            child_j->cells_gtable = max_cells_shape;
-                        }
-                        else
-                        {
-                            if( (child_j->is_new_child) )
-                            {
-                                // Set the child btable memory position
-                                BKEYS parent_B = child_j->enc_B;
-                                int num_cells_parent = child_j->cells_gtable;
-                                gb_tables->set_term_btable_pointer(&(child_j->enc_B), max_cells_shape, false);
-                                make_new_child_btable(child_j, 
-                                    parent_B, num_cells_parent,
-                                    dce_helper->B_mu_hash, num_cells_parent * dce_helper->storage_multiplier,
-                                    dce_helper->B_coal_hash, dce_temp_hashtable_size,
-                                    dce_helper->B_uncoal, dce_helper->F);
-                            }
-                        }
-                        //printf("B%d is:\n", Nt_reduced_shape);
-                        //print_B_encoded(child_j->enc_B, child_j->cells_gtable, child_j->m, true);
-                        
-                        // set memory position of the child gtable
-                        // Make the g-table of the root term
-                        gb_tables->set_term_gtable_pointer(&(child_j->gtable), child_j->cells_gtable, false);
-                        // If the term is negligable (is approximated out), we need to search for a new "root"
-                        if( make_gtable(child_j, G_SCALE_FACTOR) )
-                            rt_idx = -1;
-                        else
-                        {
-                            gb_tables->incr_chunked_gtable_ptr(child_j->cells_gtable);
-                            if(!DENSE_STORAGE)
-                                if(child_j->is_new_child)
-                                    gb_tables->incr_chunked_btable_ptr(child_j->cells_gtable);
-                        }
-                        
-                        int num_term_combos = forward_F_counts[j];
-                        int k = 0;
-                        // If the root term has been approximated out, we need to search through its term combinations to find a new term to take the place as root
-                        if(rt_idx == -1)
-                        {
-                            int num_cells_of_red_group = child_j->cells_gtable;
-                            BKEYS btable_for_red_group = child_j->enc_B;
-                            double* A_lfr = child_j->A; // HPA of the last failed root
-                            while(k < num_term_combos)
-                            {
-                                int cp_idx = forward_F[j][k++];
-                                CauchyTerm* child_k = terms + cp_idx;
-                                // The btable of all terms in this reduction group are similar
-                                // The only difference is the orientation of their hyperplanes
-                                // Update the Btable of the last potential root for child_k
-                                // Use the memory space currently pointed to by child_j only if child_k is not a parent 
-                                if(DENSE_STORAGE)
-                                {
-                                    child_k->enc_B = btable_for_red_group;
-                                    child_k->cells_gtable = num_cells_of_red_group;
-                                    child_k->gtable = child_j->gtable;
-                                }
-                                else 
-                                {
-                                    if(child_k->is_new_child)
-                                    {
-                                        child_k->enc_B = btable_for_red_group;
-                                        child_k->cells_gtable = num_cells_of_red_group;
-                                        update_btable(A_lfr, child_k->enc_B, child_k->A, NULL, child_k->cells_gtable, m, d);
-                                        // Set memory position of child gtable k here
-                                        // This child can use the gtable memory position of child_j (since it was approximated out)
-                                        child_k->gtable = child_j->gtable;
-                                    }
-                                    // If child_k is a parent, its B is already in memory, no need to use new space
-                                    else 
-                                    {   
-                                        btable_for_red_group = child_k->enc_B;
-                                        if(child_k->cells_gtable == num_cells_of_red_group)
-                                        {
-                                            // Set memory position of child gtable k here
-                                            // This child can use the gtable memory position of child_j (since it was approximated out)
-                                            child_k->gtable = child_j->gtable;
-                                        }
-                                        // Only in the case of numerical round off error can two reducing terms
-                                        // have the same HPA (up to +/- direction of their normals)
-                                        // but a different numbers of cells. 
-                                        // So in the case where the two have different cell counts, do the following:
-
-                                        // if the cells are less, 
-                                        // update cell_count of red group
-                                        // set gtable to child_j memory range (it will fit with certainty)
-                                        else if(child_k->cells_gtable < num_cells_of_red_group)
-                                        {
-                                            num_cells_of_red_group = child_k->cells_gtable;
-                                            child_k->gtable = child_j->gtable;
-                                        }
-                                        // if the cells are greater
-                                        // update cell_count of red group
-                                        // recheck gtable pointer memory address
-                                        else
-                                        {
-                                            num_cells_of_red_group = child_k->cells_gtable; 
-                                            gb_tables->set_term_gtable_pointer(&(child_k->gtable), num_cells_of_red_group, false); 
-                                        }
-                                    }
-                                }
-                                // If child term k is not approximated out, it becomes root
-                                if( !make_gtable(child_k, G_SCALE_FACTOR) )
-                                {
-                                    rt_idx = cp_idx;
-                                    if(!DENSE_STORAGE)
-                                        if(child_k->is_new_child)
-                                            gb_tables->incr_chunked_btable_ptr(child_k->cells_gtable);
-                                    gb_tables->incr_chunked_gtable_ptr(child_k->cells_gtable);
-                                    child_j = child_k;
-                                    break;
-                                }
-                                else
-                                    A_lfr = child_k->A;
-                            }
-                        }
-                        // For all terms combinations left, create thier g-table. If it is not approximated out, add it to the root g-table
-                        while(k < num_term_combos)
-                        {
-                            int cp_idx = forward_F[j][k++];
-                            CauchyTerm* child_k = terms + cp_idx;
-                            // Set memory position of child gtable k here
-                            // Make the Btable if not an old term
-
-                            if(DENSE_STORAGE)
-                            {
-                                child_k->cells_gtable = child_j->cells_gtable;
-                                child_k->enc_B = B_dense;
-                            }
-                            else
-                            {
-                                if(child_k->is_new_child)
-                                {
-                                    // Set the child btable memory position
-                                    child_k->cells_gtable = child_j->cells_gtable;
-                                    gb_tables->set_term_btable_pointer(&(child_k->enc_B), child_k->cells_gtable, false);
-                                    update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
-                                }
-                                else
-                                {
-                                    // To deal with the case where numerical instability causes cell counts to be different, 
-                                    // If the cell counts are different (due to instability), update child_k's btable to be compatible with the root
-                                    if(child_k->cells_gtable != child_j->cells_gtable)
-                                    {
-                                        printf(RED"[BIG WARN FTR/Make Gtables:] child_k->cells_gtable != child_j->cells_gtable. We have code below to fix this! But EXITING now until this is commented out!" NC "\n");
-                                        exit(1);
-                                        // If child_k has more than child_j's cells,
-                                        // Downgrade child_k to be equal to child_j
-                                        if(child_k->cells_gtable > child_j->cells_gtable)
-                                        {
-                                            child_k->cells_gtable = child_j->cells_gtable;
-                                            update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
-                                        }
-                                        // If child_k has less than child_j's cells, 
-                                        // Upgrade child_k to be equal to child_j
-                                        // Here we need to abandon the old btable memory location of child_k and acquire a new one 
-                                        // This is to keep the btables consistent, 
-                                        // child_k's btable then be set to the (re-oriented) child_j's btable.
-                                        else
-                                        {
-                                            child_k->cells_gtable = child_j->cells_gtable;
-                                            gb_tables->set_term_btable_pointer(&(child_k->enc_B), child_k->cells_gtable, false);
-                                            update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
-                                        }
-                                    }
-                                }
-                            }
-                            gb_tables->set_term_gtable_pointer(&(child_k->gtable), child_k->cells_gtable, false);
-                            // If child term k is not approximated out, we can add the gtables together
-                            if( !make_gtable(child_k, G_SCALE_FACTOR) )
-                            { 
-                                add_gtables(child_j, child_k);
-                                // No need to re-increment gb_table pointers
-                                // This is because for the remainder of the terms to be combined, we can use this memory space again
-                            }
-                        }
-                        // If we found a root term, then increase the (reduced) term count
-                        if(rt_idx != -1)
-                        {
-                            child_j->become_parent();
-                            reduce_store.set_term_ptrs(child_j);
-                            ftr_terms[Nt_reduced_shape++] = *child_j;
-                        }
-                        else
-                            Nt_removed_shape++;
-
-                        //terms[j].become_null();
-                        //for(int l = 0; l < num_term_combos; l++)
-                        //    terms[forward_F[j][l]].become_null();
-                    }
+                    is_make_gtables_threaded = true;
+                    num_gtable_tids = threaded_make_gtables(
+                        &Nt_reduced_shape, &Nt_removed_shape,
+                        terms, ftr_terms, &ffa, dce_helper, 
+                        gb_tables, reduce_store, ftr_helper.F_TR,
+                        B_dense, G_SCALE_FACTOR, Nt_shape, m, d,
+                        win_num, master_step+1, num_estimation_steps);
+                    // Up the count of num_threads_make_gtable if this shape used more chunked packed space than previously
+                    num_threads_make_gtables = num_gtable_tids > num_threads_make_gtables ? num_gtable_tids : num_threads_make_gtables;
+                }
+                else 
+                {
+                    make_gtables(
+                        &Nt_reduced_shape, &Nt_removed_shape,
+                        terms, ftr_terms, &ffa, dce_helper, 
+                        gb_tables, reduce_store, ftr_helper.F_TR,
+                        B_dense, G_SCALE_FACTOR, 
+                        Nt_shape, ffa.num_terms_after_reduction,
+                        m, d);
                 }
                 // After term reduction and g-evaluation 
                 Nt_reduced += Nt_reduced_shape;
                 Nt_removed += Nt_removed_shape;
                 terms_per_shape[m] = Nt_reduced_shape;
-                if(WITH_TERM_APPROXIMATION)
-                {
-                    // may not be worth the expense of shrinking...well see
-                    ftr_terms_dp[m] = (CauchyTerm*) realloc(ftr_terms_dp[m], Nt_reduced * sizeof(CauchyTerm) );
-                    null_ptr_check(ftr_terms_dp[m]);
-                }
                 tmr.toc(false);
+                int gtable_cpu_time = tmr.cpu_time_used;
                 if(print_basic_info)
-                    printf("[Eval Gtables shape %d:] Took %d ms\n", m, tmr.cpu_time_used);
-    
-                if(print_basic_info && WITH_TERM_APPROXIMATION)
-                        printf("[Term Approx Shape %d:] %d/%d (%d were removed)\n", m, Nt_reduced_shape, max_Nt_reduced_shape, Nt_removed_shape);
+                {
+                    printf("Shape %d: (%d/%d remain)\n", m, ffa.num_terms_after_reduction, Nt_shape);
+                    if(is_ftr_threaded)
+                    {
+                        printf("  Built ordered maps in %d ms (threaded %d)\n", bopm_cpu_time, NUM_CPUS_FTR);
+                        printf("  FTR took %d ms (threaded %d)\n", ftr_cpu_time, NUM_CPUS_FTR);
+                    }
+                    else 
+                    {
+                        printf("  Built ordered maps in %d ms\n", bopm_cpu_time);
+                        printf("  FTR took %d ms\n", ftr_cpu_time);
+                    }
+                    printf("  Built Forward Flag Array in %d ms\n", ffa_cpu_time);
+                    if(is_make_gtables_threaded)
+                        printf("  Built Gtables in %d ms (threaded %d)\n", gtable_cpu_time, num_gtable_tids);
+                    else
+                        printf("  Built Gtables in %d ms\n", gtable_cpu_time);
+                    if(WITH_TERM_APPROXIMATION)
+                        printf("  Term Approx removes %d terms, %d/%d remain\n", Nt_removed_shape, Nt_reduced_shape, ffa.num_terms_after_reduction);
+                }
             }
             else 
             {
@@ -1034,16 +1114,19 @@ struct CauchyEstimator
             for(int i = 0; i < shape_range; i++)
                 if(terms_per_shape[i] > 0)
                     printf("After FTR: Shape %d has %d terms\n", i, terms_per_shape[i]);
-            stats.print_total_estimator_memory(gb_tables, coalign_store, &reduce_store, Nt, false, num_threads_tp_to_muc, 1);
+            stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, false, num_threads_tp_to_muc, num_threads_make_gtables);
             stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
         }
         
         // Deallocate unused or unneeded memory
         tmr.tic();
         for(int i = 0; i < num_threads_tp_to_muc; i++)
-            coalign_store[i].reset(); 
-        reduce_store.unallocate_unused_space();
-        gb_tables->swap_gtables();
+            coalign_store[i].reset();
+        for(int i = 0; i < num_threads_make_gtables; i++)
+        { 
+            reduce_store[i].unallocate_unused_space();
+            gb_tables[i].swap_gtables();
+        }
         tmr.toc(false);
 
         // Compute moments after FTR
@@ -1062,7 +1145,7 @@ struct CauchyEstimator
         compute_moments(true);
         for(int i = 0; i < Nt; i++)
         {
-            reduce_store.set_term_ptrs(terms + i);
+            reduce_store->set_term_ptrs(terms + i);
             terms[i].cells_gtable = dce_helper->cell_counts_cen[d] / (1 + HALF_STORAGE);
             if(!DENSE_STORAGE)
                 gb_tables->set_term_btable_pointer( &(terms[i].enc_B), terms[i].cells_gtable, true);
@@ -1075,10 +1158,21 @@ struct CauchyEstimator
         gb_tables->swap_gtables();
         if(print_basic_info)
             compute_moments(false);
+        memcpy(last_conditional_mean, conditional_mean, d*sizeof(C_COMPLEX_TYPE));
+        memcpy(last_conditional_variance, conditional_variance, d*d*sizeof(C_COMPLEX_TYPE));
+        last_fz = fz;
     }
 
-    void step(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma)
+    // Main function that is called
+    int step(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma)
     {
+        if( numeric_moment_errors & (1<<ERROR_FZ_NEGATIVE) )
+        {
+            printf(RED "[Window %d:] ERROR_FZ_NEGATIVE triggered. Cannot continue stepping until this estimator has been reset!"
+                   NC "\n", win_num);
+            return numeric_moment_errors;
+        }
+
         CPUTimer tmr;
         tmr.tic();
         skip_post_mu = SKIP_LAST_STEP && (master_step == (num_estimation_steps-1)); 
@@ -1090,12 +1184,12 @@ struct CauchyEstimator
                 step_tp_to_muc(msmt, Phi, Gamma, beta, H, gamma);
             else
                 threaded_step_tp_to_muc(msmt, Phi, Gamma, beta, H, gamma);
-            // Now thread fast term reduction    
             fast_term_reduction_and_create_gtables();
         }
         master_step++;
         tmr.toc(false);
         printf("Step %d took %d ms\n", master_step, tmr.cpu_time_used);
+        return numeric_moment_errors;
     }
 
     void reset()
@@ -1104,13 +1198,12 @@ struct CauchyEstimator
         tmr.tic();
         for(int i = 0; i < NUM_CPUS; i++)
         {
-            dce_helper[i].deinit();
+            //dce_helper[i].deinit();
             gb_tables[i].deinit(); // g and b-tables
             coalign_store[i].deinit();
+            reduce_store[i].deinit();
         }
-
         ftr_helper.deinit();
-        reduce_store.deinit();
 
         // Deallocate terms 
         for(int i = 0; i < shape_range; i++)
@@ -1129,27 +1222,90 @@ struct CauchyEstimator
         terms_per_shape[d] = 1;
         Nt = 1;
         master_step = 0;
+        numeric_moment_errors = 0;
 
         // Re-init first term
         setup_first_term(&childterms_workspace, terms_dp[d], A0_init, p0_init, b0_init, d);
 
         //Re-init helpers
-        dce_helper->init(shape_range-1, d, DCE_STORAGE_MULT);
+        //dce_helper->init(shape_range-1, d, DCE_STORAGE_MULT);
         gb_tables->init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
         coalign_store->init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
+        reduce_store->init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
         for(int i = 1; i < NUM_CPUS; i++)
         {
-            dce_helper[i].init(shape_range-1, d, DCE_STORAGE_MULT);
-            gb_tables[i].init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
-            coalign_store[i].init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
+            //dce_helper[i].init(shape_range-1, d, DCE_STORAGE_MULT);
+            gb_tables[i].init(0, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
+            coalign_store[i].init(0, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
+            reduce_store[i].init(0, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
         }
-
         ftr_helper.init(d, 1<<d);
-        reduce_store.init(1, CP_STORAGE_PAGE_SIZE, CP_STORAGE_ALLOC_METHOD);
 
         num_threads_tp_to_muc = 1;
         tmr.toc(false);
         printf("Resetting CF Took %d ms\n", tmr.cpu_time_used);
+    }
+
+    void reinitialize_start_statistics(double* A_0, double* p_0, double* b_0)
+    {
+        memcpy(A0_init, A_0, d*d*sizeof(double));
+        memcpy(p0_init, p_0, d*sizeof(double));
+        memcpy(b0_init, b_0, d*sizeof(double));
+        // Re-init first term
+        setup_first_term(&childterms_workspace, terms_dp[d], A0_init, p0_init, b0_init, d);
+    }
+    
+    // Shifts all b-vectors of the CF by the bias of size R^d
+    void shift_cf_by_bias(double* bias)
+    {
+        if(!skip_post_mu)
+        {
+            for(int m = 1; m < shape_range; m++)
+            {
+                int Nt_shape = terms_per_shape[m];
+                if( Nt_shape > 0 ) 
+                {
+                    CauchyTerm* terms = terms_dp[m];
+                    for(int i = 0; i < Nt_shape; i++)
+                        for(int j = 0; j < d; j++)
+                        terms[i].b[j] += bias[j];
+                }
+            }
+        }
+    }
+
+    // Shifts bs in CF by -\delta{x_k}. Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar). Then sets (duc->x) x_bar = creal(conditional_mean)
+    void finalize_extended_moments(double* x_bar)
+    {
+        // Shifts bs in CF by -\delta{x_k}.
+        // We do not need to do this on the last MU
+        // This could be threaded, if its slow
+        CPUTimer tmr_extnd;
+        tmr_extnd.tic();
+        if(!skip_post_mu)
+        {
+            double delta_xk[d];
+            convert_complex_array_to_real(conditional_mean, delta_xk, d);
+            for(int m = 1; m < shape_range; m++)
+            {
+                int Nt_shape = terms_per_shape[m];
+                if( Nt_shape > 0 ) 
+                {
+                    CauchyTerm* terms = terms_dp[m];
+                    for(int i = 0; i < Nt_shape; i++)
+                        sub_vecs(terms[i].b, delta_xk, d);
+                }
+            }
+        }
+        // Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar).
+        for(int i = 0; i < d; i++)
+            conditional_mean[i] += x_bar[i];
+        // Then sets (duc->x) x_bar = creal(conditional_mean)
+        for(int i = 0; i < d; i++)
+            x_bar[i] = creal(conditional_mean[i]);
+        tmr_extnd.toc(false);
+        if(print_basic_info)
+            printf("finalize_extended_moments took %d ms\n", tmr_extnd.cpu_time_used);
     }
 
     ~CauchyEstimator()
@@ -1158,12 +1314,15 @@ struct CauchyEstimator
         free(root_point);
         free(conditional_mean);
         free(conditional_variance);
+        free(last_conditional_mean);
+        free(last_conditional_variance);
 
         for(int i = 0; i < NUM_CPUS; i++)
         {
             dce_helper[i].deinit();
             gb_tables[i].deinit(); // g and b-tables
             coalign_store[i].deinit();
+            reduce_store[i].deinit();
         }
         // Deallocate terms 
         for(int i = 0; i < shape_range; i++)
@@ -1171,7 +1330,6 @@ struct CauchyEstimator
         free(terms_dp);
         
         ftr_helper.deinit();
-        reduce_store.deinit();
         childterms_workspace.deinit();
         if(DENSE_STORAGE)
             free(B_dense);
@@ -1179,6 +1337,7 @@ struct CauchyEstimator
         free(dce_helper);
         free(gb_tables);
         free(coalign_store);
+        free(reduce_store);
     }
 
 };
@@ -1214,7 +1373,6 @@ void cache_moments(CauchyTerm* parent, CauchyTerm* children, int num_children,
         }
     }
 }
-
 
 void* distributed_step_tp_to_muc(void* args)
 {
@@ -1265,10 +1423,10 @@ void* distributed_step_tp_to_muc(void* args)
     memset(cond_var_chunk, 0, d*d*sizeof(C_COMPLEX_TYPE));
     
     // Bring in Gamma, beta matrices if its a TP step
-    // If not a TP step, these are NULL and tmp_cmcc is 0
+    // If not a TP step, these are NULL and tmp_pncc is 0
     double* tmp_Gamma = dist_args->processed_Gamma;
     double* tmp_beta = dist_args->processed_beta;
-    int tmp_cmcc = dist_args->processed_cmcc;
+    int tmp_pncc = dist_args->processed_pncc;
     double* Phi = dist_args->Phi;
     // Bring in H, gamma, msmt
     double* H = dist_args->H;
@@ -1281,37 +1439,36 @@ void* distributed_step_tp_to_muc(void* args)
     int* tid_terms_per_shape = (int*) calloc(shape_range, sizeof(int));
     null_ptr_check(tid_terms_per_shape);
     CauchyTerm* new_child_terms;
+    int Nt_alloc = 0;
+    for(int m = 1; m < shape_range; m++)
+    {
+        if(terms_per_shape[m] > 0)
+        {
+            if(terms_per_shape[m] < n_tids)
+            {
+                if(tid < terms_per_shape[m])
+                {
+                    Nt_alloc += (m + tmp_pncc);
+                    tid_terms_per_shape[m] = 1;
+                }
+            }
+            else
+            {
+                int added_terms = terms_per_shape[m] / n_tids;
+                int modulo_terms = terms_per_shape[m] % n_tids;
+                if(tid < modulo_terms)
+                    added_terms += 1;
+                tid_terms_per_shape[m] = added_terms;
+                Nt_alloc += added_terms * (m + tmp_pncc); // if not a TP step, processed_pncc is 0
+            }
+        }
+    }
     if(cauchyEst->skip_post_mu)
         new_child_terms = (CauchyTerm*) malloc(shape_range * sizeof(CauchyTerm));
     else
-    {
-        int Nt_alloc = 0;
-        for(int m = 1; m < shape_range; m++)
-        {
-            if(terms_per_shape[m] > 0)
-            {
-                if(terms_per_shape[m] < n_tids)
-                {
-                    if(tid < terms_per_shape[m])
-                    {
-                        Nt_alloc += (m + tmp_cmcc);
-                        tid_terms_per_shape[m] = 1;
-                    }
-                }
-                else
-                {
-                    int added_terms = terms_per_shape[m] / n_tids;
-                    int modulo_terms = terms_per_shape[m] % n_tids;
-                    if(tid < modulo_terms)
-                        added_terms += 1;
-                    tid_terms_per_shape[m] = added_terms;
-                    Nt_alloc += added_terms * (m + tmp_cmcc); // if not a TP step, processed_cmcc is 0
-                }
-            }
-        }
         new_child_terms = (CauchyTerm*) malloc(Nt_alloc * sizeof(CauchyTerm));
-    }
     null_ptr_check(new_child_terms);
+
     int Nt_new = 0;
     int old_term_count = 0;
     for(int m = 1; m < shape_range; m++)
@@ -1323,7 +1480,7 @@ void* distributed_step_tp_to_muc(void* args)
             BYTE_COUNT_TYPE new_shape;
             if(with_tp)
             {
-                new_shape = m + tmp_cmcc;
+                new_shape = m + tmp_pncc;
                 if( (!DENSE_STORAGE) && (!skip_post_mu) )
                 {
                     BYTE_COUNT_TYPE bytes_max_cells = (((BYTE_COUNT_TYPE)dce_helper->cell_counts_cen[new_shape]) / (1 + HALF_STORAGE)) * Nt_shape_tid * sizeof(BKEYS_TYPE);
@@ -1352,7 +1509,7 @@ void* distributed_step_tp_to_muc(void* args)
                 if( with_tp )
                 {
                     parent->time_prop(Phi);
-                    int m_tp = parent->tp_coalign(tmp_Gamma, tmp_beta, tmp_cmcc);
+                    int m_tp = parent->tp_coalign(tmp_Gamma, tmp_beta, tmp_pncc);
                     if( (!DENSE_STORAGE) && (!skip_post_mu) )
                     {
                         if(parent->m == parent->phc)
@@ -1393,6 +1550,8 @@ void* distributed_step_tp_to_muc(void* args)
                         coalign_store->set_term_ptrs(children+j, m_precoalign);
                     }
                 }
+                else 
+                    new_terms_per_shape[parent->m] += num_children + 1;
             }
         }
     }
@@ -1451,8 +1610,8 @@ void* distributed_step_tp_to_muc(void* args)
     else 
     {
         tmr_mu.toc(false);
+        dist_args->new_terms_per_shape = new_terms_per_shape;
         free(new_child_terms);
-        free(new_terms_per_shape);
     }
 
     free(tid_terms_per_shape);
@@ -1460,6 +1619,9 @@ void* distributed_step_tp_to_muc(void* args)
     free(childterms_workspace);
     return NULL;
 }
+
+
+
 
 #endif //_CAUCHY_ESTIMATOR_HPP_
 

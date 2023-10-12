@@ -5,8 +5,8 @@ GCC_RELEASE = -O3 # It is seen that -O3 compilation sometimes causes a seg fault
 
 CFLAGS=""
 
-LIB_LAPACK = -llapacke -llapack -lblas -lm
-LIB_GLPK = -lglpk -lpthread
+LIB_LAPACK = -llapacke -llapack -lblas -lm -lpthread
+LIB_GLPK = -lglpk
 MKL_LINK_LINE= -Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl
 
 D ?= 0
@@ -16,10 +16,16 @@ else
 	CFLAGS = $(GCC_RELEASE)
 endif
 
+#$(INCLUDE_GLPK)
+
 bin/cauchy_estimator : src/cauchy_estimator.cpp
-	$(CC) $(CFLAGS) $(INCLUDE_GLPK) $^ -o $@ $(MKL_LINK_LINE)
+	$(CC) $(CFLAGS) $^ -o $@ $(MKL_LINK_LINE)
+
+bin/window_manager : src/window_manager.cpp
+	$(CC) $(CFLAGS) $^ -o $@ $(MKL_LINK_LINE)
 
 cauchy : bin/cauchy_estimator
+window : bin/window_manager
 
 clean : 
-	rm -f bin/cauchy_estimator 
+	rm -f bin/cauchy_estimator bin/window_manager 

@@ -4,8 +4,13 @@
 #include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"
+#include "cauchy_util.hpp"
 #include "cell_enumeration.hpp"
+#include "cpu_timer.hpp"
 #include "eval_gs.hpp"
+#include <cstddef>
+#include <cstdlib>
+#include <pthread.h>
 
 //#include <sys/types.h>
 
@@ -308,89 +313,364 @@ void add_gtables(CauchyTerm* term_i, CauchyTerm* term_j)
   }
 }
 
+// Makes all gtables for shape m of the CF
+void make_gtables(
+         int* Nt_reduced, int* Nt_removed,
+         CauchyTerm* terms,
+         CauchyTerm* ftr_terms,
+         ForwardFlagArray* ffa,
+         DiffCellEnumHelper* dce_helper, 
+         ChunkedPackedTableStorage* gb_tables,
+         ReductionElemStorage* reduce_store,
+         int* backward_F,
+         int* B_dense, const double G_SCALE_FACTOR,
+         const int Nt_shape, const int max_Nt_reduced_shape, 
+         const int m, const int d,
+         int start_idx = -1, int end_idx = -1)
+{
+  // Only in the threaded case are these useful
+  start_idx = (start_idx == -1) ? 0 : start_idx;
+  end_idx = (end_idx == -1) ? Nt_shape : end_idx;
 
-/*
-// old add_gtables code with just hashtables
-if(FULL_STORAGE)
-{
-  enc_bi = enc_Bi[k];
-  enc_bj = enc_bi ^ sigma_enc;      
-  // Place iterators to table positions for keys enc_bi and enc_bj
-  // First check for failure signal in hashtable_find(...)
-  if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable) )
+  // Begin routine
+  int Nt_reduced_shape = 0;
+  int Nt_removed_shape = 0;
+  int max_cells_shape = !DENSE_STORAGE ? dce_helper->cell_counts_cen[m] / (1 + HALF_STORAGE) : (1<<m) / (1+HALF_STORAGE);
+  int dce_temp_hashtable_size = max_cells_shape * dce_helper->storage_multiplier;
+  gb_tables->extend_gtables(max_cells_shape, max_Nt_reduced_shape);
+  BYTE_COUNT_TYPE ps_bytes = ((BYTE_COUNT_TYPE)max_Nt_reduced_shape) * m * sizeof(double);
+  BYTE_COUNT_TYPE bs_bytes = ((BYTE_COUNT_TYPE)max_Nt_reduced_shape) * d * sizeof(double);
+  reduce_store->extend_storage(ps_bytes, bs_bytes, d);
+  if(!DENSE_STORAGE)
+      gb_tables->extend_btables(max_cells_shape, max_Nt_reduced_shape);
+  // Now make B-Tables, G-Tables, for each reduction group
+  int** forward_F = ffa->Fs;
+  int* forward_F_counts = ffa->F_counts;
+  for(int j = start_idx; j < end_idx; j++)
   {
-    printf(RED"[ERROR #1: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
-    exit(1);
+      // Check whether we need to process term j (if it has reductions or is unique)
+      if(backward_F[j] == j)
+      {
+          int rt_idx = j;
+          CauchyTerm* child_j = terms + rt_idx;
+          // Make the Btable if not an old term
+
+          if(DENSE_STORAGE)
+          {
+              child_j->enc_B = B_dense;
+              child_j->cells_gtable = max_cells_shape;
+          }
+          else
+          {
+              if( (child_j->is_new_child) )
+              {
+                  // Set the child btable memory position
+                  BKEYS parent_B = child_j->enc_B;
+                  int num_cells_parent = child_j->cells_gtable;
+                  gb_tables->set_term_btable_pointer(&(child_j->enc_B), max_cells_shape, false);
+                  make_new_child_btable(child_j, 
+                      parent_B, num_cells_parent,
+                      dce_helper->B_mu_hash, num_cells_parent * dce_helper->storage_multiplier,
+                      dce_helper->B_coal_hash, dce_temp_hashtable_size,
+                      dce_helper->B_uncoal, dce_helper->F);
+              }
+          }
+          //printf("B%d is:\n", Nt_reduced_shape);
+          //print_B_encoded(child_j->enc_B, child_j->cells_gtable, child_j->m, true);
+          
+          // set memory position of the child gtable
+          // Make the g-table of the root term
+          gb_tables->set_term_gtable_pointer(&(child_j->gtable), child_j->cells_gtable, false);
+          // If the term is negligable (is approximated out), we need to search for a new "root"
+          if( make_gtable(child_j, G_SCALE_FACTOR) )
+              rt_idx = -1;
+          else
+          {
+              gb_tables->incr_chunked_gtable_ptr(child_j->cells_gtable);
+              if(!DENSE_STORAGE)
+                  if(child_j->is_new_child)
+                      gb_tables->incr_chunked_btable_ptr(child_j->cells_gtable);
+          }
+          
+          int num_term_combos = forward_F_counts[j];
+          int k = 0;
+          // If the root term has been approximated out, we need to search through its term combinations to find a new term to take the place as root
+          if(rt_idx == -1)
+          {
+              int num_cells_of_red_group = child_j->cells_gtable;
+              BKEYS btable_for_red_group = child_j->enc_B;
+              double* A_lfr = child_j->A; // HPA of the last failed root
+              while(k < num_term_combos)
+              {
+                  int cp_idx = forward_F[j][k++];
+                  CauchyTerm* child_k = terms + cp_idx;
+                  // The btable of all terms in this reduction group are similar
+                  // The only difference is the orientation of their hyperplanes
+                  // Update the Btable of the last potential root for child_k
+                  // Use the memory space currently pointed to by child_j only if child_k is not a parent 
+                  if(DENSE_STORAGE)
+                  {
+                      child_k->enc_B = btable_for_red_group;
+                      child_k->cells_gtable = num_cells_of_red_group;
+                      child_k->gtable = child_j->gtable;
+                  }
+                  else 
+                  {
+                      if(child_k->is_new_child)
+                      {
+                          child_k->enc_B = btable_for_red_group;
+                          child_k->cells_gtable = num_cells_of_red_group;
+                          update_btable(A_lfr, child_k->enc_B, child_k->A, NULL, child_k->cells_gtable, m, d);
+                          // Set memory position of child gtable k here
+                          // This child can use the gtable memory position of child_j (since it was approximated out)
+                          child_k->gtable = child_j->gtable;
+                      }
+                      // If child_k is a parent, its B is already in memory, no need to use new space
+                      else 
+                      {   
+                          btable_for_red_group = child_k->enc_B;
+                          if(child_k->cells_gtable == num_cells_of_red_group)
+                          {
+                              // Set memory position of child gtable k here
+                              // This child can use the gtable memory position of child_j (since it was approximated out)
+                              child_k->gtable = child_j->gtable;
+                          }
+                          // Only in the case of numerical round off error can two reducing terms
+                          // have the same HPA (up to +/- direction of their normals)
+                          // but a different numbers of cells. 
+                          // So in the case where the two have different cell counts, do the following:
+                          
+                          // if the cells are less, 
+                          // update cell_count of red group
+                          // set gtable to child_j memory range (it will fit with certainty)
+                          else if(child_k->cells_gtable < num_cells_of_red_group)
+                          {
+                              num_cells_of_red_group = child_k->cells_gtable;
+                              child_k->gtable = child_j->gtable;
+                          }
+                          // if the cells are greater
+                          // update cell_count of red group
+                          // recheck gtable pointer memory address
+                          else
+                          {
+                              num_cells_of_red_group = child_k->cells_gtable; 
+                              gb_tables->set_term_gtable_pointer(&(child_k->gtable), num_cells_of_red_group, false); 
+                          }
+                      }
+                  }
+                  // If child term k is not approximated out, it becomes root
+                  if( !make_gtable(child_k, G_SCALE_FACTOR) )
+                  {
+                      rt_idx = cp_idx;
+                      if(!DENSE_STORAGE)
+                          if(child_k->is_new_child)
+                              gb_tables->incr_chunked_btable_ptr(child_k->cells_gtable);
+                      gb_tables->incr_chunked_gtable_ptr(child_k->cells_gtable);
+                      child_j = child_k;
+                      break;
+                  }
+                  else
+                      A_lfr = child_k->A;
+              }
+          }
+          // For all terms combinations left, create thier g-table. If it is not approximated out, add it to the root g-table
+          while(k < num_term_combos)
+          {
+              int cp_idx = forward_F[j][k++];
+              CauchyTerm* child_k = terms + cp_idx;
+              // Set memory position of child gtable k here
+              // Make the Btable if not an old term
+
+              if(DENSE_STORAGE)
+              {
+                  child_k->cells_gtable = child_j->cells_gtable;
+                  child_k->enc_B = B_dense;
+              }
+              else
+              {
+                  if(child_k->is_new_child)
+                  {
+                      // Set the child btable memory position
+                      child_k->cells_gtable = child_j->cells_gtable;
+                      gb_tables->set_term_btable_pointer(&(child_k->enc_B), child_k->cells_gtable, false);
+                      update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
+                  }
+                  else
+                  {
+                      // To deal with the case where numerical instability causes cell counts to be different, 
+                      // If the cell counts are different (due to instability), update child_k's btable to be compatible with the root
+                      if(child_k->cells_gtable != child_j->cells_gtable)
+                      {
+                          printf(RED"[BIG WARN FTR/Make Gtables:] child_k->cells_gtable != child_j->cells_gtable. We have code below to fix this! But EXITING now until this is commented out!" NC "\n");
+                          exit(1);
+                          // If child_k has more than child_j's cells,
+                          // Downgrade child_k to be equal to child_j
+                          if(child_k->cells_gtable > child_j->cells_gtable)
+                          {
+                              child_k->cells_gtable = child_j->cells_gtable;
+                              update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
+                          }
+                          // If child_k has less than child_j's cells, 
+                          // Upgrade child_k to be equal to child_j
+                          // Here we need to abandon the old btable memory location of child_k and acquire a new one 
+                          // This is to keep the btables consistent, 
+                          // child_k's btable then be set to the (re-oriented) child_j's btable.
+                          else
+                          {
+                              child_k->cells_gtable = child_j->cells_gtable;
+                              gb_tables->set_term_btable_pointer(&(child_k->enc_B), child_k->cells_gtable, false);
+                              update_btable(child_j->A, child_j->enc_B, child_k->A, child_k->enc_B, child_k->cells_gtable, m, d);
+                          }
+                      }
+                  }
+              }
+              gb_tables->set_term_gtable_pointer(&(child_k->gtable), child_k->cells_gtable, false);
+              // If child term k is not approximated out, we can add the gtables together
+              if( !make_gtable(child_k, G_SCALE_FACTOR) )
+              { 
+                  add_gtables(child_j, child_k);
+                  // No need to re-increment gb_table pointers
+                  // This is because for the remainder of the terms to be combined, we can use this memory space again
+              }
+          }
+          // If we found a root term, then increase the (reduced) term count
+          if(rt_idx != -1)
+          {
+              child_j->become_parent();
+              reduce_store->set_term_ptrs(child_j);
+              ftr_terms[Nt_reduced_shape++] = *child_j;
+          }
+          else
+              Nt_removed_shape++;
+
+          //terms[j].become_null();
+          //for(int l = 0; l < num_term_combos; l++)
+          //    terms[forward_F[j][l]].become_null();
+      }
   }
-  if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable) )
-  {
-    printf(RED"[ERROR #2: Add GTables] hashtable_find(...) for table_j returns failure=1. Debug here further! Exiting!" NC"\n");
-    exit(1);
-  }
-  // If no errors are tiggered add the g-values at the two positions together
-  if( (gtable_iter_i != NULL) && (gtable_iter_j != NULL) )
-  {
-    gtable_iter_i->value += gtable_iter_j->value;
-  }
-  // Now check for error signal that a key could not be found (but no failure)
-  // Since we are querying gtable_i from a key in gtable_j, an error should originate from gtable_i
-  else
-  {
-    if(gtable_iter_i == NULL)
-      printf(YEL"[WARN #1 Add Gtables]: g_table_i does not contain the key %d queried by gtable_iter_i. Debug here further!" NC"\n", enc_bi);
-    if(gtable_iter_j == NULL)
-      printf(YEL"[WARN #2 Add Gtables]: g_table_j does not contain the key %d queried by gtable_iter_j. Debug here further!" NC"\n", enc_bj);
-    if(EXIT_ON_FAILURE)
-    {
-      printf(RED"[SIG_ABORT #1 in Add Gtables]: EXIT_ON_FAILURE is set true. Exiting!" NC "\n");
-      exit(1);
-    }
-  }
+  *Nt_reduced = Nt_reduced_shape;
+  *Nt_removed = Nt_removed_shape;
 }
-else
+
+
+struct DIST_MAKE_GTABLES_STRUCT
 {
-  // Only keys that are in the positive halfspace of gtable_i and gtable_j are stored
-  enc_bi = enc_Bi[k]; // will be in positive halfspace of last HP
-  if( hashtable_find(gtable_i, &gtable_iter_i, enc_bi, size_gtable) )
+  int Nt_reduced; 
+  int Nt_removed;
+  CauchyTerm* terms;
+  CauchyTerm* ftr_terms;
+  ForwardFlagArray* ffa;
+  DiffCellEnumHelper* dce_helper;
+  ChunkedPackedTableStorage* gb_tables;
+  ReductionElemStorage* reduce_store;
+  int* backward_F;
+  int* B_dense; 
+  double G_SCALE_FACTOR;
+  int Nt_shape; 
+  int max_Nt_reduced_shape;
+  int m;
+  int d;
+  int start_idx;
+  int end_idx;
+};
+
+void* callback_make_gtables(void* args)
+{
+  DIST_MAKE_GTABLES_STRUCT* gtable_args = (DIST_MAKE_GTABLES_STRUCT*) args;
+  make_gtables(
+    &(gtable_args->Nt_reduced), 
+    &(gtable_args->Nt_removed),
+    gtable_args->terms,
+    gtable_args->ftr_terms,
+    gtable_args->ffa,
+    gtable_args->dce_helper, 
+    gtable_args->gb_tables,
+    gtable_args->reduce_store,
+    gtable_args->backward_F,
+    gtable_args->B_dense, 
+    gtable_args->G_SCALE_FACTOR,
+    gtable_args->Nt_shape, 
+    gtable_args->max_Nt_reduced_shape,
+    gtable_args->m, gtable_args->d,
+    gtable_args->start_idx, gtable_args->end_idx);
+  return NULL;
+}
+
+
+int threaded_make_gtables(int* Nt_reduced, int* Nt_removed,
+         CauchyTerm* terms,
+         CauchyTerm* ftr_terms,
+         ForwardFlagArray* ffa,
+         DiffCellEnumHelper* dce_helper, 
+         ChunkedPackedTableStorage* gb_tables,
+         ReductionElemStorage* reduce_store,
+         int* backward_F,
+         int* B_dense, const double G_SCALE_FACTOR,
+         const int Nt_shape, const int m, const int d,
+         const int win_num, const int step, const int total_steps)
+{
+  const int num_chunks = (Nt_shape + MIN_TERMS_PER_THREAD_GTABLE -1) / MIN_TERMS_PER_THREAD_GTABLE;
+  int num_tids = num_chunks > NUM_CPUS ? NUM_CPUS : num_chunks;
+
+  // Get start and end indices for each thread's gtable evaluation chunk
+  int start_idxs[num_tids];
+  int end_idxs[num_tids];
+  num_tids = ffa->get_balanced_threaded_flattening_indices(num_tids, start_idxs, end_idxs, win_num, step, total_steps);
+  // Number of threads can decrease if there are a very large number of combinations for a certain term, or certain terms
+  pthread_t tids[num_tids];
+  DIST_MAKE_GTABLES_STRUCT gtable_args[num_tids];
+  int cumsum_reduced_terms = 0;
+  for(int i = 0; i < num_tids; i++)
   {
-    printf(RED"[ERROR #3: Add GTables] hashtable_find(...) for table_j returns failure=1. Debug here further! Exiting!" NC"\n");
-    exit(1);
-  }
-  enc_bj = enc_bi ^ sigma_enc; // may not be in positive halfspace of last HP
-  // If enc_bj's sv is in the negative halfspace of its last HP,
-  // reverse enc_bj's sv and then add conj(gtable_j["reversed enc_bj"]) g-value to gtable_i["enc_bi"]
-  bool use_conj = false;
-  if(enc_bj & two_to_m_minus1) 
-  {
-    use_conj = true;
-    enc_bj ^= rev_b;
-  }
-  if( hashtable_find(gtable_j, &gtable_iter_j, enc_bj, size_gtable) )
-  {
-    printf(RED"[ERROR #4: Add GTables] hashtable_find(...) for table_i returns failure=1. Debug here further! Exiting!" NC"\n");
-    exit(1);
-  }
-  // If no errors are triggered add the g-values at the two positions together
-  if( (gtable_iter_i != NULL) && (gtable_iter_j != NULL) )
-  {
-    if(use_conj)
-      gtable_iter_i->value += conj(gtable_iter_j->value);
+    gtable_args[i].terms = terms;
+    if(WITH_TERM_APPROXIMATION)
+    {
+      gtable_args[i].ftr_terms = (CauchyTerm*) malloc(ffa->reduced_terms_per_chunk[i] * sizeof(CauchyTerm));
+      null_ptr_check(gtable_args[i].ftr_terms);
+    }
     else
-      gtable_iter_i->value += gtable_iter_j->value;
+      gtable_args[i].ftr_terms = ftr_terms + cumsum_reduced_terms;
+    gtable_args[i].ffa = ffa;
+    gtable_args[i].dce_helper = dce_helper + i;
+    gtable_args[i].gb_tables = gb_tables + i;
+    gtable_args[i].reduce_store = reduce_store + i;
+    gtable_args[i].backward_F = backward_F;
+    gtable_args[i].B_dense = B_dense; 
+    gtable_args[i].G_SCALE_FACTOR = G_SCALE_FACTOR;
+    gtable_args[i].Nt_shape = Nt_shape; 
+    gtable_args[i].max_Nt_reduced_shape = ffa->reduced_terms_per_chunk[i];
+    gtable_args[i].m = m;
+    gtable_args[i].d = d;
+    gtable_args[i].start_idx = start_idxs[i];
+    gtable_args[i].end_idx = end_idxs[i];
+    cumsum_reduced_terms += ffa->reduced_terms_per_chunk[i];
+    pthread_create(tids + i, NULL, callback_make_gtables, gtable_args + i);
   }
-  else
+  assert(ffa->num_terms_after_reduction == cumsum_reduced_terms);
+  for(int i = 0; i < num_tids; i++)
+    pthread_join(tids[i], NULL);
+
+  if(WITH_TERM_APPROXIMATION)
   {
-    if(gtable_iter_i == NULL)
-      printf(YEL"[WARN #3 Add Gtables]: g_table_i does not contain the key queried by gtable_iter_i. original sv enc_bi=%d, reversed=%d (rev_b is %d), queried sv = %d. Debug here further!" NC"\n", enc_bi, enc_bi & two_to_m_minus1, rev_b, ( (enc_bi & two_to_m_minus1) ? enc_bi ^ rev_b : enc_bi) );
-    if(gtable_iter_j == NULL)
-      printf(YEL"[WARN #4 Add Gtables]: g_table_j does not contain the key %d queried by gtable_iter_j. Debug here further!" NC"\n", enc_bj);
-    if(EXIT_ON_FAILURE)
+    int Nt_reduced_shape = 0;
+    int Nt_removed_shape = 0;
+    for(int i = 0; i < num_tids; i++)
     {
-      printf(RED"[SIG_ABORT #2 in Add Gtables]: EXIT_ON_FAILURE is set true. Exiting!" NC "\n");
-      exit(1);
+      memcpy(ftr_terms + Nt_reduced_shape, gtable_args[i].ftr_terms, gtable_args[i].Nt_reduced * sizeof(CauchyTerm));
+      Nt_reduced_shape += gtable_args[i].Nt_reduced;
+      Nt_removed_shape += gtable_args[i].Nt_removed;
+      free(gtable_args[i].ftr_terms);
     }
+    *Nt_reduced = Nt_reduced_shape;
+    *Nt_removed = Nt_removed_shape;
   }
+  else 
+  {
+    *Nt_reduced = ffa->num_terms_after_reduction;
+    *Nt_removed = 0;
+  }
+
+  return num_tids;
 }
-*/
 
 #endif //_FLATTENING_HPP_

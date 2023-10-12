@@ -1,6 +1,7 @@
 #ifndef _CPU_LINALG_HPP_
 #define _CPU_LINALG_HPP_
 
+#include "cauchy_constants.hpp"
 #include"cauchy_types.hpp"
 #include<float.h>
 #include<lapacke.h>
@@ -120,9 +121,10 @@ void print_cmat(C_COMPLEX_TYPE *A, const int M, const int N, const int precision
             double ival = cimag(A[i*N + j]);
             printf("%.*lf + %.*lfj, ", precision, rval, precision, ival);
         }
-        std::cout << std::endl;
+        printf("\n");
     }
-    std::cout << std::endl;
+    if(M > 1)
+        printf("\n");
 }
 
 void print_mat(int *A, const int M, const int N)
@@ -174,6 +176,15 @@ void print_vec(double *x, const int N, const int precision)
     for(int j = 0; j < N; j++)
     {
         printf("%.*E, ", precision, x[j]);
+    }
+    printf("\n");
+}
+
+void print_cvec(C_COMPLEX_TYPE *x, const int N, const int precision)
+{
+    for(int j = 0; j < N; j++)
+    {
+        printf("%.*E + %.*Ej, ", precision, creal(x[j]), precision, cimag(x[j]) );
     }
     printf("\n");
 }
@@ -695,6 +706,32 @@ T array_min(T* arr, const int N)
     }
 }
 
+double max_abs_array(double* x, const int n)
+{
+    double max_val = fabs(x[0]);
+    for(int i = 1; i < n; i++)
+    {
+        double abs_val = fabs(x[i]);
+        if(abs_val > max_val)
+            max_val = abs_val;
+    }    
+    return max_val;
+}
+
+// finds the (absolute) maximum imaginary value in a complex double array
+double max_abs_imag_carray(C_COMPLEX_TYPE* x, const int n)
+{
+    double max_val = fabs( cimag(x[0]) );
+    for(int i = 1; i < n; i++)
+    {
+        double abs_val = fabs( cimag(x[i]) );
+        if(abs_val > max_val)
+            max_val = abs_val;
+    }    
+    return max_val;
+}
+
+/*
 // Finds the maximum imaginary part value of a complex array
 double carray_max_imag(C_COMPLEX_TYPE* arr, const int N)
 {
@@ -815,7 +852,13 @@ int carray_vector_argmin(C_COMPLEX_TYPE* arr, const int N, const int m)
         return arg_min_sum;
     }
 }
+*/
 
+void convert_complex_array_to_real(C_COMPLEX_TYPE* xc, double* xr, const int n)
+{
+    for(int i = 0; i < n; i++)
+        xr[i] = creal(xc[i]);
+}
 
 void scale_mat(double *A, const double scale, const int M, const int N)
 {

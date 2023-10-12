@@ -4,7 +4,12 @@
 #include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"
+#include "cpu_linalg.hpp"
 #include "gtable.hpp"
+
+#include <dirent.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 double normalize_l1(double* x, const int n)
 {
@@ -98,6 +103,139 @@ int precoalign_Gamma_beta(double* Gamma, double* beta, int cmcc, int d, double* 
 	else
 		return cmcc;
 }
+
+// Helper Elements for Fast Incremental Enumeration and Fast Term Reduction
+struct FastTermRedHelper
+{
+  int max_num_terms;
+  int d;
+  // Term reduction helpers
+  int* F;
+  int* F_TR;
+  // Fast term reduction helpers
+  double** ordered_points;
+  int** forward_map;
+  int** backward_map;
+
+  void init(int _d, int _max_num_terms)
+  {
+    max_num_terms = _max_num_terms;
+    d = _d;
+    F = (int*) malloc( max_num_terms * sizeof(int));
+    null_ptr_check(F);
+    for(int i = 0; i < max_num_terms; i++)
+      F[i] = i;
+    // Term reduction flags
+    F_TR = (int*)malloc(max_num_terms * sizeof(int));
+    null_ptr_check(F_TR);
+    init_ordered_point_maps();
+    assert_TR_search_index_pattern();
+  }
+
+  void realloc_helpers(int _max_num_terms)
+  {
+    F = (int*) realloc(F, _max_num_terms * sizeof(int));
+    null_ptr_check(F);
+    if(_max_num_terms > max_num_terms)
+      for(int i = max_num_terms; i < _max_num_terms; i++)
+        F[i] = i;
+    max_num_terms = _max_num_terms;
+    // Allocate memory for the helper element arrays
+    F_TR = (int*) realloc(F_TR, max_num_terms * sizeof(int));
+    null_ptr_check(F_TR);
+    realloc_ordered_point_maps();
+    assert_TR_search_index_pattern();
+  }
+
+  void assert_TR_search_index_pattern()
+  {
+    // Make absolutely sure search index pattern is set correctly
+    bool F_sip[d];
+    memset(F_sip, 0, d*sizeof(bool));
+    for(int i = 0; i < d; i++)
+    {
+      if(TR_SEARCH_IDXS_ORDERING[i] >= d)
+      {
+        printf(RED "[ERROR FastTermRedHelper initialization:]\n"
+                   "  TR_SEARCH_IDXS_ORDERING in cauchy_type.hpp not set correctly for d=%d states!\n"
+                   "  Please modify this array to have unique integers [0,...,%d] in a specified order\n"
+                   "  Exiting! Please Fix!\n"
+               NC  "\n", d, d-1);
+        exit(1);
+      }
+      else
+        F_sip[TR_SEARCH_IDXS_ORDERING[i]] = 1;
+    }
+    for(int i = 0; i < d; i++)
+    {
+      if(F_sip[i] == 0)
+      {
+        // indices not set correctly
+        printf(RED "[ERROR FastTermRedHelper initialization:]\n"
+                   "  TR_SEARCH_IDXS_ORDERING in cauchy_type.hpp not set correctly for d=%d states!\n"
+                   "  Please modify this array to have unique integers [0,...,%d] in a specified order\n"
+                   "  Exiting! Please Fix!\n"
+               NC  "\n", d, d-1);
+        exit(1);
+      }
+    }
+  }
+
+  void init_ordered_point_maps()
+  {
+      int n = max_num_terms;
+      ordered_points = (double**) malloc(d * sizeof(double*));
+      null_dptr_check((void**)ordered_points);
+      forward_map = (int**) malloc(d * sizeof(int*));
+      null_dptr_check((void**)forward_map);
+      backward_map = (int**) malloc(d * sizeof(int*));
+      null_dptr_check((void**)backward_map);
+      for(int i = 0; i < d; i++)
+      {
+          ordered_points[i] = (double*) malloc(n * sizeof(double));
+          null_ptr_check(ordered_points[i]);
+          forward_map[i] = (int*) malloc(n * sizeof(int));
+          null_ptr_check(forward_map[i]);
+          backward_map[i] = (int*) malloc(n * sizeof(int));
+          null_ptr_check(backward_map[i]);
+      }
+  }
+
+  void realloc_ordered_point_maps()
+  {
+      int n = max_num_terms;
+      for(int i = 0; i < d; i++)
+      {
+        ordered_points[i] = (double*) realloc(ordered_points[i], n * sizeof(double));
+        null_ptr_check(ordered_points[i]);
+        forward_map[i] = (int*) realloc(forward_map[i], n * sizeof(int));
+        null_ptr_check(forward_map[i]);
+        backward_map[i] = (int*) realloc(backward_map[i], n * sizeof(int));
+        null_ptr_check(backward_map[i]);
+      }
+  }
+
+  void dealloc_ordered_point_maps()
+  {
+      for(int i = 0; i < d; i++)
+      {
+          free(ordered_points[i]);
+          free(forward_map[i]);
+          free(backward_map[i]);
+      }
+      free(ordered_points);
+      free(forward_map);
+      free(backward_map);
+  }
+
+  void deinit()
+  {
+    free(F);
+    free(F_TR);
+    dealloc_ordered_point_maps();
+  }
+};
+
 
 // Creates a forwards pointing flag array from the backward pointing flag array that is created by term reduction
 struct ForwardFlagArray
@@ -371,17 +509,22 @@ struct ChunkedPackedTableStorage
 		{
 			page_limits[i] = pages_at_start;
 			used_elems_per_page[i] = (BYTE_COUNT_TYPE*) calloc(page_limits[i], sizeof(BYTE_COUNT_TYPE));
-			null_ptr_check(used_elems_per_page[i]);
+			if(pages_at_start > 0)
+				null_ptr_check(used_elems_per_page[i]);
 			current_page_idxs[i] = 0;			
 		}
 		chunked_gtables = (GTABLE*) malloc(pages_at_start * sizeof(GTABLE));
-		null_dptr_check((void**)chunked_gtables);
+		if(pages_at_start > 0)
+			null_dptr_check((void**)chunked_gtables);
 		chunked_gtable_ps = (GTABLE*) malloc(pages_at_start * sizeof(GTABLE));
-		null_dptr_check((void**)chunked_gtable_ps);
+		if(pages_at_start > 0)
+			null_dptr_check((void**)chunked_gtable_ps);
 		chunked_btables = (BKEYS*) malloc(pages_at_start * sizeof(BKEYS));
-		null_dptr_check((void**)chunked_btables);
+		if(pages_at_start > 0)
+			null_dptr_check((void**)chunked_btables);
 		chunked_btable_ps = (BKEYS*) malloc(pages_at_start * sizeof(BKEYS));
-		null_dptr_check((void**)chunked_btable_ps);
+		if(pages_at_start > 0)
+			null_dptr_check((void**)chunked_btable_ps);
 		for(uint page_idx = 0; page_idx < pages_at_start; page_idx++)
 		{
 			chunked_gtable_ps[page_idx] = (GTABLE) page_alloc();
@@ -736,21 +879,25 @@ struct ChunkedPackedTableStorage
 			free(chunked_gtables[page_idx]);
 		free(chunked_gtables);
 		free(used_elems_per_page[0]);
+		page_limits[0] = 0;
 		// free chunked gtable_ps
 		for(uint page_idx = 0; page_idx < page_limits[1]; page_idx++)
 			free(chunked_gtable_ps[page_idx]);
 		free(chunked_gtable_ps);
 		free(used_elems_per_page[1]);
+		page_limits[1] = 0;
 		// free chunked btables
 		for(uint page_idx = 0; page_idx < page_limits[2]; page_idx++)
 			free(chunked_btables[page_idx]);
 		free(chunked_btables);
 		free(used_elems_per_page[2]);
+		page_limits[2] = 0;
 		// free chunked btable_ps
 		for(uint page_idx = 0; page_idx < page_limits[3]; page_idx++)
 			free(chunked_btable_ps[page_idx]);
 		free(chunked_btable_ps);
 		free(used_elems_per_page[3]);
+		page_limits[3] = 0;
 	}
 
 };
@@ -777,10 +924,12 @@ struct ChunkedPackedElement
 
 		page_limit = pages_at_start;
 		used_elems_per_page = (BYTE_COUNT_TYPE*) calloc(page_limit, sizeof(BYTE_COUNT_TYPE));
-		null_ptr_check(used_elems_per_page);
+		if(page_limit > 0)
+			null_ptr_check(used_elems_per_page);
 		current_page_idx = 0;
 		chunked_elems = (T**) malloc(pages_at_start * sizeof(T*));
-		null_dptr_check((void**)chunked_elems);
+		if(page_limit > 0)
+			null_dptr_check((void**)chunked_elems);
 		for(uint page_idx = 0; page_idx < pages_at_start; page_idx++)
 		{
 			chunked_elems[page_idx] = (T*) page_alloc();	
@@ -881,8 +1030,9 @@ struct ChunkedPackedElement
 	{
 		for(uint i = current_page_idx+1; i < page_limit; i++)
 			free(chunked_elems[i]);
-		assert(page_limit > 0);
-		if(current_page_idx < (page_limit-1) )
+		//assert(page_limit > 0);
+		uint used_page_idxs = (page_limit == 0) ? 0 : page_limit - 1;
+		if(current_page_idx < used_page_idxs )
 		{
 			page_limit = current_page_idx + 1;
 			chunked_elems = (T**) realloc(chunked_elems, page_limit * sizeof(T*));
@@ -928,6 +1078,7 @@ struct ChunkedPackedElement
 			free(chunked_elems[page_idx]);
 		free(chunked_elems);
 		free(used_elems_per_page);
+		page_limit = 0;
 	}
 
 };
@@ -1146,15 +1297,19 @@ struct CauchyStats
 		{
 			uint* current_page_idxs = gb_tables[tid].current_page_idxs;
 			BYTE_COUNT_TYPE** used_elems_per_page = gb_tables[tid].used_elems_per_page;
-			for(uint i = 0; i <= current_page_idxs[0]; i++)
-				gtables_bytes += used_elems_per_page[0][i] * sizeof(GTABLE_TYPE);
-			for(uint i = 0; i <= current_page_idxs[1]; i++)
-				gtable_ps_bytes += used_elems_per_page[1][i] * sizeof(GTABLE_TYPE);
-			for(uint i = 0; i <= current_page_idxs[2]; i++)
-				btables_bytes += used_elems_per_page[2][i] * sizeof(BKEYS_TYPE);
-			for(uint i = 0; i <= current_page_idxs[3]; i++)
-				btable_ps_bytes += used_elems_per_page[3][i] * sizeof(BKEYS_TYPE);		
 			uint* page_limits = gb_tables[tid].page_limits;
+			if(page_limits[0] > 0)
+				for(uint i = 0; i <= current_page_idxs[0]; i++)
+					gtables_bytes += used_elems_per_page[0][i] * sizeof(GTABLE_TYPE);
+			if(page_limits[1] > 0)
+				for(uint i = 0; i <= current_page_idxs[1]; i++)
+					gtable_ps_bytes += used_elems_per_page[1][i] * sizeof(GTABLE_TYPE);
+			if(page_limits[2] > 0)
+				for(uint i = 0; i <= current_page_idxs[2]; i++)
+					btables_bytes += used_elems_per_page[2][i] * sizeof(BKEYS_TYPE);
+			if(page_limits[3] > 0)
+				for(uint i = 0; i <= current_page_idxs[3]; i++)
+					btable_ps_bytes += used_elems_per_page[3][i] * sizeof(BKEYS_TYPE);		
 			num_gtable_pages += page_limits[0];
 			num_gtable_p_pages += page_limits[1];
 			num_btable_pages += page_limits[2];
@@ -1324,5 +1479,155 @@ struct CauchyStats
 	}
 
 };
+
+int covariance_checker(C_COMPLEX_TYPE* covariance, const int d, const int win_num, const int step, const int total_steps, bool with_warnings)
+{
+  int cov_error_flags = 0;
+  int d_squared = d * d;
+  double* cov_real = (double*) malloc(d_squared * sizeof(double));
+  null_ptr_check(cov_real);
+  double* cov_imag = (double*) malloc(d_squared * sizeof(double));
+  null_ptr_check(cov_imag);
+  double* cov_work = (double*) malloc(d_squared * sizeof(double));
+  null_ptr_check(cov_work);
+  double* cov_eigs = (double*) malloc(d * sizeof(double));
+  null_ptr_check(cov_eigs);
+  // Split covariance into real and imaginary
+  for(int i = 0; i < d_squared; i++)
+  {
+    cov_real[i] = creal(covariance[i]);
+    cov_imag[i] = cimag(covariance[i]);
+  }
+
+  // The following checks take place to the calculated covariance matrix
+  // Check whether the eigenvalues of the covariance matrix are all positive (no small eig consideration here... window manager gives warnings for this)
+  // Check whether the covariance matrix is valid (the correlations are less than or equal to +/-1)
+  // Check whether the ratio of the imag part to the real part is less than a defined threshold
+  // If all checks are OK, then we return 0
+  // If checks are not OK, the following bits are set on return
+  // If eigs are not positive, flag |= (1 << 0)
+  // If correlations are not \leq +/-1, flag |= (1<<1)
+  // If ratio of imag part to real part is not less than imag_over_real_threshold, flag |= (1<<2)
+  // If any imaginary values of the covariance is larger than the hard limit, flag |= (1<<3)
+
+  // Check positivity of eigenvalues
+  memcpy(cov_work, cov_real, d_squared*sizeof(double));
+  memset(cov_eigs, 0, d*sizeof(double));
+  LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', d, cov_work, d, cov_eigs);
+  for(int i = 0; i < d; i++)
+  {
+    if(cov_eigs[i] <= 0)
+      cov_error_flags |= (1<<COV_ERROR_FLAGS_INVALID_EIGENVALUES);
+  }
+  if(with_warnings && (cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_EIGENVALUES) ))
+  {
+    printf(YEL"[Covariance Checker: Window %d, Step %d/%d] Eigenvalue Check: Failed\n", 
+      win_num, step, total_steps);
+    print_vec(cov_eigs, d);
+    printf(NC"\n");
+  }
+
+  // Check Correlations 
+  memset(cov_work, 0, d_squared * sizeof(double));
+  for(int i = 0; i < d-1; i++)
+  {
+    cov_work[i*d+i] = 1;
+    double sig_ii = sqrt(cov_real[i*d+i]);
+    for(int j = i+1; j < d; j++)
+    {
+      double sig_jj = sqrt(cov_real[j*d+j]);
+      double cov_ij = cov_real[i*d+j];
+      double corr_ij = cov_ij / (sig_ii * sig_jj);
+      cov_work[i*d+j] = corr_ij;
+      if( fabs(corr_ij) > 1 )
+        cov_error_flags |= (1<<COV_ERROR_FLAGS_INVALID_CORRELATION);
+    }
+  }
+  if(with_warnings && (cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_CORRELATION) ))
+  {
+    printf(YEL"[Covariance Checker: Window %d, Step %d/%d] Correlation Check: Failed", 
+      win_num, step, total_steps);
+    printf("Correlation Matrix is: (Upper Part)\n");
+    cov_work[d_squared-1] = 1;
+    print_mat(cov_work, d, d);
+    printf(NC"\n");
+  }
+
+  // Check ratio of real to imaginary magnitude
+  for(int i = 0; i < d; i++)
+  {
+    for(int j = i; j < d; j++)
+    {
+	  double ratio = fabs(cov_imag[i*d+j]) / (fabs(cov_real[i*d+j]) + 1e-15);
+      cov_work[i*d + j] = ratio;
+      if( cov_work[i*d + j] > THRESHOLD_COVARIANCE_IMAG_TO_REAL)
+        cov_error_flags |= (1<<COV_ERROR_FLAGS_INVALID_I2R_RATIO);
+    }
+  }
+  if(with_warnings && (cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_I2R_RATIO) ))
+  {
+    printf(YEL"[Covariance Checker: Window %d, Step %d/%d] Imag/Real Ratio Check: Failed", 
+      win_num, step, total_steps);
+    printf("Matrix of Imag/Real ratios (Upper Part) is: \n");
+    print_mat(cov_work, d, d);
+    printf(NC"\n");
+  }
+
+  // Check covariance imaginary part hard limit
+  for(int i = 0; i < d; i++)
+  {
+	  if( fabs(cov_imag[i]) > HARD_LIMIT_IMAGINARY_COVARIANCE )
+	  	cov_error_flags |= (1<<COV_ERROR_FLAGS_INVALID_IMAGINARY_VALUE);
+  }
+  if(with_warnings && (cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_IMAGINARY_VALUE) ))
+  {
+	  printf(YEL"[Covariance Checker: Window %d, Step %d/%d] Imag Hard Limit Check: Failed", 
+      win_num, step, total_steps);
+      printf("Max (absolute) Imag value of %d x %d covariance is: %lf\n", d, d, max_abs_array(cov_imag, d_squared));
+      printf(NC"\n");
+  }
+  // Free heap 
+  free(cov_real);
+  free(cov_imag);
+  free(cov_work);
+  free(cov_eigs);
+
+  return cov_error_flags;
+}
+
+void print_numeric_moment_errors()
+{
+	printf("Estimator Has accumulated the following errors since being initialized:\n");
+}
+
+
+void check_dir_and_create(char* dir_path)
+{
+   // If this directory does not exist, create this directory
+  // check if window folder exists
+  DIR* dir = opendir(dir_path);
+  if(dir)
+  {
+    // The directory exists
+  }
+  else if(ENOENT == errno)
+  {
+    // Directory doesnt exist, create the directory
+    int success = mkdir(dir_path, 0777);
+    if(success == -1)
+    {
+      printf("Failure making the directory %s. mkdir returns %d. Exiting!\n", dir_path, success);
+      assert(false);
+    }
+  }
+  else
+  {
+    // Directory opening failed for some reason
+    printf("Directory opening failed!\n");
+    assert(false);
+  }
+  closedir(dir);
+}
+
 
 #endif
