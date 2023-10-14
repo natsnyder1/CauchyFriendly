@@ -133,6 +133,7 @@ struct WindowMessage
         win_num = _win_num;
         state_dim = _state_dim;
         is_extended = _is_extended;
+        numeric_moment_errors = 0;
         size_bytes_serial_data = 2*sizeof(int) + sizeof(ACK_MSGS) + sizeof(C_COMPLEX_TYPE) + 
                                  sizeof(C_COMPLEX_TYPE) * state_dim + sizeof(C_COMPLEX_TYPE) * state_dim * state_dim;
         if(is_extended)
@@ -142,13 +143,14 @@ struct WindowMessage
 
         serial_data = (char*) malloc( size_bytes_serial_data );
         null_ptr_check(serial_data);
-        x_hat = (C_COMPLEX_TYPE*) malloc( state_dim * sizeof(C_COMPLEX_TYPE) );
+        fz = 0;
+        x_hat = (C_COMPLEX_TYPE*) calloc( state_dim , sizeof(C_COMPLEX_TYPE) );
         null_ptr_check(x_hat);
-        P_hat = (C_COMPLEX_TYPE*) malloc( state_dim * state_dim * sizeof(C_COMPLEX_TYPE) );
+        P_hat = (C_COMPLEX_TYPE*) calloc( state_dim * state_dim , sizeof(C_COMPLEX_TYPE) );
         null_ptr_check(P_hat);
         if(is_extended)
         {
-            x_bar = (double*) malloc( state_dim * sizeof(double) );
+            x_bar = (double*) calloc( state_dim , sizeof(double) );
             null_ptr_check(x_bar);
         }
     }
@@ -408,8 +410,6 @@ void speyers_window_init(const int N, double* x1_hat, double* Var,
 
     // Form p_0
     matvecmul(A_0, H, work2, N, N, true); // H @ A = A_T @ H_T
-    for(int i = 0; i < N; i++)
-        assert( work2[i] > 0 );
     matvecmul(Var, H, work, N, N);
     double HVarH_T = dot_prod(H, work, N);
     double scale3 = (scale + HVarH_T) / gamma;
@@ -448,15 +448,6 @@ void init_cauchy_window(CauchyWindow* cw, int window_number, int pid, int* p2c_f
 bool init_cauchy_windows(CauchyWindowManager* cwm, CauchyWindow* cw)
 {
     int num_windows = cwm->num_windows;
-    assert( num_windows > 1 );
-    cwm->window_c2p_fds = (int**) malloc(num_windows * sizeof(int*));
-    cwm->window_p2c_fds = (int**) malloc(num_windows * sizeof(int*));
-    for(int i = 0; i < num_windows; i++)
-    {
-        cwm->window_c2p_fds[i] = (int*) malloc(2 * sizeof(int));
-        cwm->window_p2c_fds[i] = (int*) malloc(2 * sizeof(int));
-    }
-
     bool am_i_manager = true;
     for(int win_num = 0; win_num < num_windows; win_num++)
     {
@@ -481,6 +472,14 @@ bool init_cauchy_windows(CauchyWindowManager* cwm, CauchyWindow* cw)
 
 void init_cauchy_window_manager(CauchyWindowManager* cwm, int num_windows)
 {
+    assert( num_windows > 1 );
+    cwm->window_c2p_fds = (int**) malloc(num_windows * sizeof(int*));
+    cwm->window_p2c_fds = (int**) malloc(num_windows * sizeof(int*));
+    for(int i = 0; i < num_windows; i++)
+    {
+        cwm->window_c2p_fds[i] = (int*) malloc(2 * sizeof(int));
+        cwm->window_p2c_fds[i] = (int*) malloc(2 * sizeof(int));
+    }
     cwm->num_windows = num_windows;
     for(int i = 0; i < num_windows; i++)
     {
@@ -502,9 +501,10 @@ int child_window_loop(CauchyWindow cw,
     )
 {
 
-    //printf("Child %d has pid %d: Sleeping for CUDA-GDB attach!\n", cw.window_number, cw.pid);
+    //printf("Child %d has pid %d: Sleeping for GDB attach!\n", cw.window_number, cw.pid);
     //sleep(60);
     //printf("Child %d is done waiting!\n", cw.window_number);
+    
     // Adding a step counter variable;
     assert(duc->step == 0 || duc->step == 1);
     int step_count = duc->step;
@@ -521,7 +521,7 @@ int child_window_loop(CauchyWindow cw,
     print_window_settings(&cw);
     
     // Setup the Estimator 
-    CauchyEstimator cauchyEst(A0, p0, b0, num_simulation_steps, n, pncc, p, false);
+    CauchyEstimator cauchyEst(A0, p0, b0, num_windows, n, pncc, p, false);
     cauchyEst.set_win_num(cw.window_number);
 
     WindowMessage win_msg;
@@ -605,13 +605,17 @@ int child_window_loop(CauchyWindow cw,
                         printf("Window %d reports: Parent sent new A/p/b speyer start params!\n", cw.window_number);
                     // reset the cDynam's to reflect these new parameters
                     cauchyEst.reinitialize_start_statistics(init_msg.A_0, init_msg.p_0, init_msg.b_0);
-                    // If LTV, init_msg.x contains x_hat
-                    // If Non-linear (is_extended), init_msg.x contains x_bar
-                    memcpy(duc->x, init_msg.x, n * sizeof(double) );
                     duc->step = step_count;
+                    // If Non-linear (is_extended), init_msg.x contains x_bar
+                    if(is_extended)
+                        memcpy( duc->x, init_msg.x, n * sizeof(double) );
+                    // If LTV, init_msg.x contains x_hat
                     if(!is_extended && dynamics_update_callback != NULL)
+                    {
+                        memcpy( duc->x, init_msg.x, n * sizeof(double) );
                         dynamics_update_callback(duc); // Possibly update Phi, Gamma, beta, H, gamma (only H and gamma will be used on this step tho)
-                    speyer_init_was_run = true; 
+                    }
+                    speyer_init_was_run = true;
                 }
 
                 int window_numeric_errors;
@@ -728,12 +732,16 @@ int child_window_loop(CauchyWindow cw,
                     printf("Window %d reports: Parent sent new A/p/b speyer start params!\n", cw.window_number);
                 // reset the cDynam's to reflect these new parameters
                 cauchyEst.reinitialize_start_statistics(init_msg.A_0, init_msg.p_0, init_msg.b_0);
-                // If LTV, init_msg.x contains x_hat
-                // If Non-linear (is_extended), init_msg.x contains x_bar
-                memcpy( duc->x, init_msg.x, n * sizeof(double) );
                 duc->step = step_count;
+                // If Non-linear (is_extended), init_msg.x contains x_bar
+                if(is_extended)
+                    memcpy( duc->x, init_msg.x, n * sizeof(double) );
+                // If LTV, init_msg.x contains x_hat
                 if(!is_extended && dynamics_update_callback != NULL)
+                {
+                    memcpy( duc->x, init_msg.x, n * sizeof(double) );
                     dynamics_update_callback(duc); // Possibly update Phi, Gamma, beta, H, gamma (only H and gamma will be used on this step tho)
+                }
                 speyer_init_was_run = true; 
             }
 
@@ -795,6 +803,10 @@ int child_window_loop(CauchyWindow cw,
     // closing p2c and c2p pipe 
     close(cw.p2c_fd);
     close(cw.c2p_fd);
+    // Free up Message Structures
+    win_msg.deinit();
+    init_msg.deinit();
+    msmt_msg.deinit();
     return -1; // use return code -1 to indicate a child is exiting and the process should be killed upon return
 }
 
@@ -805,11 +817,12 @@ struct WinCountStruct
     int win_count;
 };
 
+// Descending order sort
 int compare_func_win_counts(const void* p1, const void* p2)
 {
     WinCountStruct* w1 = (WinCountStruct*) p1;
     WinCountStruct* w2 = (WinCountStruct*) p2;
-    return w1->win_count - w2->win_count;
+    return w2->win_count -  w1->win_count;
 }
 
 // dynamics_update_callback: updates Phi, Gamma, beta, H, gamma (and possibly B), propagates x_hat to x_bar...This is used on a TP/MU step of the filter in extended mode
@@ -934,6 +947,17 @@ struct SlidingWindowManager
         // Create logging directory
         // If _log_dir == NULL, no logging takes place
         // If _log_dir != NULL and WINDOW_LOG_FULL=true, create a 'win' subdirectory
+        if(_log_dir == NULL)
+        {
+            if( (WINDOW_LOG_FULL == true) || (WINDOW_LOG_SEQUENTIAL == true) )
+            {
+                printf(RED " Error SlidingWindowManager: Either WINDOW_LOG_FULL or WINDOW_LOG_SEQUENTIAL were set to true, but no log directory was provided (log_dir==NULL was given)!\n"
+                RED "Either set WINDOW_LOG_FULL=WINDOW_LOG_SEQUENTIAL=false, or provide a log directory\n"
+                RED "Exiting! Please fix!"
+                NC "\n");
+                exit(1);
+            }
+        }
         check_make_log_dir( _log_dir); 
 
         assert_correct_cauchy_dynamics_update_container_setup(duc);
@@ -968,7 +992,7 @@ struct SlidingWindowManager
                 printf(RED "[Error SlidingWindowManager:] LTI/LTV mode requested but _nonlinear_msmt_model != NULL or _extended_msmt_update_callback != NULL. These are not used in LTI/LTV mode, only in extended mode!. Please fix (set to NULL), or reconsider the structure of your program! Exiting!\n");
                 exit(1);
             }
-            if( (_dynamics_update_callback != NULL) )
+            if( _dynamics_update_callback != NULL )
             {
                 if(duc->x == NULL)
                 {
@@ -977,7 +1001,7 @@ struct SlidingWindowManager
                 }
             }
         }
-        // If SKIP_LAST_STEP=false, request for the user to turn this to true -- there is no point in doing this if set to true
+        // If SKIP_LAST_STEP=false, request for the user to turn this to true -- there is no point in doing this if set to false
         if(SKIP_LAST_STEP==false)
         {
             printf(RED "[ERROR: SlidingWindowManager] Boolean SKIP_LAST_STEP=false in cauchy_constants.hpp!\n"
@@ -985,7 +1009,7 @@ struct SlidingWindowManager
                    RED "Please set this variable to true and recompile the program! Exiting!\n");
             exit(1);
         }
-        
+
         am_i_manager = init_cauchy_windows(&cwm, &cw);
         if(!am_i_manager)
         {
@@ -1084,6 +1108,8 @@ struct SlidingWindowManager
 
             // Launch window manager
             msmt_count = 0;
+            sleep(1);
+            printf("Parent has pid: %d\n", (int) getpid() );
             printf("Start your engines, racers...\n"); 
             sleep(1);
             // add tmr here
@@ -1167,7 +1193,6 @@ struct SlidingWindowManager
 
         // The best window index for reinitialization should be the initializer_idx, but in lieu of numerical error, it could be different
         int best_win_idx = select_best_stable_mean_cov(); 
-        save_best_window_data(best_win_idx);
 
         // Run Speyers Initialization method to restart the (newly) reset window (initializee) around the estimate of the (newly) full window (initializer)
         if( msmt_count > 0 )
@@ -1222,7 +1247,8 @@ struct SlidingWindowManager
             child_okay = ((win_msg.ack_msg == SLAVE_OKAY) || (win_msg.ack_msg == SLAVE_WINDOW_FULL)) ? 1 : 0; 
             children_okay *= child_okay;
         }
-
+        // Log the best window data from this time-step, as well as all window data if WINDOWW_LOG_FULL is set to true
+        save_best_window_data(best_win_idx);
 
         msmt_count += 1;
         duc->step++;
@@ -1272,13 +1298,14 @@ struct SlidingWindowManager
             log_dir = (char*) malloc(len_log_dir * sizeof(char));
             null_ptr_check(log_dir);
             strncpy(log_dir, _log_dir, len_log_dir-1);
+            log_dir[len_log_dir-1] = '\0';
             len_log_dir -= 1;
         }
         else 
         {
             log_dir = (char*) malloc( (len_log_dir+1) * sizeof(char));
             null_ptr_check(log_dir);
-            strncpy(log_dir, _log_dir, len_log_dir);
+            strncpy(log_dir, _log_dir, len_log_dir+1);
         }
         check_dir_and_create(log_dir);
         // Create logging file name
@@ -1424,36 +1451,22 @@ struct SlidingWindowManager
         free(temp_file_path);
     }
 
-    // For full window data
-    void log_double_array_to_file(FILE* f_name, int win_idx, double* x, const int len_x)
-    {
-        fprintf(f_name, "%d:", win_idx);
-        log_double_array_to_file(f_name, x, len_x);
-    }
-
-    // For all window data
-    void log_double_array_to_file(FILE* f_name, double* x, const int len_x)
-    {
-        if(len_x == 1)
-            fprintf(f_name, "%.16lf\n", x[0]);
-        else
-        {
-            for(int i = 0; i < len_x-1; i++)
-                fprintf(f_name, "%.16lf ", x[i]);
-            fprintf(f_name, "%.16lf\n", x[len_x-1]);
-        }
-    }
-
     void sequential_logger_best_window(int best_win_idx)
     {   
         if(log_dir == NULL)
             return;
         log_double_array_to_file(f_fw_means, best_win_idx, full_window_means + msmt_count * n, n);
         log_double_array_to_file(f_fw_variances, best_win_idx, full_window_variances + msmt_count * n * n, n * n);
-        log_double_array_to_file(f_fw_cerr_norm_factors, best_win_idx, full_window_norm_factors + msmt_count, 1);
+        log_double_array_to_file(f_fw_norm_factors, best_win_idx, full_window_norm_factors + msmt_count, 1);
         log_double_array_to_file(f_fw_cerr_means, best_win_idx, full_window_cerr_means + msmt_count, 1);
         log_double_array_to_file(f_fw_cerr_variances, best_win_idx, full_window_cerr_variances + msmt_count, 1);
         log_double_array_to_file(f_fw_cerr_norm_factors, best_win_idx, full_window_cerr_norm_factors + msmt_count, 1);
+        fflush(f_fw_means);
+        fflush(f_fw_variances);
+        fflush(f_fw_norm_factors);
+        fflush(f_fw_cerr_means);
+        fflush(f_fw_cerr_variances);
+        fflush(f_fw_cerr_norm_factors);
     }
 
     void sequential_logger_all_windows()
@@ -1471,6 +1484,12 @@ struct SlidingWindowManager
                 log_double_array_to_file(f_aw_cerr_variances[win_idx], window_cerr_variances[win_idx] + win_step_count, 1);
                 log_double_array_to_file(f_aw_norm_factors[win_idx], window_norm_factors[win_idx] + win_step_count, 1);
                 log_double_array_to_file(f_aw_cerr_norm_factors[win_idx], window_cerr_norm_factors[win_idx] + win_step_count, 1);
+                fflush(f_aw_means[win_idx]);
+                fflush(f_aw_variances[win_idx]);
+                fflush(f_aw_cerr_means[win_idx]);
+                fflush(f_aw_cerr_variances[win_idx]);
+                fflush(f_aw_norm_factors[win_idx]);
+                fflush(f_aw_cerr_norm_factors[win_idx]);
             }
         }
     }
@@ -1484,11 +1503,17 @@ struct SlidingWindowManager
             int best_win_idx = full_window_idxs[i];
             log_double_array_to_file(f_fw_means, best_win_idx, full_window_means + i * n, n);
             log_double_array_to_file(f_fw_variances, best_win_idx, full_window_variances + i * n * n, n * n);
-            log_double_array_to_file(f_fw_cerr_norm_factors, best_win_idx, full_window_norm_factors + i, 1);
+            log_double_array_to_file(f_fw_norm_factors, best_win_idx, full_window_norm_factors + i, 1);
             log_double_array_to_file(f_fw_cerr_means, best_win_idx, full_window_cerr_means + i, 1);
             log_double_array_to_file(f_fw_cerr_variances, best_win_idx, full_window_cerr_variances + i, 1);
             log_double_array_to_file(f_fw_cerr_norm_factors, best_win_idx, full_window_cerr_norm_factors + i, 1);
         }
+        fflush(f_fw_means);
+        fflush(f_fw_variances);
+        fflush(f_fw_norm_factors);
+        fflush(f_fw_cerr_means);
+        fflush(f_fw_cerr_variances);
+        fflush(f_fw_cerr_norm_factors);
     }
 
     void batch_logger_all_windows_history()
@@ -1508,6 +1533,12 @@ struct SlidingWindowManager
                 log_double_array_to_file(f_aw_norm_factors[win_idx], window_norm_factors[win_idx] + i, 1);
                 log_double_array_to_file(f_aw_cerr_norm_factors[win_idx], window_cerr_norm_factors[win_idx] + i, 1);
             }
+            fflush(f_aw_means[win_idx]);
+            fflush(f_aw_variances[win_idx]);
+            fflush(f_aw_cerr_means[win_idx]);
+            fflush(f_aw_cerr_variances[win_idx]);
+            fflush(f_aw_norm_factors[win_idx]);
+            fflush(f_aw_cerr_norm_factors[win_idx]);
         }
     }
     
@@ -1574,10 +1605,10 @@ struct SlidingWindowManager
         {
             if(active_windows[i])
             {
-                win_counts[i].win_idx = i;
-                win_counts[i].win_count = active_window_counts[i];
+                win_counts[num_active_windows].win_idx = i;
+                win_counts[num_active_windows].win_count = active_window_counts[i];
                 num_active_windows++;
-                // Reset the 'full' active window count, which is now stored in win_counts[i]
+                // Reset the 'full' active window count, which is now stored in win_counts[num_active_windows]
                 if(active_window_counts[i] == num_windows)
                     active_window_counts[i] = 0;
             }
@@ -1663,6 +1694,7 @@ struct SlidingWindowManager
 
             free(active_windows);
             free(active_window_counts);
+            free(active_window_numeric_errors);
 
             free(full_window_idxs);
             free(full_window_means);
@@ -1722,518 +1754,5 @@ struct SlidingWindowManager
         }
     }
 };
-
-
-/*
-// Runs a general LTI / LTV or Nonlinear simulation, using the provided measurements and callback function for the measurement and dynamics 
-//TODO: update this function to return: int* window_numbers, C_COMPLEX_TYPE* conditional_means, C_COMPLEX_TYPE* conditional_covariances
-int run_window_manager(double* measurements,
-                       int n, int cmcc, int p, double* Phi, double* Gamma, double* H, double* beta, 
-                       double* gamma, double* A0, double* p0, double* b0, 
-                       int num_windows, int num_simulation_steps, 
-                       void (*dynamics_update_callback)(CauchyDynamicsUpdateContainer*) = NULL,
-                       CauchyDynamicsUpdateContainer* duc = NULL,  
-                       bool with_rigid_reduction = false, 
-                       bool is_extended = false,
-                       double* x0 = NULL,
-                       void (*nonlinear_msmt_model)(CauchyDynamicsUpdateContainer*, double* _zbar) = NULL, 
-                       void (*extended_msmt_update_callback)(CauchyDynamicsUpdateContainer*) = NULL,
-                       double* true_state_history = NULL)
-{
-    CauchyWindowManager cwm;
-    CauchyWindow cw;
-    memset(&cwm, 0, sizeof(CauchyWindowManager));
-    memset(&cw, 0, sizeof(CauchyWindow));
-    init_cauchy_window_manager(&cwm, num_windows);
-
-    if(WINDOW_STORE_FULL)
-    {
-        if(is_extended)
-            assert(true_state_history != NULL);
-    }    
-    // We are the parent
-    if(init_cauchy_windows(&cwm, &cw))
-    {
-        // Setup the Dynamics
-        CauchyDynamics cDynam(Phi, Gamma, H, beta, gamma, A0, p0, b0, n, cmcc, p, num_simulation_steps, 
-            NULL, dynamics_update_callback, duc, x0, is_extended, extended_msmt_update_callback);
-        // cDynam.info();
-
-        // Create msg structures for reinitializing the slave window's CFs
-        WindowMessage msg;
-        WindowInitializationMessage init_msg;
-        memset(&msg, 0, sizeof(WindowMessage));
-        memset(&init_msg, 0, sizeof(WindowInitializationMessage));
-        int window_initializer_idx = 0; // Window index whose CF is a function of the most mesurements
-        int window_initializee_idx = 0; // Window index whose CF was just reset, and thus needs the start params of the fullest window (to recreate their estimate)
-        msg.win_num = -1;
-
-        // Adding a step counter variable;
-        int step_count;
-        if(duc != NULL)
-        {
-            step_count = duc->step;
-            assert(step_count == 0 || step_count == 1);
-        }
-        else
-            step_count = 0;
-        //printf("Parent has pid: %d\n", (int) getpid() );
-        //sleep(1);
-        printf("Start your engines, racers...\n"); 
-        //sleep(1);
-        time_t tic = time(NULL);
-        for(int i = 0; i < num_simulation_steps; i++)
-        {
-            if(WINDOW_PRINT_DEBUG)
-            {
-                for(int j = 0; j < p; j++)
-                    printf("\nParent Sends Measurement #%d, msmt=%lf\n", i, measurements[i*p + j]);
-            }
-            MsmtMessage msmt_msg;
-            memset(&msmt_msg, 0, sizeof(MsmtMessage));
-            memcpy(msmt_msg.msmts, measurements + i*p, p*sizeof(double));
-            msmt_msg.num_msmts = cDynam.p;
-            // Send each window the i-th generated measurements from cDynam
-            for(int j = 0; j < num_windows; j++)
-            {
-                write(cwm.window_p2c_fds[j][1], &msmt_msg, sizeof(MsmtMessage));
-            }
-
-            // If we wish to run speyers initialization routine, compute the initializer/initializee window indices
-            if(WINDOW_SPEYER_START)
-            {
-                // In the first step, window 0 uses the initial A/p/b. Only after the first step do we conduct window reinitialization
-                if(i > 0)
-                {
-                    // If the measurement count is less than W, manager uses window 0's mean/covar to create the A/p/b for Window msmt_count-1 (to recreate window 0's mean/covar). 
-                    if(i < num_windows)
-                    {
-                        // Increment the initializee by 1
-                        window_initializee_idx += 1;
-                    }
-                    else 
-                    {
-                        // Configure the initializer and the initializee
-                        val_swap<int>(&window_initializer_idx, &window_initializee_idx);
-                        window_initializer_idx += 2;
-                        if(window_initializer_idx >= num_windows)
-                            window_initializer_idx -= num_windows;
-                    }
-                }
-            }
-
-            // Now wait for each window to reply with a their msg 
-            bool children_okay = true;
-            for(int j = 0; j < num_windows; j++)
-            {   
-                // If we are about to read the initializee (i.e j == initializee_idx), we need to skip...
-                // ... as the initializee is expecting a write of init_msg (to collect new A/p/b), not a manager read (to assert SLAVE_OKAY)
-                if( WINDOW_SPEYER_START && (j == window_initializee_idx) && (i > 0) ) // (window_initializer_idx > window_initializee_idx)
-                {
-                    continue;
-                }
-
-                // Read the SLAVE response
-                bool gate;
-                read(cwm.window_c2p_fds[j][0], &msg, sizeof(WindowMessage));
-                gate = ((msg.ack_msg == SLAVE_OKAY) || (msg.ack_msg == SLAVE_WINDOW_FULL)) ? 1 : 0;
-                children_okay *= gate;
-
-                // Run Speyers Initialization method to restart the (newly) reset window (initializee) around the estimate of the (newly) full window (initializer)
-                if( (msg.ack_msg == SLAVE_WINDOW_FULL) && WINDOW_SPEYER_START && i > 0)
-                {
-                    double x_hat[n]; 
-                    double P_hat[n*n];
-                    // Run Speyers start, write out the estimate to initializee, and read back OKAY from initializee
-                    convert_complex_array_to_real(msg.x_hat, x_hat, n);
-                    convert_complex_array_to_real(msg.P_hat, P_hat, n*n);
-                    // Create A_0, p_0, b_0 for window window_initializee_idx
-                    if(!is_extended)
-                    {
-                        cDynam.update_dynamics( msg.x_hat, step_count);
-                        speyers_window_init(n, x_hat, P_hat, cDynam.H + (p-1)*n, cDynam.gamma[p-1], msmt_msg.msmts[p-1], init_msg.A_0, init_msg.p_0, init_msg.b_0);
-                    }
-                    else
-                    {
-                        // convert x_hat into the differential dx = x_hat - x_bar
-                        sub_vecs(x_hat, msg.x_bar, n);
-                        // set x_bar, the step, and update H and gamma
-                        cDynam.extended_window_first_update_msmt(msg.x_bar, step_count);
-                        // convert the measurement into the differential dz = z - h(x_bar)
-                        double z_bar[p];
-                        (*nonlinear_msmt_model)(cDynam.duc, z_bar); // z_bar = h(x_bar)
-                        msmt_msg.msmts[p-1] -= z_bar[p-1];
-                        speyers_window_init(n, x_hat, P_hat, cDynam.H + (p-1)*n, cDynam.gamma[p-1], msmt_msg.msmts[p-1], init_msg.A_0, init_msg.p_0, init_msg.b_0);
-                        // copy x_bar over to the initializee msg
-                        memcpy(init_msg.x_bar, msg.x_bar, n*sizeof(double));
-                    }
-                    // copy x_hat over to the initializee msg
-                    memcpy(init_msg.x_hat, msg.x_hat, n*sizeof(C_COMPLEX_TYPE));                    
-                    // Write the init_msg to the initializee window 
-                    write(cwm.window_p2c_fds[window_initializee_idx][1], &init_msg, sizeof(WindowInitializationMessage));
-                    // Read from the initializee and make sure its okay (they ack SLAVE_OKAY)
-                    read(cwm.window_c2p_fds[window_initializee_idx][0], &msg, sizeof(WindowMessage));
-                    gate = ((msg.ack_msg == SLAVE_OKAY) || (msg.ack_msg == SLAVE_WINDOW_FULL)) ? 1 : 0; 
-                    children_okay *= gate;
-                }
-            }
-            step_count += 1;
-            // Assert all children repsonded they are OK
-            assert(children_okay);
-        }
-        double elapsed_time =  ((double) (time(NULL) - tic) );
-        printf("Parent Reports: The Simulation of %d measurements took %lf seconds; rate = %lf hz\n", num_simulation_steps,  elapsed_time, ((double)num_simulation_steps) / elapsed_time );
-
-        // Wait for each child to exit
-        for(int i = 0; i < num_windows; i++)
-        { 
-            wait(NULL);
-            close(cwm.window_p2c_fds[i][1]);
-            close(cwm.window_c2p_fds[i][0]);
-        }
-        printf("All children have exited. Parent says goodbye!\n");
-        return 0;
-    }
-
-    // We are a child 
-    else
-    {
-        //printf("Child %d has pid %d: Sleeping for CUDA-GDB attach!\n", cw.window_number, cw.pid);
-        //sleep(60);
-        //printf("Child %d is done waiting!\n", cw.window_number);
-        // Setup the Dynamics
-        CauchyDynamics cDynam(Phi, Gamma, H, beta, gamma, A0, p0, b0, n, cmcc, p, num_simulation_steps, 
-            NULL, dynamics_update_callback, duc, x0, is_extended, extended_msmt_update_callback);
-        //cDynam.info();
-
-        // Adding a step counter variable;
-        int step_count;
-        if(duc != NULL)
-        {
-            step_count = duc->step;
-            assert(step_count == 0 || step_count == 1);
-        }
-        else
-            step_count = 0;
-
-        // Setup the Estimator 
-        bool print_basic_info = false;
-        CauchyEstimator cauchyEst(&cDynam, num_windows, max_terms_per_shape, print_basic_info, is_extended, nonlinear_msmt_model);
-        cauchyEst.set_win_num(cw.window_number);
-	    //cauchyEst.info();
-        if(with_rigid_reduction)
-            assert(false); //cauchyEst.load_rigid_data();
-
-        // Setup Window Message for reporting estimates to Manager
-        WindowMessage msg;
-        memset(&msg, 0, sizeof(WindowMessage));
-        msg.win_num = cw.window_number;
-        WindowLogger win_log(cw.window_number, n, p, cmcc, num_simulation_steps, is_extended);
-
-        // Setup Window Initialization Message for accepting initializations from manager
-        WindowInitializationMessage init_msg;
-        memset(&init_msg, 0, sizeof(WindowInitializationMessage));
-        // Print Child Window
-        print_window_settings(&cw);
-
-        // read in dispatcher's measurements
-        //double msmt;
-        int msmt_count = 0;
-        int win_msmt_count = 0; // resets when it hits num_windows
-        bool is_first_loop = true;
-        while(msmt_count < num_simulation_steps)
-        {
-            // Reset the ACK -- tells manager we are okay and to keep the msmts coming
-            msg.ack_msg = SLAVE_OKAY;
-
-            // Read in the msmt from the window manager
-            MsmtMessage msmt_msg;
-            read(cw.p2c_fd, &msmt_msg, sizeof(MsmtMessage));
-
-            if(WINDOW_PRINT_DEBUG)
-            {
-                std::cout << "Child " << cw.window_number << " recieved msmt #" << msmt_count << ": ";
-                for(int i = 0; i < cDynam.p; i++)
-                    std::cout << msmt_msg.msmts[i] << ", ";
-                std::cout << std::endl;
-            }
-
-            // Only Window #0 reports until first loop is over
-            if(is_first_loop)
-            {
-                msmt_count += 1;
-                if(msmt_count > cw.window_number)
-                {
-                    // Increase window measurement count
-                    win_msmt_count += 1;
-                    if(WINDOW_PRINT_DEBUG)
-                        printf("FIRST LOOP: Window %d has count %d\n", cw.window_number, win_msmt_count);
-
-                    // Update the dynamics and system matrices if window_msmt_count != 1
-                    // This is because either we are the initializee in the speyer start case, or we do not yet have an estimate to linearize around
-                    if( win_msmt_count != 1)
-                    {
-                        cDynam.update_dynamics(cauchyEst.conditional_mean, step_count);
-                    }
-                    // If we wish to use speyer's reinitialization method.....
-                    bool speyer_init_was_run = false;
-                    if(WINDOW_SPEYER_START)
-                    {
-                        // If we are a window other than win_num 0 (which is the initiallizer of the other windows)
-                        if( (cw.window_number != 0) && (win_msmt_count == 1) )
-                        {
-                            if(WINDOW_PRINT_DEBUG)
-                                printf("Window %d Waiting on new speyer start params!\n", cw.window_number);
-                            // Wait on pipe again for master to provide the A_0, p_0, b_0 which will recreate window 0's (the largest window) estimate with a 1-step CF
-                            read(cw.p2c_fd, &init_msg, sizeof(WindowInitializationMessage));
-                            if(WINDOW_PRINT_DEBUG)
-                                printf("Window %d reports: Parent sent new A/p/b speyer start params!\n", cw.window_number);
-                            // reset the cDynam's to reflect these new parameters
-                            cDynam.reinitialize_start_statistics(init_msg.A_0, init_msg.p_0, init_msg.b_0);
-                            if(!is_extended)
-                                cDynam.update_dynamics(init_msg.x_hat, step_count);
-                            else
-                                cDynam.extended_window_first_update_msmt(init_msg.x_bar, step_count);
-                            speyer_init_was_run = true; 
-                        }
-                    }
-
-                    // Now run estimator and process the current measurement -- need to add error handling here in case of a seg fault
-                    if(with_rigid_reduction)
-                    {
-                        if(speyer_init_was_run)
-                        {
-                            assert(false); //cauchyEst.step_rigid(msmt_msg.msmts[p-1], false, false, speyer_init_was_run);
-                            cauchyEst.master_step = p;
-                            cauchyEst.current_estimation_step = 1;
-                        }
-                        else
-                        {
-                            for(int i = 0; i < msmt_msg.num_msmts; i++)
-                                assert(false); //cauchyEst.step_rigid(msmt_msg.msmts[i], false, false);
-                        }
-                    }
-                    else
-                    {
-                        if(speyer_init_was_run)
-                        {
-                            cauchyEst.step(msmt_msg.msmts[p-1], false, false, speyer_init_was_run);
-                            cauchyEst.master_step = p;
-                            cauchyEst.current_estimation_step = 1;
-                        }
-                        else
-                        {
-                            for(int i = 0; i < msmt_msg.num_msmts; i++)
-                                cauchyEst.step(msmt_msg.msmts[i], false, false);
-                        }
-                    }
-
-                    // Temporary Debugger Print
-                    if(WINDOW_STORE_FULL)
-                    {
-                        if(is_extended)
-                        {
-                            double z_bar[p];
-                            (*nonlinear_msmt_model)(cDynam.duc, z_bar);
-                            win_log.log_step(cauchyEst.conditional_mean, cauchyEst.conditional_variance, cauchyEst.fz,
-                                true_state_history + (msmt_count-1)*n, 
-                                cDynam.x_bar, 
-                                msmt_msg.msmts, 
-                                z_bar, 
-                                cDynam.H);
-                        }
-                        else
-                        {
-                            win_log.log_step(cauchyEst.conditional_mean, cauchyEst.conditional_variance, cauchyEst.fz);
-                        }
-                    }
-                    
-
-                    // Check the estimates after speyer's init (only if print debug is on and we just initialized an estimate)
-                    if(WINDOW_PRINT_DEBUG && WINDOW_SPEYER_START && speyer_init_was_run)
-                    {
-                        printf("(This should match FL) Window %d Conditional Mean/Variance:\n", cw.window_number);
-                        cauchyEst.print_conditional_mean_variance();
-                        //print_conditional_mean_variance(cauchyEst.conditional_mean, cauchyEst.conditional_variance, n);
-                    }
-                    
-                    // If we are window 0, write estimate to standard out, and log estimates to log files (if desired)
-                    if(cw.window_number == 0)
-                    {
-                        if(WINDOW_PRINT_DEBUG)
-                        {
-                            printf("FL: Window %d Conditional Mean/Variance:\n", cw.window_number);
-                            cauchyEst.print_conditional_mean_variance();
-                            //print_conditional_mean_variance(cauchyEst.conditional_mean, cauchyEst.conditional_variance, n);
-                        }
-                        if(WINDOW_LOG_ESTIMATES)
-                            cauchyEst.log_estimates(cw.window_number);
-                        
-                        // Fill msg with the estimates for the manager 
-                        msg.ack_msg = SLAVE_WINDOW_FULL; // tag means this windows estimate should be reported
-                        msg.fz = cauchyEst.fz;
-                        memcpy(msg.x_hat, cauchyEst.conditional_mean, n*sizeof(C_COMPLEX_TYPE));
-                        memcpy(msg.P_hat, cauchyEst.conditional_variance, n*n*sizeof(C_COMPLEX_TYPE));
-                        if(is_extended)
-                            memcpy(msg.x_bar, cDynam.x_bar, n*sizeof(double));
-                    }
-                    // If we are full, report and reset 
-                    if(win_msmt_count == num_windows)
-                    {
-                        win_msmt_count = 0;
-                        // reset estimator
-                        cauchyEst.reset();
-                    }
-
-                    // Update Dynamics
-                    //cDynam.update_dynamics(cauchyEst.conditional_mean, msmt_count);
-                }
-                else 
-                {
-                    // lag one step
-                }
-                
-                if(msmt_count == num_windows )
-                {
-                    is_first_loop = false;
-                }
-
-            }
-            // Regular looping, each window's win_msmt_count is lagged one from the others
-            else 
-            {
-                // Increment win_msmt_count, msmt count
-                msmt_count += 1;
-                win_msmt_count += 1;
-                if(WINDOW_PRINT_DEBUG)
-                    printf("REG LOOP: Window %d has count %d\n", cw.window_number, win_msmt_count);
-
-                // Update the dynamics and system matrices if window_msmt_count != 1
-                // This is because either we are the initializee in the speyer start case, or we do not yet have an estimate to linearize around
-                if( win_msmt_count != 1)
-                {
-                    cDynam.update_dynamics(cauchyEst.conditional_mean, step_count);
-                }
-                // If we wish to use speyer's reinitialization method
-                bool speyer_init_was_run = false;
-                if(WINDOW_SPEYER_START)
-                {
-                    if( win_msmt_count == 1 )
-                    {
-                        // Wait on pipe again for master to provide the A_0, p_0, b_0 which will recreate the largest window's estimate with a 1-step CF
-                        read(cw.p2c_fd, &init_msg, sizeof(WindowInitializationMessage));
-                        if(WINDOW_PRINT_DEBUG)
-                            printf("Window %d reports: Parent sent new A/p/b speyer start params!\n", cw.window_number);
-                        // reset the cDynam's to reflect these new parameters
-                        cDynam.reinitialize_start_statistics(init_msg.A_0, init_msg.p_0, init_msg.b_0);
-                        if(!is_extended)
-                            cDynam.update_dynamics( init_msg.x_hat, step_count);
-                        else
-                            cDynam.extended_window_first_update_msmt(init_msg.x_bar, step_count);
-                        speyer_init_was_run = true; 
-                    }
-                }
-
-                // Everyone runs their estimator here -- need to add error handling here in case of a seg fault
-                if(with_rigid_reduction)
-                {
-                    if(speyer_init_was_run)
-                    {
-                        assert(false); //cauchyEst.step_rigid(msmt_msg.msmts[p-1], false, false, speyer_init_was_run);
-                        cauchyEst.master_step = p;
-                        cauchyEst.current_estimation_step = 1;
-                    }
-                    else
-                    {
-                        for(int i = 0; i < msmt_msg.num_msmts; i++)
-                            assert(false); //cauchyEst.step_rigid(msmt_msg.msmts[i], false, false);
-                    }
-                }
-                else
-                {
-                    if(speyer_init_was_run)
-                    {
-                        cauchyEst.step(msmt_msg.msmts[p-1], false, false, speyer_init_was_run);
-                        cauchyEst.master_step = p;
-                        cauchyEst.current_estimation_step = 1;
-                    }
-                    else
-                    {
-                        for(int i = 0; i < msmt_msg.num_msmts; i++)
-                            cauchyEst.step(msmt_msg.msmts[i], false, false);
-                    }
-                }
-
-                // Temporary Debugger Print
-                if(WINDOW_STORE_FULL)
-                {
-                    if(is_extended)
-                    {
-                        double z_bar[p];
-                        (*nonlinear_msmt_model)(cDynam.duc, z_bar);
-                        win_log.log_step(cauchyEst.conditional_mean, cauchyEst.conditional_variance, cauchyEst.fz,
-                            true_state_history + (msmt_count-1)*n, 
-                            cDynam.x_bar, 
-                            msmt_msg.msmts, 
-                            z_bar, 
-                            cDynam.H);
-                    }
-                    else
-                    {
-                        win_log.log_step(cauchyEst.conditional_mean, cauchyEst.conditional_variance, cauchyEst.fz);
-                    }
-                }
-
-                // Check the estimates after speyer's init (only if print debug is on and we just initialized an estimate)
-                if(WINDOW_PRINT_DEBUG && WINDOW_SPEYER_START && speyer_init_was_run)
-                {
-                    printf("(This should match the Full Window) Window %d Conditional Mean/Variance:\n", cw.window_number);
-                    print_conditional_mean_variance(cauchyEst.conditional_mean, cauchyEst.conditional_variance, n);
-                }
-
-                // If we are full, report and reset
-                if(win_msmt_count == num_windows)
-                {
-                    if(WINDOW_PRINT_DEBUG)
-                    {
-                        printf("Window number %d is full!\n", cw.window_number);
-                        printf("Window %d Conditional Mean/Variance:\n", cw.window_number);
-                        print_conditional_mean_variance(cauchyEst.conditional_mean, cauchyEst.conditional_variance, n);    
-                    }
-                    if(WINDOW_LOG_ESTIMATES)
-                        cauchyEst.log_estimates(cw.window_number);
-
-                    // Fill msg with the estimates for the manager 
-                    msg.ack_msg = SLAVE_WINDOW_FULL; // tag means this windows estimate should be reported
-                    msg.fz = cauchyEst.fz;
-                    memcpy(msg.x_hat, cauchyEst.conditional_mean, n*sizeof(C_COMPLEX_TYPE));
-                    memcpy(msg.P_hat, cauchyEst.conditional_variance, n*n*sizeof(C_COMPLEX_TYPE));
-                    if(is_extended)
-                        memcpy(msg.x_bar, cDynam.x_bar, n*sizeof(double));
-                    // reset the estimator here
-                    win_msmt_count = 0;
-                    cauchyEst.reset();
-                }
-
-                // Update Dynamics for time varying and nonlinear systems here
-                //cDynam.update_dynamics(cauchyEst.conditional_mean, msmt_count);
-            }
-            step_count += 1;
-            // Write back to the parent the msg and to send the next measurement
-            write(cw.c2p_fd, &msg, sizeof(WindowMessage));
-        }
-        printf("Simulation has finished! Shutting down Window (child) %d\n", cw.window_number);
-
-        if(WINDOW_STORE_FULL)
-            win_log.log_data();
-
-        // closing p2c and c2p pipe 
-        close(cw.p2c_fd);
-        close(cw.c2p_fd);
-        return -1; // use return code -1 to indicate a child is exiting and the process should be killed upon return 
-    }
-
-}
-*/
 
 #endif // _CAUCHY_WINDOWS_H_

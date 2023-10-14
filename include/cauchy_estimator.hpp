@@ -1188,7 +1188,8 @@ struct CauchyEstimator
         }
         master_step++;
         tmr.toc(false);
-        printf("Step %d took %d ms\n", master_step, tmr.cpu_time_used);
+        if(print_basic_info)
+            printf("Step %d took %d ms\n", master_step, tmr.cpu_time_used);
         return numeric_moment_errors;
     }
 
@@ -1243,7 +1244,8 @@ struct CauchyEstimator
 
         num_threads_tp_to_muc = 1;
         tmr.toc(false);
-        printf("Resetting CF Took %d ms\n", tmr.cpu_time_used);
+        if(print_basic_info)
+            printf("Resetting CF Took %d ms\n", tmr.cpu_time_used);
     }
 
     void reinitialize_start_statistics(double* A_0, double* p_0, double* b_0)

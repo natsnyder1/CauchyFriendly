@@ -16,7 +16,7 @@ const double COALIGN_TP_EPS = 1e-8;
 // MU Settings
 const double MU_EPS = 1e-10;
 const double COALIGN_MU_EPS = 1e-8;
-const bool SKIP_LAST_STEP = false;
+const bool SKIP_LAST_STEP = true;
 const bool WITH_MSMT_UPDATE_ORTHOG_WARNING = false;
 
 // Shared TP and MU Coalignment Settings
@@ -52,7 +52,7 @@ const bool WITH_FTR_HPA_CHECK = true;
 int TR_SEARCH_IDXS_ORDERING[12] = {0,1,2,3,4,5,6,7,8,9,10,11};
 
 // Distributed Computation Settings
-const int NUM_CPUS = 1; // Should be 128 on the cluster
+const int NUM_CPUS = 8; // Should be 128 on the cluster
 const int MIN_TERMS_PER_THREAD_TP_TO_MUC = 200;
 const int NUM_CPUS_FTR = NUM_CPUS; // Set this to 32 on the cluster (NUM_CPUS / FTR_CPU_DIVISOR = CPUS USED)
 const int MIN_TERMS_PER_THREAD_FTR = 10000;

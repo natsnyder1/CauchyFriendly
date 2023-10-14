@@ -32,6 +32,22 @@ void val_swap(double *a, double *b)
     *b = tmp;
 }
 
+template<typename T>
+void ptr_swap(T** x, T** y)
+{
+	T* z = *x;
+	*x = *y;
+	*y = z;
+}
+
+template<typename T>
+void val_swap(T* x, T* y)
+{
+	T z = *x;
+	*x = *y;
+	*y = z;
+}
+
 void print_mat(double **A, const int M, const int N)
 {
     for(int i = 0; i < M; i++)

@@ -6,10 +6,9 @@
 #include "cauchy_types.hpp"
 #include "cpu_linalg.hpp"
 #include "gtable.hpp"
+#include "array_logging.hpp"
+#include "dynamic_models.hpp"
 
-#include <dirent.h>
-#include <errno.h>
-#include <sys/stat.h>
 
 double normalize_l1(double* x, const int n)
 {
@@ -464,22 +463,6 @@ struct ForwardFlagArray
 		free(reduced_terms_per_chunk);
 	}
 };
-
-template<typename T>
-void ptr_swap(T** x, T** y)
-{
-	T* z = *x;
-	*x = *y;
-	*y = z;
-}
-
-template<typename T>
-void val_swap(T* x, T* y)
-{
-	T z = *x;
-	*x = *y;
-	*y = z;
-}
 
 // Provides a chunked, packed storage method for the g and b tables
 struct ChunkedPackedTableStorage
@@ -1480,6 +1463,203 @@ struct CauchyStats
 
 };
 
+// Logs a LTI/LTV/Nonlinear simulation
+struct SimulationLogger
+{
+	char* log_dir;
+	int num_steps;
+	int n;
+	int p;
+	int pncc;
+	int cmcc;
+	double* true_state_history; //= {x0, x1, ... , x_{num_steps} }, x_i \in R^n
+	double* msmt_history; //= {z0, z1, ... , z_{num_steps} }, z_i \in R^p
+	double* msmt_noise_history; //= {v0, v1, ... , v_{num_steps} }, v_i \in R^p
+	double* proc_noise_history; //= {w0, w1, ... , w_{num_steps-1} }, w_i \in R^pncc
+	double* x0;
+	CauchyDynamicsUpdateContainer* cduc;
+	KalmanDynamicsUpdateContainer* kduc;
+	void (*kduc_transition_model)(KalmanDynamicsUpdateContainer*, double* xk1, double* w);
+    void (*kduc_msmt_model)(KalmanDynamicsUpdateContainer*, double* z, double* v);
+	void (*cduc_transition_model)(CauchyDynamicsUpdateContainer*, double* xk1, double* w);
+    void (*cduc_msmt_model)(CauchyDynamicsUpdateContainer*, double* z, double* v);
+
+	SimulationLogger(char* _log_dir, int _num_steps,
+		double* _x0, KalmanDynamicsUpdateContainer* _kduc,
+		void (*_transition_model)(KalmanDynamicsUpdateContainer*, double* xk1, double* w),
+    	void (*_msmt_model)(KalmanDynamicsUpdateContainer*, double* z, double* v)
+	)
+	{
+		log_dir = _log_dir;
+		num_steps = _num_steps;
+		if(_kduc == NULL)
+		{
+			printf(RED "[ERROR SimulationLogger:] _kduc==NULL! Must provide an initialized KalmanDynamicsUpdateContainer! Exiting!" NC "\n");
+			exit(1);
+		}
+		kduc = _kduc;
+        assert_correct_kalman_dynamics_update_container_setup(kduc);
+		n = kduc->n;
+		p = kduc->p;
+		pncc = kduc->pncc;
+		cmcc = kduc->cmcc;
+		kduc_transition_model = _transition_model;
+		kduc_msmt_model = _msmt_model;
+		cduc = NULL;
+		cduc_transition_model = NULL;
+		cduc_msmt_model = NULL;
+		init_simulation_histories();
+		memcpy(x0, _x0, n * sizeof(double));
+		if(cmcc != 0)
+		{
+			printf(RED "[ERROR SimulationLogger:] cmcc != 0. This function does not yet support controls! Think of how to implement, or remove this error message! Exiting!" NC "\n");
+			exit(1);
+		}
+	}
+
+	SimulationLogger(char* _log_dir, int _num_steps,
+		double* _x0, CauchyDynamicsUpdateContainer* _cduc,
+		void (*_transition_model)(CauchyDynamicsUpdateContainer*, double* xk1, double* w),
+    	void (*_msmt_model)(CauchyDynamicsUpdateContainer*, double* z, double* v)
+	)
+	{
+		log_dir = _log_dir;
+		num_steps = _num_steps;
+		if(_cduc == NULL)
+		{
+			printf(RED "[ERROR SimulationLogger:] _cduc==NULL! Must provide an initialized CauchyDynamicsUpdateContainer! Exiting!" NC "\n");
+			exit(1);
+		}
+		cduc = _cduc;
+        assert_correct_cauchy_dynamics_update_container_setup(cduc);
+		n = cduc->n;
+		p = cduc->p;
+		pncc = cduc->pncc;
+		cmcc = cduc->cmcc;
+		cduc_transition_model = _transition_model;
+		cduc_msmt_model = _msmt_model;
+		kduc = NULL;
+		kduc_transition_model = NULL;
+		kduc_msmt_model = NULL;
+		init_simulation_histories();
+		memcpy(x0, _x0, n * sizeof(double));
+		if(cmcc != 0)
+		{
+			printf(RED "[ERROR SimulationLogger:] cmcc != 0. This function does not yet support controls! Think of how to implement, or remove this error message! Exiting!" NC "\n");
+			exit(1);
+		}
+
+	}
+
+	void init_simulation_histories()
+	{
+		int T = num_steps + 1;
+		true_state_history = (double*) malloc(T * n * sizeof(double));
+		msmt_history = (double*) malloc(T * p * sizeof(double));
+		msmt_noise_history = (double*) malloc(T * p * sizeof(double));
+		proc_noise_history = (double*) malloc(num_steps * pncc * sizeof(double));
+		x0 = (double*) malloc(n * sizeof(double));
+	}
+
+	// Logs a simulation's true_states, process, measurement, and noise histories
+	// true_states = {x0, x1, ... , x_{num_steps} }, x_i \in R^n
+	// msmt_history = {z0, z1, ... , z_{num_steps} }, z_i \in R^p
+	// msmt_noise_history = {v0, v1, ... , v_{num_steps} }, v_i \in R^p
+	// proc_noise_history = {w0, w1, ... , w_{num_steps-1} }, w_i \in R^pncc
+	void run_simulation_and_log()
+	{
+        // We probably need to either instruct user these functions could change the cduc/kduc initialization via the callbacks below (or somehow, do it internally)
+		if(cduc != NULL)
+		{
+			int init_step = cduc->step;
+            simulate_dynamic_system(num_steps, n, pncc, p, x0,  
+				true_state_history, msmt_history,
+				proc_noise_history, msmt_noise_history,
+				cduc, cduc_transition_model, cduc_msmt_model, true);
+            cduc->step = init_step;
+		}
+		else
+		{
+            int init_step = kduc->step;
+			simulate_dynamic_system(num_steps, n, cmcc, pncc, p, x0, NULL, 
+				true_state_history, msmt_history, 
+				proc_noise_history, msmt_noise_history,
+				kduc, kduc_transition_model, kduc_msmt_model, true);
+            kduc->step = init_step;
+		}
+		if(log_dir == NULL)
+		{
+			printf("SimulationLogger: No log directory provided, so not logging simulation!\n");
+			return;
+		}
+
+		check_dir_and_create(log_dir);
+		char* tmp_path = (char*) malloc(4096);
+		int len_log_dir = strlen(log_dir);
+		assert(len_log_dir < 4000);
+		FILE* f_true_state_history;
+		FILE* f_msmt_history;
+		FILE* f_msmt_noise_history;
+		FILE* f_proc_noise_history;
+		char slash_delimit[2] = "/";
+		char no_delimit[2] = "";
+		char* delimit = log_dir[len_log_dir-1] == '/' ? no_delimit : slash_delimit;
+
+		sprintf(tmp_path, "%s%s%s", log_dir, delimit, "true_states.txt");
+		f_true_state_history = fopen(tmp_path, "w");
+		if(f_true_state_history == NULL)
+		{
+			printf(RED "[ERROR: log_simulation_history] true_states.txt file path has failed! Debug here!" NC "\n");
+			exit(1);
+		}
+		sprintf(tmp_path, "%s%s%s", log_dir, delimit, "msmts.txt");
+		f_msmt_history = fopen(tmp_path, "w");
+		if(f_msmt_history == NULL)
+		{
+			printf(RED "[ERROR: log_simulation_history] msmts.txt file path has failed! Debug here!" NC "\n");
+			exit(1);
+		}
+		sprintf(tmp_path, "%s%s%s", log_dir, delimit, "msmt_noises.txt");
+		f_msmt_noise_history = fopen(tmp_path, "w");
+		if(f_msmt_noise_history == NULL)
+		{
+			printf(RED "[ERROR: log_simulation_history] msmt_noises.txt file path has failed! Debug here!" NC "\n");
+			exit(1);
+		}
+		sprintf(tmp_path, "%s%s%s", log_dir, delimit, "proc_noises.txt");
+		f_proc_noise_history = fopen(tmp_path, "w");
+		if(f_proc_noise_history == NULL)
+		{
+			printf(RED "[ERROR: log_simulation_history] proc_noises.txt file path has failed! Debug here!" NC "\n");
+			exit(1);
+		}
+
+		for(int i = 0; i <= num_steps; i++)
+		{
+			log_double_array_to_file(f_true_state_history, true_state_history + i*n, n);
+			log_double_array_to_file(f_msmt_history, msmt_history + i*p, p);
+			log_double_array_to_file(f_msmt_noise_history, msmt_noise_history + i*p, p);
+			if(i != num_steps )
+				log_double_array_to_file(f_proc_noise_history, proc_noise_history + i*pncc, pncc);
+		}
+		fclose(f_true_state_history);
+		fclose(f_msmt_history);
+		fclose(f_msmt_noise_history);
+		fclose(f_proc_noise_history);
+		free(tmp_path);
+	}
+
+	~SimulationLogger()
+	{
+		free(true_state_history);
+		free(msmt_history);
+		free(msmt_noise_history);
+		free(proc_noise_history);
+		free(x0);
+	}
+};
+
+// Numerical checks on the covariance computed
 int covariance_checker(C_COMPLEX_TYPE* covariance, const int d, const int win_num, const int step, const int total_steps, bool with_warnings)
 {
   int cov_error_flags = 0;
@@ -1598,36 +1778,8 @@ int covariance_checker(C_COMPLEX_TYPE* covariance, const int d, const int win_nu
 void print_numeric_moment_errors()
 {
 	printf("Estimator Has accumulated the following errors since being initialized:\n");
+	printf(RED "FUNCTION print_numeric_moment_errors not implemented yet! Please fill this in! Exiting!\n");
+	exit(1);
 }
-
-
-void check_dir_and_create(char* dir_path)
-{
-   // If this directory does not exist, create this directory
-  // check if window folder exists
-  DIR* dir = opendir(dir_path);
-  if(dir)
-  {
-    // The directory exists
-  }
-  else if(ENOENT == errno)
-  {
-    // Directory doesnt exist, create the directory
-    int success = mkdir(dir_path, 0777);
-    if(success == -1)
-    {
-      printf("Failure making the directory %s. mkdir returns %d. Exiting!\n", dir_path, success);
-      assert(false);
-    }
-  }
-  else
-  {
-    // Directory opening failed for some reason
-    printf("Directory opening failed!\n");
-    assert(false);
-  }
-  closedir(dir);
-}
-
 
 #endif

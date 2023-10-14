@@ -10,7 +10,6 @@
 
 #include "cpu_linalg.hpp"
 #include "random_variables.hpp"
-#include "cauchy_util.hpp"
 
 // Container used to update the Dynamics of the Kalman Filter when the model is LTI, LTV, or non-linear
 // This structure is very helpful when writing a general callback function which updates the dynamics of the KF from step to step
@@ -130,15 +129,18 @@ void assert_correct_kalman_dynamics_update_container_setup(KalmanDynamicsUpdateC
 {
     assert(duc != NULL);
     assert(duc->n > 0);
-    assert(duc->cmcc > 0);
+    assert(duc->cmcc >= 0);
     assert(duc->pncc > 0);
     assert(duc->p > 0);
     assert(duc->Phi != NULL);
     assert(duc->Gamma != NULL);
-    assert(duc->B != NULL);
     assert(duc->H != NULL);
     assert(duc->W != NULL);
     assert(duc->V != NULL);
+    if(duc->cmcc > 0)
+        assert(duc->B != NULL);
+    else 
+        assert(duc->B == NULL);
 }
 
 void assert_correct_cauchy_dynamics_update_container_setup(CauchyDynamicsUpdateContainer* duc)
@@ -146,6 +148,7 @@ void assert_correct_cauchy_dynamics_update_container_setup(CauchyDynamicsUpdateC
     assert(duc != NULL);
     assert(duc->n > 0);
     assert(duc->pncc > 0);
+    assert(duc->cmcc >= 0);
     assert(duc->p > 0);
     assert(duc->Phi != NULL);
     assert(duc->Gamma != NULL);
@@ -154,6 +157,8 @@ void assert_correct_cauchy_dynamics_update_container_setup(CauchyDynamicsUpdateC
     assert(duc->gamma != NULL);
     if(duc->cmcc > 0)
         assert(duc->B != NULL);
+    else 
+        assert(duc->B == NULL);
 }
 
 /*
@@ -300,17 +305,17 @@ void gaussian_lti_measurement_model(KalmanDynamicsUpdateContainer* duc, double* 
 void cauchy_lti_transition_model(CauchyDynamicsUpdateContainer* duc, double* xk1, double* w)
 {
     const int n = duc->n;
-    const int cmcc = duc->cmcc;
+    const int pncc = duc->pncc;
     double work[n*n];
     double work2[n*n];
 
-    for(int i = 0; i < duc->cmcc; i++)
+    for(int i = 0; i < pncc; i++)
         w[i] = random_cauchy(duc->beta[i]);
     
     // Form x_k+1 = Phi @ x + Gamma @ w
     matvecmul(duc->Phi, duc->x, work, n, n);
     //add_vecs(work, work2, n, 1.0);
-    matvecmul(duc->Gamma, w, work2, n, cmcc);
+    matvecmul(duc->Gamma, w, work2, n, pncc);
     add_vecs(work, work2, xk1, n, 1.0);
     // xk1 now contains Phi @ x + B @ u + Gamma @ w
 }
@@ -331,13 +336,13 @@ void cauchy_lti_measurement_model(CauchyDynamicsUpdateContainer* duc, double* z,
 void sas_lti_transition_model(CauchyDynamicsUpdateContainer* duc, double* xk1, double* w)
 {
     const int n = duc->n;
-    const int cmcc = duc->cmcc;
+    const int pncc = duc->pncc;
     double work[n*n];
     double work2[n*n];
     SAS_noise_container* sas_noises = (SAS_noise_container*)duc->other_stuff;
     assert(sas_noises != NULL);
     double beta = (sas_noises->alpha == 2) ? sas_noises->beta / sqrt(2) : sas_noises->beta;
-    for(int i = 0; i < duc->cmcc; i++)
+    for(int i = 0; i < pncc; i++)
     {    
         w[i] = random_symmetric_alpha_stable(sas_noises->alpha, beta, 0);
         if(fabs(w[i]) > sas_noises->max_beta_realization)
@@ -346,7 +351,7 @@ void sas_lti_transition_model(CauchyDynamicsUpdateContainer* duc, double* xk1, d
     // Form x_k+1 = Phi @ x + Gamma @ w
     matvecmul(duc->Phi, duc->x, work, n, n);
     //add_vecs(work, work2, n, 1.0);
-    matvecmul(duc->Gamma, w, work2, n, cmcc);
+    matvecmul(duc->Gamma, w, work2, n, pncc);
     add_vecs(work, work2, xk1, n, 1.0);
     // xk1 now contains Phi @ x + B @ u + Gamma @ w
 }
@@ -443,11 +448,11 @@ void simulate_dynamic_system(const int num_steps,
 // this function can be used to simulate any type of system as the transition and measurement models are left up to the user,
 // NOTE: It is completely up to the user to implement the transition and measurement models correctly (Regardless of LTI/LTV),
 // NOTE: For both LTI or LTV models, the user MUST use the Kalman Update Dynamics Container to keep track of parameters,
-// NOTE: If the simulation requires deterministic control, use "us \in R^(num_steps x cmcc)" to bring these controls in. 
+// NOTE: If the simulation requires deterministic control, use "us \in R^(num_steps x pncc)" to bring these controls in. 
 // NOTE: This function will NOT change the values of "us", though its data pointed to is not declared as constant.
 // NOTE MAY NEED TO CHANGE THIS: This function WILL increment the duc's step count after running the transition model (and reset it to zero before starting the simulation)
 void simulate_dynamic_system(const int num_steps, 
-    const int n, const int cmcc, const int p,
+    const int n, const int pncc, const int p,
     const double* x0, 
     double* true_state_history, 
     double* msmt_history,
@@ -467,7 +472,7 @@ void simulate_dynamic_system(const int num_steps,
     double* xk1 = (double*) malloc(n * sizeof(double));
     null_ptr_check(xk1);
     double z[p];
-    double w[cmcc];
+    double w[pncc];
     double v[p];
 
     duc->step = 0;
@@ -492,7 +497,7 @@ void simulate_dynamic_system(const int num_steps,
         (*transition_model)(duc, xk1, w);
         memcpy(true_state_history + i*n, x, n * sizeof(double) ); // if any (after-thhe-fact) updates to x must be made (this is rare, tho..telegraph does use it)
         memcpy(true_state_history + (i+1)*n, xk1, n * sizeof(double) );
-        memcpy(process_noise_history + i*cmcc, w, cmcc * sizeof(double) );
+        memcpy(process_noise_history + i*pncc, w, pncc * sizeof(double) );
         
         duc->step += 1;
         duc->x = xk1;
@@ -504,7 +509,5 @@ void simulate_dynamic_system(const int num_steps,
     free(x);
     free(xk1);
 }
-
-
 
 #endif // _DYNAMIC_MODELS_HPP_
