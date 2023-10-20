@@ -1,6 +1,7 @@
 #ifndef _CAUCHY_WINDOWS_H_
 #define _CAUCHY_WINDOWS_H_
 
+#include "array_logging.hpp"
 #include "cauchy_constants.hpp"
 #include "cauchy_estimator.hpp"
 #include "cauchy_types.hpp"
@@ -877,6 +878,7 @@ struct SlidingWindowManager
     double* full_window_cerr_means;
     double* full_window_cerr_variances;
     double* full_window_cerr_norm_factors;
+    int* full_window_numeric_errors;
 
     // Used for logging all window information
     int* window_step_counts;
@@ -887,6 +889,7 @@ struct SlidingWindowManager
     double** window_cerr_variances;
     double** window_cerr_norm_factors;
     double** window_x_bars;
+    int** window_numeric_errors;
 
     // Timer for clocking the Sliding Window Approximation hertz rate
     CPUTimer win_tmr;
@@ -901,6 +904,7 @@ struct SlidingWindowManager
     FILE* f_fw_cerr_variances;
     FILE* f_fw_norm_factors;
     FILE* f_fw_cerr_norm_factors;
+    FILE* f_fw_numeric_errors;
 
     FILE** f_aw_means;
     FILE** f_aw_cerr_means;
@@ -908,6 +912,7 @@ struct SlidingWindowManager
     FILE** f_aw_cerr_variances;
     FILE** f_aw_norm_factors;
     FILE** f_aw_cerr_norm_factors;
+    FILE** f_aw_numeric_errors;
 
     // Window Var Boost used to boost up the diagonal of the initializer window's covariance matrix, when initializing the initializee window
     // This is usually set to NULL, however it can be helpful (as seen in the LEO problems)
@@ -1059,6 +1064,8 @@ struct SlidingWindowManager
             null_ptr_check(full_window_cerr_variances);
             full_window_cerr_norm_factors = (double*) malloc( num_sim_steps * sizeof(double) );
             null_ptr_check(full_window_cerr_norm_factors);
+            full_window_numeric_errors = (int*) malloc( num_sim_steps * sizeof(int) );
+            null_ptr_check(full_window_numeric_errors);
 
             // Used for logging all window information
             window_step_counts = (int*) calloc(num_windows , sizeof(int));
@@ -1076,12 +1083,14 @@ struct SlidingWindowManager
             null_dptr_check((void**) window_cerr_variances );
             window_cerr_norm_factors = (double**) malloc( num_windows * sizeof(double*) );
             null_dptr_check((void**) window_cerr_norm_factors );
+            window_numeric_errors = (int**) malloc( num_windows * sizeof(int*) );
+            null_dptr_check((void**) window_numeric_errors );
+
             if(is_extended)
             {
                 window_x_bars = (double**) malloc( num_windows * sizeof(double*) );
                 null_dptr_check((void**) window_x_bars );
             }
-
 
             for(int i = 0; i < num_windows; i++)
             {
@@ -1097,6 +1106,8 @@ struct SlidingWindowManager
                 null_ptr_check(window_cerr_variances[i]);
                 window_cerr_norm_factors[i] = (double*) malloc( num_sim_steps * sizeof(double) );
                 null_ptr_check(window_cerr_norm_factors[i]);
+                window_numeric_errors[i] = (int*) malloc( num_sim_steps * sizeof(int) );
+                null_ptr_check(window_numeric_errors[i]);
                 if(is_extended)
                 {
                     window_x_bars[i] = (double*) malloc( num_sim_steps * n * sizeof(double) );
@@ -1181,10 +1192,10 @@ struct SlidingWindowManager
             if(j <= msmt_count)  
             {
                 // Store this window's mean / covariance / normalization factor
-                save_window_data(j, win_msg.x_hat, win_msg.P_hat, win_msg.fz, win_msg.x_bar);
                 active_windows[j] = true;
                 active_window_counts[j] += 1;
                 active_window_numeric_errors[j] = win_msg.numeric_moment_errors;
+                save_window_data(j, win_msg.x_hat, win_msg.P_hat, win_msg.fz, win_msg.x_bar);
             }
             
             child_okay = ((win_msg.ack_msg == SLAVE_OKAY) || (win_msg.ack_msg == SLAVE_WINDOW_FULL)) ? 1 : 0;
@@ -1240,9 +1251,9 @@ struct SlidingWindowManager
             win_msg.deserialize_data();
             
             // Store this windows first step information
-            save_window_data(window_initializee_idx, win_msg.x_hat, win_msg.P_hat, win_msg.fz, win_msg.x_bar);
             active_window_numeric_errors[window_initializee_idx] = win_msg.numeric_moment_errors;
             active_window_counts[window_initializee_idx] += 1;
+            save_window_data(window_initializee_idx, win_msg.x_hat, win_msg.P_hat, win_msg.fz, win_msg.x_bar);
 
             child_okay = ((win_msg.ack_msg == SLAVE_OKAY) || (win_msg.ack_msg == SLAVE_WINDOW_FULL)) ? 1 : 0; 
             children_okay *= child_okay;
@@ -1373,6 +1384,13 @@ struct SlidingWindowManager
             printf("norm_factors.txt file path has failed! Debug here!\n");
             exit(1);
         }
+        sprintf(temp_path, "%s/%s", log_dir, "numeric_error_codes.txt");
+        f_fw_numeric_errors = fopen(temp_path, "w");
+        if(f_fw_numeric_errors == NULL)
+        {
+            printf("numeric_error_codes.txt file path has failed! Debug here!\n");
+            exit(1);
+        }
         free(temp_path);
     }
 
@@ -1390,6 +1408,7 @@ struct SlidingWindowManager
         f_aw_cerr_variances = (FILE**) malloc( num_windows * sizeof(FILE*) );
         f_aw_norm_factors = (FILE**) malloc( num_windows * sizeof(FILE*) );
         f_aw_cerr_norm_factors = (FILE**) malloc( num_windows * sizeof(FILE*) );
+        f_aw_numeric_errors = (FILE**) malloc(num_windows * sizeof(FILE*) );
 
         for(int win_idx = 0; win_idx < num_windows; win_idx++)
         {
@@ -1446,6 +1465,14 @@ struct SlidingWindowManager
                 printf("cerr_norm_factors.txt file path for window %d has failed! Debug here!\n", win_idx);
                 exit(1);
             }
+            // Numeric error codes of each window win_idx
+            sprintf(temp_file_path, "%s/%s", temp_win_dir_path, "numeric_error_codes.txt");
+            f_aw_numeric_errors[win_idx] = fopen(temp_file_path, "w");
+            if(f_aw_numeric_errors[win_idx] == NULL)
+            {
+                printf("numeric_error_codes.txt file path for window %d has failed! Debug here!\n", win_idx);
+                exit(1);
+            }
         }
         free(temp_win_dir_path);
         free(temp_file_path);
@@ -1461,12 +1488,14 @@ struct SlidingWindowManager
         log_double_array_to_file(f_fw_cerr_means, best_win_idx, full_window_cerr_means + msmt_count, 1);
         log_double_array_to_file(f_fw_cerr_variances, best_win_idx, full_window_cerr_variances + msmt_count, 1);
         log_double_array_to_file(f_fw_cerr_norm_factors, best_win_idx, full_window_cerr_norm_factors + msmt_count, 1);
+        log_int_array_to_file(f_fw_numeric_errors, best_win_idx, full_window_numeric_errors + msmt_count, 1);
         fflush(f_fw_means);
         fflush(f_fw_variances);
         fflush(f_fw_norm_factors);
         fflush(f_fw_cerr_means);
         fflush(f_fw_cerr_variances);
         fflush(f_fw_cerr_norm_factors);
+        fflush(f_fw_numeric_errors);
     }
 
     void sequential_logger_all_windows()
@@ -1484,12 +1513,14 @@ struct SlidingWindowManager
                 log_double_array_to_file(f_aw_cerr_variances[win_idx], window_cerr_variances[win_idx] + win_step_count, 1);
                 log_double_array_to_file(f_aw_norm_factors[win_idx], window_norm_factors[win_idx] + win_step_count, 1);
                 log_double_array_to_file(f_aw_cerr_norm_factors[win_idx], window_cerr_norm_factors[win_idx] + win_step_count, 1);
+                log_int_array_to_file(f_aw_numeric_errors[win_idx], window_numeric_errors[win_idx] + win_step_count, 1);
                 fflush(f_aw_means[win_idx]);
                 fflush(f_aw_variances[win_idx]);
                 fflush(f_aw_cerr_means[win_idx]);
                 fflush(f_aw_cerr_variances[win_idx]);
                 fflush(f_aw_norm_factors[win_idx]);
                 fflush(f_aw_cerr_norm_factors[win_idx]);
+                fflush(f_aw_numeric_errors[win_idx]);
             }
         }
     }
@@ -1507,6 +1538,7 @@ struct SlidingWindowManager
             log_double_array_to_file(f_fw_cerr_means, best_win_idx, full_window_cerr_means + i, 1);
             log_double_array_to_file(f_fw_cerr_variances, best_win_idx, full_window_cerr_variances + i, 1);
             log_double_array_to_file(f_fw_cerr_norm_factors, best_win_idx, full_window_cerr_norm_factors + i, 1);
+            log_int_array_to_file(f_fw_numeric_errors, best_win_idx, full_window_numeric_errors + i, 1);
         }
         fflush(f_fw_means);
         fflush(f_fw_variances);
@@ -1514,6 +1546,7 @@ struct SlidingWindowManager
         fflush(f_fw_cerr_means);
         fflush(f_fw_cerr_variances);
         fflush(f_fw_cerr_norm_factors);
+        fflush(f_fw_numeric_errors);
     }
 
     void batch_logger_all_windows_history()
@@ -1532,6 +1565,7 @@ struct SlidingWindowManager
                 log_double_array_to_file(f_aw_cerr_variances[win_idx], window_cerr_variances[win_idx] + i, 1);
                 log_double_array_to_file(f_aw_norm_factors[win_idx], window_norm_factors[win_idx] + i, 1);
                 log_double_array_to_file(f_aw_cerr_norm_factors[win_idx], window_cerr_norm_factors[win_idx] + i, 1);
+                log_int_array_to_file(f_aw_numeric_errors[win_idx], window_numeric_errors[win_idx] + i, 1);
             }
             fflush(f_aw_means[win_idx]);
             fflush(f_aw_variances[win_idx]);
@@ -1539,6 +1573,7 @@ struct SlidingWindowManager
             fflush(f_aw_cerr_variances[win_idx]);
             fflush(f_aw_norm_factors[win_idx]);
             fflush(f_aw_cerr_norm_factors[win_idx]);
+            fflush(f_aw_numeric_errors[win_idx]);
         }
     }
     
@@ -1559,6 +1594,9 @@ struct SlidingWindowManager
         double* window_variance = window_variances[win_idx] + wsc * n * n;
         convert_complex_array_to_real(P_hat, window_variance, n * n);
         window_cerr_variances[win_idx][wsc] =  max_abs_imag_carray(P_hat, n*n);
+
+        // Save Numeric Moments Errors
+        window_numeric_errors[win_idx][wsc] = active_window_numeric_errors[win_idx];
         
         // Save x_bar if extended
         if(is_extended)
@@ -1581,11 +1619,13 @@ struct SlidingWindowManager
         double* w_var = window_variances[best_win_idx] + best_win_step_count * n * n;
         memcpy(fw_mean, w_mean, n * sizeof(double));
         memcpy(fw_var, w_var, n * n * sizeof(double));
+
         // Log error stats of best mean / covar at this step
         full_window_cerr_means[msmt_count] = window_cerr_means[best_win_idx][best_win_step_count];
         full_window_cerr_variances[msmt_count] = window_cerr_variances[best_win_idx][best_win_step_count];
         full_window_norm_factors[msmt_count] = window_norm_factors[best_win_idx][best_win_step_count];
         full_window_cerr_norm_factors[msmt_count] = window_cerr_norm_factors[best_win_idx][best_win_step_count];
+        full_window_numeric_errors[msmt_count] = window_numeric_errors[best_win_idx][best_win_step_count];
 
         // Log Windowing information if log setting is set to sequential
         if(WINDOW_LOG_SEQUENTIAL)
@@ -1703,6 +1743,7 @@ struct SlidingWindowManager
             free(full_window_cerr_means);
             free(full_window_cerr_variances);
             free(full_window_cerr_norm_factors);
+            free(full_window_numeric_errors);
             // Used for logging all window information
             free(window_step_counts);
             for(int i = 0; i < num_windows; i++)
@@ -1713,6 +1754,9 @@ struct SlidingWindowManager
                 free(window_cerr_means[i]);
                 free(window_cerr_variances[i]);
                 free(window_cerr_norm_factors[i]);
+                free(window_numeric_errors[i]);
+                if(is_extended)
+                    free(window_x_bars[i]);
             }
             free(window_means);
             free(window_variances);
@@ -1720,6 +1764,9 @@ struct SlidingWindowManager
             free(window_cerr_means);
             free(window_cerr_variances);
             free(window_cerr_norm_factors);
+            free(window_numeric_errors);
+            if(is_extended)
+                free(window_x_bars);
 
             if(log_dir != NULL)
             {
@@ -1730,6 +1777,7 @@ struct SlidingWindowManager
                 fclose(f_fw_cerr_variances);
                 fclose(f_fw_norm_factors);
                 fclose(f_fw_cerr_norm_factors);
+                fclose(f_fw_numeric_errors);
             }
             if(win_log_dir != NULL)
             {
@@ -1743,6 +1791,7 @@ struct SlidingWindowManager
                     fclose(f_aw_cerr_variances[i]);
                     fclose(f_aw_norm_factors[i]);
                     fclose(f_aw_cerr_norm_factors[i]);
+                    fclose(f_aw_numeric_errors[i]);
                 }
                 free(f_aw_means);
                 free(f_aw_variances);
@@ -1750,6 +1799,7 @@ struct SlidingWindowManager
                 free(f_aw_cerr_variances);
                 free(f_aw_norm_factors);
                 free(f_aw_cerr_norm_factors);
+                free(f_aw_numeric_errors);
             }
         }
     }

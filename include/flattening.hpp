@@ -501,8 +501,9 @@ void make_gtables(
                       // If the cell counts are different (due to instability), update child_k's btable to be compatible with the root
                       if(child_k->cells_gtable != child_j->cells_gtable)
                       {
-                          printf(RED"[BIG WARN FTR/Make Gtables:] child_k->cells_gtable != child_j->cells_gtable. We have code below to fix this! But EXITING now until this is commented out!" NC "\n");
-                          exit(1);
+                          if(WITH_WARNINGS)
+                            printf(RED"[BIG WARN FTR/Make Gtables:] child_k->cells_gtable != child_j->cells_gtable. We have code below to fix this! But EXITING now until this is commented out!" NC "\n");
+                          //exit(1);
                           // If child_k has more than child_j's cells,
                           // Downgrade child_k to be equal to child_j
                           if(child_k->cells_gtable > child_j->cells_gtable)

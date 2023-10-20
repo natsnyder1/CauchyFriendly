@@ -15,9 +15,9 @@ typedef double __complex__ C_COMPLEX_TYPE; // This is actually buggy, and cannot
 const double COALIGN_TP_EPS = 1e-8;
 // MU Settings
 const double MU_EPS = 1e-10;
-const double COALIGN_MU_EPS = 1e-8;
+const double COALIGN_MU_EPS = COALIGN_TP_EPS;
 const bool SKIP_LAST_STEP = true;
-const bool WITH_MSMT_UPDATE_ORTHOG_WARNING = false;
+const bool WITH_MSMT_UPDATE_ORTHOG_WARNING = true;
 
 // Shared TP and MU Coalignment Settings
 const uint8_t COALIGN_MAP_NOVAL = 255;
@@ -31,7 +31,7 @@ const int CP_STORAGE_ALLOC_METHOD = 0; // 0: malloc, 1: calloc 2: page touching 
 const uint8_t kByteEmpty = 0xff;
 const uint32_t kEmpty = 0xffffffff;
 const bool WITH_TERM_APPROXIMATION = false;
-const double TERM_APPROXIMATION_EPS = 1e-12;
+const double TERM_APPROXIMATION_EPS = 1e-16;
 const bool WITH_WARNINGS = true; // Used to flag when something may be fishy
 const bool WITH_GB_TABLE_REALLOC = true;
 const bool EXIT_ON_FAILURE = true;
@@ -49,7 +49,7 @@ const double COND_EPS = 1e12;
 const double REDUCTION_EPS = 1e-8; // 1e-8
 const bool WITH_FTR_P_CHECK = true;
 const bool WITH_FTR_HPA_CHECK = true;
-int TR_SEARCH_IDXS_ORDERING[12] = {0,1,2,3,4,5,6,7,8,9,10,11};
+int TR_SEARCH_IDXS_ORDERING[12] = {5,4,3,6,2,1,0}; //{3,2,4,1,0}; //{0,1,2,3,4,5,6,7,8,9,10,11};
 
 // Distributed Computation Settings
 const int NUM_CPUS = 8; // Should be 128 on the cluster
@@ -93,5 +93,9 @@ const int ERROR_COVARIANCE_AT_CURRENT_STEP_DNE = 3;
 const int ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT = 2;
 const int ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_FINAL_MSMT = 1;
 const int ERROR_COVARIANCE_UNSTABLE_ANY_STEP = 0;
+
+// Cauchy to Gaussian Conversion Parameter
+const double CAUCHY_TO_GAUSS_NOISE = 1.3898;
+const double GAUSS_TO_CAUCHY_NOISE = 1.0/ CAUCHY_TO_GAUSS_NOISE;
 
 #endif
