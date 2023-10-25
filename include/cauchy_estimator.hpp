@@ -161,13 +161,21 @@ struct CauchyEstimator
         
         childterms_workspace.init(shape_range-1, d);
         print_basic_info = _print_basic_info;
+
         // Initialize the first term 
         setup_first_term(&childterms_workspace, terms_dp[d], _A0, _p0, _b0, d);
-        A0_init = _A0;
-        p0_init = _p0;
-        b0_init = _b0;
+        // Create memory for storing the initialization parameters / resetting these when the estimator "resets"
+        A0_init = (double*) malloc(d * d * sizeof(double)); //_A0;
+        null_ptr_check(A0_init);
+        memcpy(A0_init, _A0, d * d * sizeof(double));
+        p0_init = (double*) malloc(d * sizeof(double)); //_p0;
+        null_ptr_check(p0_init);
+        memcpy(p0_init, _p0, d * sizeof(double));
+        b0_init = (double*) malloc(d * sizeof(double)); //_b0;
+        null_ptr_check(b0_init);
+        memcpy(b0_init, _b0, d * sizeof(double));
 
-        // Set threading arguments
+        // Set threading arguments, window number, and initial error code
         num_threads_tp_to_muc = 1;
         num_threads_make_gtables = 1;
         win_num = 0;
@@ -1340,6 +1348,10 @@ struct CauchyEstimator
         free(gb_tables);
         free(coalign_store);
         free(reduce_store);
+
+        free(A0_init);
+        free(p0_init);
+        free(b0_init);
     }
 
 };

@@ -147,18 +147,19 @@ void assert_correct_cauchy_dynamics_update_container_setup(CauchyDynamicsUpdateC
 {
     assert(duc != NULL);
     assert(duc->n > 0);
-    assert(duc->pncc > 0);
+    assert(duc->pncc >= 0);
     assert(duc->cmcc >= 0);
     assert(duc->p > 0);
     assert(duc->Phi != NULL);
-    assert(duc->Gamma != NULL);
+    if(duc->pncc > 0)
+    {
+        assert(duc->Gamma != NULL);
+        assert(duc->beta != NULL);
+    }
     assert(duc->H != NULL);
-    assert(duc->beta != NULL);
     assert(duc->gamma != NULL);
     if(duc->cmcc > 0)
         assert(duc->B != NULL);
-    else 
-        assert(duc->B == NULL);
 }
 
 /*
