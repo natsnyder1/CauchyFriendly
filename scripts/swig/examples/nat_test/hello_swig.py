@@ -119,6 +119,14 @@ def fill_array_cumsum(m):
     return _hello_swig.fill_array_cumsum(m)
 fill_array_cumsum = _hello_swig.fill_array_cumsum
 
+def return_multiple_things(m):
+    return _hello_swig.return_multiple_things(m)
+return_multiple_things = _hello_swig.return_multiple_things
+
+def get_DynUpdateLight_ptr(n, pncc, p):
+    return _hello_swig.get_DynUpdateLight_ptr(n, pncc, p)
+get_DynUpdateLight_ptr = _hello_swig.get_DynUpdateLight_ptr
+
 def use_callback(f):
     return _hello_swig.use_callback(f)
 use_callback = _hello_swig.use_callback
@@ -131,9 +139,9 @@ def initialize_NL_system(n, pncc, p, x, f3):
     return _hello_swig.initialize_NL_system(n, pncc, p, x, f3)
 initialize_NL_system = _hello_swig.initialize_NL_system
 
-def get_DynUpdateLight_ptr(n, pncc, p):
-    return _hello_swig.get_DynUpdateLight_ptr(n, pncc, p)
-get_DynUpdateLight_ptr = _hello_swig.get_DynUpdateLight_ptr
+def initialize_NL_system_v2(n, pncc, p, x, f, f3):
+    return _hello_swig.initialize_NL_system_v2(n, pncc, p, x, f, f3)
+initialize_NL_system_v2 = _hello_swig.initialize_NL_system_v2
 # This file is compatible with both classic and new-style classes.
 
 cvar = _hello_swig.cvar

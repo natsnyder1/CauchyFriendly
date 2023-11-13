@@ -40,6 +40,8 @@ struct DIST_TP_TO_MUC_STRUCT
     int processed_pncc;
     double msmt;
     double gamma;
+    double* B;
+    double* u;
     int tid;
     int n_tids;
 };
@@ -47,6 +49,7 @@ struct DIST_TP_TO_MUC_STRUCT
 struct CauchyEstimator
 {
     int d; // state dimension
+    int cmcc; // control matrix column count (columns of B)
     int pncc; // process noise column count (columns of Gamma)
     int p; // number of measurements processed per step
     int Nt; // total number of terms
@@ -83,12 +86,13 @@ struct CauchyEstimator
     C_COMPLEX_TYPE* last_conditional_mean;
     C_COMPLEX_TYPE* last_conditional_variance;
 
-    CauchyEstimator(double* _A0, double* _p0, double* _b0, int _steps, int _d, int _pncc, int _p, const bool _print_basic_info = true)
+    CauchyEstimator(double* _A0, double* _p0, double* _b0, int _steps, int _d, int _cmcc, int _pncc, int _p, const bool _print_basic_info)
     {
         // Init state dimensions and shape / term counters
         Nt = 1;
         master_step = 0;
         d = _d;
+        cmcc = _cmcc;
         pncc = _pncc;
         p = _p;
         num_estimation_steps = p*_steps;
@@ -590,7 +594,7 @@ struct CauchyEstimator
         INTEGRABLE_FLAG = true; // reset
     }
 
-    void step_tp_to_muc(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma)
+    void step_tp_to_muc(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma, double* B, double* u)
     {
         double tmp_Gamma[d*pncc];
         double tmp_beta[pncc];
@@ -657,7 +661,7 @@ struct CauchyEstimator
                     // Run Time Propagation Routines
                     if( with_tp )
                     {
-                        parent->time_prop(Phi);
+                        parent->time_prop(Phi, B, u, cmcc);
                         int m_tp = parent->tp_coalign(tmp_Gamma, tmp_beta, tmp_pncc);
                         if( (!DENSE_STORAGE) && (!skip_post_mu) )
                         {
@@ -813,7 +817,7 @@ struct CauchyEstimator
         num_threads_make_gtables = 1;
     }
 
-    void threaded_step_tp_to_muc(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma)
+    void threaded_step_tp_to_muc(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma, double* B, double* u)
     {
         double tmp_Gamma[d*pncc];
         double tmp_beta[pncc];
@@ -851,6 +855,8 @@ struct CauchyEstimator
             tid_args[i].processed_pncc = tmp_pncc;
             tid_args[i].msmt = msmt;
             tid_args[i].gamma = gamma;
+            tid_args[i].B = B;
+            tid_args[i].u = u;
             tid_args[i].tid = i;
             tid_args[i].n_tids = num_threads_tp_to_muc;
             pthread_create(tids + i, NULL, distributed_step_tp_to_muc, tid_args + i);
@@ -1172,7 +1178,7 @@ struct CauchyEstimator
     }
 
     // Main function that is called
-    int step(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma)
+    int step(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma, double* B, double* u)
     {
         if( numeric_moment_errors & (1<<ERROR_FZ_NEGATIVE) )
         {
@@ -1189,9 +1195,9 @@ struct CauchyEstimator
         else
         {
             if( (NUM_CPUS == 1) || (Nt < MIN_TERMS_PER_THREAD_TP_TO_MUC) )
-                step_tp_to_muc(msmt, Phi, Gamma, beta, H, gamma);
+                step_tp_to_muc(msmt, Phi, Gamma, beta, H, gamma, B, u);
             else
-                threaded_step_tp_to_muc(msmt, Phi, Gamma, beta, H, gamma);
+                threaded_step_tp_to_muc(msmt, Phi, Gamma, beta, H, gamma, B, u);
             fast_term_reduction_and_create_gtables();
         }
         master_step++;
@@ -1397,6 +1403,7 @@ void* distributed_step_tp_to_muc(void* args)
     CauchyEstimator* cauchyEst = dist_args->cauchyEst;
 
     int d = cauchyEst->d;
+    int cmcc = cauchyEst->cmcc;
     int shape_range = cauchyEst->shape_range;
     int* terms_per_shape = cauchyEst->terms_per_shape;
     double* root_point = cauchyEst->root_point;
@@ -1446,6 +1453,8 @@ void* distributed_step_tp_to_muc(void* args)
     double* H = dist_args->H;
     double gamma = dist_args->gamma;
     double msmt = dist_args->msmt;
+    double* B = dist_args->B;
+    double* u = dist_args->u;
 
     // Allocate structures for the maximum number of new terms we'd generate at this step
     int* new_terms_per_shape = (int*) calloc(shape_range, sizeof(int));
@@ -1522,7 +1531,7 @@ void* distributed_step_tp_to_muc(void* args)
                 // Run Time Propagation Routines
                 if( with_tp )
                 {
-                    parent->time_prop(Phi);
+                    parent->time_prop(Phi, B, u, cmcc);
                     int m_tp = parent->tp_coalign(tmp_Gamma, tmp_beta, tmp_pncc);
                     if( (!DENSE_STORAGE) && (!skip_post_mu) )
                     {

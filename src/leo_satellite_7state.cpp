@@ -547,10 +547,13 @@ void test_7state_leo()
     assert_correct_cauchy_dynamics_update_container_setup(&duc);
     //*/
 
+    int ftr_idx_ordering[7] = {5,4,3,6,2,1,0};
+    set_tr_search_idxs_ordering(ftr_idx_ordering, 7);
+
     ///*
     int foo_steps = 4;
     bool print_basic_info = true;
-    CauchyEstimator cauchyEst(A0, p0, b0, foo_steps, n, pncc, p, print_basic_info);
+    CauchyEstimator cauchyEst(A0, p0, b0, foo_steps, n, cmcc, pncc, p, print_basic_info);
     for(int i = 0; i < foo_steps; i++)
     {
         double* msmts = sim_log.msmt_history + (i+1)*p;
@@ -562,7 +565,7 @@ void test_7state_leo()
             ece_leo_7state_measurement_model(&duc, zbar);
             double msmt = msmts[j] - zbar[j];
             printf("Processing measurement z=%.4lf, which is #%d/%d at step %d/%d\n", msmt, j+1, p, i+1, foo_steps);
-            cauchyEst.step(msmt, Phi, Gamma, beta, H + j*n, gamma[j]); 
+            cauchyEst.step(msmt, Phi, Gamma, beta, H + j*n, gamma[j], NULL, NULL); 
             cauchyEst.finalize_extended_moments(duc.x);
 
             printf("True State is:\n");

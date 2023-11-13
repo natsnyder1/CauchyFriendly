@@ -12,8 +12,8 @@ void test_3state_window_manager()
     double Phi[n*n] = {1.4, -0.6, -1.0,  -0.2,  1.0,  0.5,  0.6, -0.6, -0.2};
     double Gamma[n*pncc] = {.1, 0.3, -0.2};
     double H[n] = {1.0, 0.5, 0.2};
-    double beta[pncc] = {0.02};
-    double gamma[p] = {0.1};
+    double beta[pncc] = {0.1};
+    double gamma[p] = {0.2};
     double A0[n*n] =  {1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0}; //{-0.63335359, -0.74816241, -0.19777826, -0.7710082 ,  0.63199184,  0.07831134, -0.06640465, -0.20208744,  0.97711365}; 
     double p0[n] = {0.10, 0.08, 0.05}; //{0.0, 0.0, 0.0}; //
     double b0[n] = {0, 0, 0};
@@ -28,11 +28,11 @@ void test_3state_window_manager()
     memcpy(x0_kf, b0, n * sizeof(double));
 
     // Possibly Set a Seed
-    /* 
-    unsigned int seed = time(NULL);
-    printf("Seeding with %u \n", seed);
-    srand ( seed );
-    */
+    ///* 
+    //unsigned int seed = time(NULL);
+    //printf("Seeding with %u \n", seed);
+    srand ( 10 );
+    //*/
 
     bool is_gaussian_sim = false;
     // Container for Cauchy Estimator
@@ -55,6 +55,7 @@ void test_3state_window_manager()
     else 
         sim_log = new SimulationLogger(log_dir, num_steps, b0, &duc, cauchy_lti_transition_model, cauchy_lti_measurement_model);
     sim_log->run_simulation_and_log();
+    
     
     // New Sliding Window Manager
     int total_steps = num_steps+1; // including estimation for x0 (i.e, z0 -> first MU)
@@ -205,7 +206,7 @@ void test_3state_3msmts_window_manager()
 
 int main()
 {
-    //test_3state_window_manager();
-    test_3state_3msmts_window_manager();
+    test_3state_window_manager();
+    //test_3state_3msmts_window_manager();
     return 0;
 }

@@ -7,11 +7,13 @@ import numpy as np
 import ctypes as ct 
 
 def test_numpy():
-    arr_sum = hs.get_array_sum(np.random.randn(10))
-    n = 5
+    n = 10
+    arr_sum = hs.get_array_sum(np.arange(n, dtype=np.float64))
     y = np.zeros(n, dtype=np.float64)
-    hs.double_it(np.arange(n), y)
-    X = hs.fill_array_cumsum(5)
+    hs.double_it(np.arange(n), y) # inplace return
+    X = hs.fill_array_cumsum(5) # returns output array
+    W, Z, foo, bar = hs.return_multiple_things(n) # returns two numpy arrays and two integer values
+    foo = 9
 
 # Function Callback to C from Python we know works 
 def py_callback(i, s):
@@ -76,6 +78,22 @@ def test_struct_of_arrays_callback():
     x = np.array([1.0,2.0,3.0,4.0])
     hs.initialize_NL_system(4, 2, 1, x, f_ptr)
 
+def test_multiple_callback_handoff():
+    
+    py_callback_type1 = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
+    f1 = py_callback_type1(py_callback)
+    f_ptr1 = ctypes.cast(f1, ctypes.c_void_p).value
+    
+    py_callback_type3 = ct.CFUNCTYPE(None, ct.POINTER(CDynUpdateLight))
+    f3 = py_callback_type3(py_callback3)
+    f_ptr3 = ctypes.cast(f3, ctypes.c_void_p).value
+
+    x = np.array([1.0,2.0,3.0,4.0])
+    #hs.initialize_NL_system_v2(4, 2, 1, x, f_ptr1, f_ptr3)
+    hs.initialize_NL_system_v2(4,2,1,x,f_ptr1,f_ptr3)
+
+    foo = 9
+
 
 
 if __name__ == "__main__":
@@ -83,3 +101,4 @@ if __name__ == "__main__":
     test_py_callback()
     test_struct_callback()
     test_struct_of_arrays_callback()
+    test_multiple_callback_handoff()

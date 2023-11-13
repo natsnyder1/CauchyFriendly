@@ -522,7 +522,7 @@ int child_window_loop(CauchyWindow cw,
     print_window_settings(&cw);
     
     // Setup the Estimator 
-    CauchyEstimator cauchyEst(A0, p0, b0, num_windows, n, pncc, p, false);
+    CauchyEstimator cauchyEst(A0, p0, b0, num_windows, n, cmcc, pncc, p, false);
     cauchyEst.set_win_num(cw.window_number);
 
     WindowMessage win_msg;
@@ -582,14 +582,6 @@ int child_window_loop(CauchyWindow cw,
                         if(is_extended)
                             assert(duc->is_xbar_set_for_ece);
                     }
-                    // If we have a Linear System, and cmcc is larger than 0, we need to shift the CF by the control bias
-                    // If we have a nonlinear system, this is done above within dynamics_update_callback, and becomes apart of \bar{x}_{k+1} = f(x_k,u_k)
-                    if(!is_extended && (cmcc > 0) )
-                    {
-                        double bias[n];
-                        matvecmul(duc->B, duc->u, bias, n, cmcc);
-                        cauchyEst.shift_cf_by_bias(bias);
-                    }
                 }
                 
                 bool speyer_init_was_run = false;
@@ -630,7 +622,7 @@ int child_window_loop(CauchyWindow cw,
                         msmt_msg.msmts[i] -= z_bar[i];
                         extended_msmt_update_callback(duc);
                     }
-                    window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i] );
+                    window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], duc->B, duc->u);
                     // Shifts bs in CF by -\delta{x_k}. Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar). Then sets (duc->x) x_bar = creal(conditional_mean)
                     if(is_extended)
                         cauchyEst.finalize_extended_moments(duc->x); 
@@ -710,14 +702,6 @@ int child_window_loop(CauchyWindow cw,
                     if(is_extended)
                         assert(duc->is_xbar_set_for_ece);
                 }
-                // If we have a Linear System, and cmcc is larger than 0, we need to shift the CF by the control bias
-                // If we have a nonlinear system, this is done above within dynamics_update_callback, and becomes apart of x_bar = f(x_k,u_k)
-                if(!is_extended && (cmcc > 0) )
-                {
-                    double bias[n];
-                    matvecmul(duc->B, duc->u, bias, n, cmcc);
-                    cauchyEst.shift_cf_by_bias(bias);
-                }
             }
             // If we wish to use speyer's reinitialization method
             bool speyer_init_was_run = false;
@@ -757,7 +741,7 @@ int child_window_loop(CauchyWindow cw,
                     msmt_msg.msmts[i] -= z_bar[i];
                     extended_msmt_update_callback(duc);
                 }
-                window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i] );
+                window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], duc->B, duc->u);
                 // Shifts bs in CF by -\delta{x_k}. Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar). Then sets (duc->x) x_bar = creal(conditional_mean)
                 if(is_extended)
                     cauchyEst.finalize_extended_moments(duc->x);
@@ -1220,14 +1204,17 @@ struct SlidingWindowManager
             {
                 if(dynamics_update_callback != NULL)
                 {
+                    double* tmp_x = duc->x;
                     duc->x = x_hat_restart;
                     dynamics_update_callback(duc);
+                    duc->x = tmp_x;
                 }
                 speyers_window_init(n, x_hat_restart, P_hat_restart, duc->H + (p-1)*n, duc->gamma[p-1], msmt_msg.msmts[p-1], init_msg.A_0, init_msg.p_0, init_msg.b_0, best_win_idx, window_initializee_idx, window_var_boost);
                 memcpy(init_msg.x, x_hat_restart, n*sizeof(double));
             }
             else
             {
+                double* tmp_x = duc->x;
                 duc->x = x_bar_restart;
                 // convert x_hat into the differential dx = x_hat - x_bar
                 sub_vecs(x_hat_restart, x_bar_restart, n);
@@ -1240,6 +1227,7 @@ struct SlidingWindowManager
                 speyers_window_init(n, x_hat_restart, P_hat_restart, duc->H + (p-1)*n, duc->gamma[p-1], msmt_msg.msmts[p-1], init_msg.A_0, init_msg.p_0, init_msg.b_0, best_win_idx, window_initializee_idx, window_var_boost);
                 // copy x_bar over to the initializee msg
                 memcpy(init_msg.x, x_bar_restart, n*sizeof(double));
+                duc->x = tmp_x;
             }                  
             
             // Write the init_msg to the initializee window 

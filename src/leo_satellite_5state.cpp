@@ -572,10 +572,13 @@ void test_5state_leo()
     assert_correct_cauchy_dynamics_update_container_setup(&duc);
     //*/
 
-    /*
+    int ftr_idx_ordering[5] = {3,2,4,1,0};
+    set_tr_search_idxs_ordering(ftr_idx_ordering, 5);
+    
+    ///*
     int foo_steps = 7;
     bool print_basic_info = true;
-    CauchyEstimator cauchyEst(A0, p0, b0, foo_steps, n, pncc, p, print_basic_info);
+    CauchyEstimator cauchyEst(A0, p0, b0, foo_steps, n, cmcc, pncc, p, print_basic_info);
     for(int i = 0; i < foo_steps; i++)
     {
         double* msmts = sim_log.msmt_history + (i+1)*p;
@@ -587,7 +590,7 @@ void test_5state_leo()
             ece_leo_5state_measurement_model(&duc, zbar);
             double msmt = msmts[j] - zbar[j];
             printf("Processing measurement z=%.4lf, which is #%d/%d at step %d/%d\n", msmt, j+1, p, i+1, foo_steps);
-            cauchyEst.step(msmt, Phi, Gamma, beta, H + j*n, gamma[j]); 
+            cauchyEst.step(msmt, Phi, Gamma, beta, H + j*n, gamma[j], NULL, NULL); 
             cauchyEst.finalize_extended_moments(duc.x);
 
             printf("True State is:\n");
@@ -596,9 +599,9 @@ void test_5state_leo()
             print_cmat(cauchyEst.conditional_mean, 1, 5, 5);
         }
     }
-    */
+    //*/
 
-    ///*
+    /*
     const bool is_extended = true;
     ece_leo_5state_transition_model_and_jacobians(&duc);
     ece_leo_5state_measurement_jacobian(&duc);
@@ -617,7 +620,7 @@ void test_5state_leo()
     for(int i = 1; i < total_steps; i++)
         swm.step(sim_log.msmt_history + i*p, NULL);
     swm.shutdown();
-    //*/
+    */
 }
 
 int main()

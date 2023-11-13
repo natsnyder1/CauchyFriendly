@@ -46,6 +46,25 @@ void double_it(double* x, int n, double* y, int m)
         y[i] = 2*x[i];
 }
 
+void return_multiple_things(int m, int **out_cumarray, int *size_cumarray, int** out_doubled_cumarray, int* size_doubled_cumarray, int* out_cumarray_sum, int* out_doubled_cumarray_sum)
+{
+    fill_array_cumsum(m, out_cumarray, size_cumarray);
+    *out_doubled_cumarray = (int*) malloc(m * sizeof(int));
+    *size_doubled_cumarray = m;
+    for(int i = 0; i < m; i++)
+        (*out_doubled_cumarray)[i] = 2*(*out_cumarray)[i];
+
+    int sum_cs = 0;
+    int sum_dcs = 0;
+    for(int i = 0; i < m; i++)
+    {
+        sum_cs += (*out_cumarray)[i];
+        sum_dcs += (*out_doubled_cumarray)[i];
+    }
+    *out_cumarray_sum = sum_cs;
+    *out_doubled_cumarray_sum = sum_dcs;
+}
+
 struct structFooBar
 {
     int x;
@@ -211,9 +230,7 @@ void initialize_LTV_system()
 
 }
 
-void initialize_NL_system(int n, int pncc, int p,
-    double* x, int size_x,
-    void (*f_dyn)(DynUpdateLight*) )
+void initialize_NL_system(int n, int pncc, int p, double* x, int size_x, void (*f_dyn)(DynUpdateLight*) )
 {
     DynUpdateLight_init(n, pncc, p); 
     printf("C: Before the duc was filled, it is:\n");
@@ -224,6 +241,20 @@ void initialize_NL_system(int n, int pncc, int p,
     printf("C: After the duc was filled, it is:\n");
     DynUpdateLight_print();
 }
+
+void initialize_NL_system_v2(int n, int pncc, int p, double* x, int size_x, void (*f_hello)(int, const char*), void (*f_dyn)(DynUpdateLight*) )
+{
+    f_hello(0, "hello from initialize_NL_system_v2! (runs in python!");
+    DynUpdateLight_init(n, pncc, p); 
+    printf("C: Before the duc was filled, it is:\n");
+    DynUpdateLight_print();
+    memcpy(duc->x, x, n * sizeof(double));
+    printf("C: Handing Allocated but Uninitialized DynUpdateLight pointer to callback!\n");
+    f_dyn(duc);
+    printf("C: After the duc was filled, it is:\n");
+    DynUpdateLight_print();
+}
+
 
 void init_dynamic_test(DynUpdateLight* duc)
 {

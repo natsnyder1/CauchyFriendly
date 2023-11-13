@@ -367,13 +367,20 @@ struct CauchyTerm
         return g_val;
     }
   
-    void time_prop(double* Phi)
+    void time_prop(double* Phi, double* B, double* u, const int cmcc)
     {
         double work[m*d];
         memcpy(work, A, m * d * sizeof(double));
         matmatmul(work, Phi, A, m, d, d, d, false, true); // A @ Phi.T
         memcpy(work, b, d*sizeof(double));
         matvecmul(Phi, work, b, d, d, false); // Phi @ b == b @ Phi.T
+
+        // Shift b_{k+1|k} by B @ u if a control was provided
+        if(cmcc > 0)
+        {
+            matvecmul(B, u, work, d, cmcc);
+            add_vecs(b, work, d, 1);
+        }
     }
 
     void normalize_hps(const bool set_q)

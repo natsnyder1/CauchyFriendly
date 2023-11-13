@@ -49,7 +49,7 @@ const double COND_EPS = 1e12;
 const double REDUCTION_EPS = 1e-8; // 1e-8
 const bool WITH_FTR_P_CHECK = true;
 const bool WITH_FTR_HPA_CHECK = true;
-int TR_SEARCH_IDXS_ORDERING[12] = {5,4,3,6,2,1,0}; //{3,2,4,1,0}; //{0,1,2,3,4,5,6,7,8,9,10,11};
+int TR_SEARCH_IDXS_ORDERING[12] = {0,1,2,3,4,5,6,7,8,9,10,11}; //{3,2,4,1,0}; //{5,4,3,6,2,1,0}; //{3,2,4,1,0}; //{0,1,2};
 
 // Distributed Computation Settings
 const int NUM_CPUS = 8; // Should be 128 on the cluster
@@ -77,7 +77,7 @@ const int COV_ERROR_FLAGS_INVALID_CORRELATION = 1;
 const int COV_ERROR_FLAGS_INVALID_I2R_RATIO = 2;
 const int COV_ERROR_FLAGS_INVALID_IMAGINARY_VALUE = 3;
 
-// Numeric Covariance eigenvalue tolerance
+// Numeric Covariance eigenvalue smallness tolerance
 const double COV_EIGENVALUE_TOLERANCE = 1e-10;
 
 // Numeric Moment Error Flag Bits
@@ -96,6 +96,6 @@ const int ERROR_COVARIANCE_UNSTABLE_ANY_STEP = 0;
 
 // Cauchy to Gaussian Conversion Parameter
 const double CAUCHY_TO_GAUSS_NOISE = 1.3898;
-const double GAUSS_TO_CAUCHY_NOISE = 1.0/ CAUCHY_TO_GAUSS_NOISE;
+const double GAUSS_TO_CAUCHY_NOISE = 1.0 / CAUCHY_TO_GAUSS_NOISE;
 
 #endif

@@ -1782,4 +1782,10 @@ void print_numeric_moment_errors()
 	exit(1);
 }
 
+void set_tr_search_idxs_ordering(const int* const ordering, int n)
+{
+	for(int i = 0; i < n; i++)
+		TR_SEARCH_IDXS_ORDERING[i] = ordering[i];
+}
+
 #endif

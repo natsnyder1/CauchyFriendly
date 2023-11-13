@@ -11,7 +11,7 @@
   
     /* variable declaration*/
 %} 
-
+%include "typemaps.i"
 %include "numpy.i"
 %init %{
 import_array();
@@ -41,9 +41,21 @@ void double_it(double* x, int n, double* y, int m);
 %clear (double* y, int m);
 
 /* Define some functions that take scalar input and returns python array output */
-%apply (int ** ARGOUTVIEWM_ARRAY1, int *DIM1) {(int **X, int *out_n)}
+%apply (int ** ARGOUTVIEWM_ARRAY1, int *DIM1) {(int **X, int *out_n)};
+
 void fill_array_cumsum(int m, int **X, int *out_n);
 %clear (int **X, int *out_n);
+
+%apply (int ** ARGOUTVIEWM_ARRAY1, int *DIM1) {(int **out_cumarray, int *size_cumarray)};
+%apply (int ** ARGOUTVIEWM_ARRAY1, int *DIM1) {(int **out_doubled_cumarray, int *size_doubled_cumarray)};
+%apply int *OUTPUT { int *out_cumarray_sum, int *out_doubled_cumarray_sum };
+void return_multiple_things(int m, int **out_cumarray, int *size_cumarray, int** out_doubled_cumarray, int* size_doubled_cumarray, int* out_cumarray_sum, int* out_doubled_cumarray_sum);
+%clear (int **out_cumarray, int *size_cumarray);
+%clear (int **out_doubled_cumarray, int *size_doubled_cumarray);
+%clear (int **out_cumarray_sum, int *out_doubled_cumarray_sum);
+
+DynUpdateLight* get_DynUpdateLight_ptr(const int n, const int pncc, const int p);
+
 
 /* Define some function which takes a 2D array into python and returns two one-D arrays */
 
@@ -58,33 +70,27 @@ void fill_array_cumsum(int m, int **X, int *out_n);
 %typemap(in) void (*f)(int, const char*) {
     $1 = (void (*)(int, const char*))PyLong_AsVoidPtr($input);;
 }
-%{
-    void use_callback(void (*f)(int i, const char* str));
-%}
-void use_callback(void (*f)(int i, const char* str));
-
-
-
 %typemap(in) void (*f2)(FooPoint*) {
     $1 = (void (*)(FooPoint*))PyLong_AsVoidPtr($input);;
 }
-%{
-    void initialize_foo_system(int n, void (*f2)(FooPoint*) );
-%}
-void initialize_foo_system(int n, void (*f2)(FooPoint*) );
-
-
 %typemap(in) void (*f3)(DynUpdateLight*) {
     $1 = (void (*)(DynUpdateLight*))PyLong_AsVoidPtr($input);;
 }
+
 %{
-void initialize_NL_system(int n, int pncc, int p, double* x, int size_x, void (*f3)(DynUpdateLight*) );
+    void use_callback(void (*f)(int i, const char* str));
+    void initialize_foo_system(int n, void (*f2)(FooPoint*) );
+    void initialize_NL_system(int n, int pncc, int p, double* x, int size_x, void (*f3)(DynUpdateLight*) );
+    void initialize_NL_system_v2(int n, int pncc, int p, double* x, int size_x, void (*f)(int, const char*), void (*f_dyn)(DynUpdateLight*) );
 %}
+
 %apply (double* IN_ARRAY1, int DIM1) {(double* x, int size_x)};
+void use_callback(void (*f)(int i, const char* str));
+void initialize_foo_system(int n, void (*f2)(FooPoint*) );
 void initialize_NL_system(int n, int pncc, int p, double* x, int size_x, void (*f3)(DynUpdateLight*) );
+void initialize_NL_system_v2(int n, int pncc, int p, double* x, int size_x, void (*f)(int, const char*), void (*f3)(DynUpdateLight*) );
 %clear (double* x, int size_x);
 
-DynUpdateLight* get_DynUpdateLight_ptr(const int n, const int pncc, const int p);
 
 
 /* or if we want to interface all functions then we can simply 
