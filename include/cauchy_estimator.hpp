@@ -96,7 +96,7 @@ struct CauchyEstimator
         pncc = _pncc;
         p = _p;
         num_estimation_steps = p*_steps;
-        int max_hp_shape = (_steps-1) * pncc + d;
+        int max_hp_shape = d > 1 ? (_steps-1) * pncc + d : d + pncc;
         shape_range = max_hp_shape + 1;
         terms_per_shape = (int*) calloc(shape_range , sizeof(int));
         null_ptr_check(terms_per_shape);
@@ -391,9 +391,9 @@ struct CauchyEstimator
         //        : Check 2.) All imaginary values of the conditional mean must be smaller than the predefined hard limit
         for(int i = 0; i < d; i++)
         {
-            double mean_i_real = creal(conditional_mean[i]);
-            double mean_i_imag = cimag(conditional_mean[i]);
-            double ratio = fabs( mean_i_imag / (1e-15 + mean_i_real) );
+            double mean_i_real = fabs( creal(conditional_mean[i]) );
+            double mean_i_imag = fabs( cimag(conditional_mean[i]) );
+            double ratio = mean_i_imag / (1e-15 + mean_i_real);
             if( (ratio > THRESHOLD_MEAN_IMAG_TO_REAL) || (mean_i_imag > HARD_LIMIT_IMAGINARY_MEAN) )
             {
                 new_numeric_moment_errors |= (1<<ERROR_MEAN_UNSTABLE_ANY_STEP);
@@ -475,7 +475,7 @@ struct CauchyEstimator
         }
         if( current_step_numeric_moment_error_flags & (1 << ERROR_MEAN_UNSTABLE_CURRENT_STEP_FINAL_MSMT) )
         {
-            printf(YEL "  ERROR_MEAN_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT has been set!\n");
+            printf(YEL "  ERROR_MEAN_UNSTABLE_CURRENT_STEP_FINAL_MSMT has been set!\n");
             print_cvec(conditional_mean, d, 4);
         }
         if( current_step_numeric_moment_error_flags & (1 << ERROR_COVARIANCE_UNSTABLE_CURRENT_STEP_NOT_FINAL_MSMT) )
@@ -779,7 +779,7 @@ struct CauchyEstimator
                     if(terms_per_shape[m] > 0)
                         printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
                 print_conditional_mean_variance();
-                stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
+                //stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
                 //stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
             }
             // Free unused memory
@@ -809,7 +809,7 @@ struct CauchyEstimator
                     if(terms_per_shape[m] > 0)
                         printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
                 print_conditional_mean_variance();
-                stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
+                //stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
             }
         }
         // I dont think this needs to be set, but if we do enter here after threading was used, threads used should be set to 1
@@ -950,7 +950,7 @@ struct CauchyEstimator
                 if(terms_per_shape[m] > 0)
                     printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
             print_conditional_mean_variance();
-            stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
+            //stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
             //stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
         }
         // Unallocate the reduce_storage
@@ -1128,8 +1128,8 @@ struct CauchyEstimator
             for(int i = 0; i < shape_range; i++)
                 if(terms_per_shape[i] > 0)
                     printf("After FTR: Shape %d has %d terms\n", i, terms_per_shape[i]);
-            stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, false, num_threads_tp_to_muc, num_threads_make_gtables);
-            stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
+            //stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, false, num_threads_tp_to_muc, num_threads_make_gtables);
+            //stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
         }
         
         // Deallocate unused or unneeded memory

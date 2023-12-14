@@ -17,7 +17,7 @@ const double COALIGN_TP_EPS = 1e-8;
 const double MU_EPS = 1e-10;
 const double COALIGN_MU_EPS = COALIGN_TP_EPS;
 const bool SKIP_LAST_STEP = true;
-const bool WITH_MSMT_UPDATE_ORTHOG_WARNING = true;
+const bool WITH_MSMT_UPDATE_ORTHOG_WARNING = false;
 
 // Shared TP and MU Coalignment Settings
 const uint8_t COALIGN_MAP_NOVAL = 255;
@@ -30,11 +30,11 @@ const int CP_STORAGE_ALLOC_METHOD = 0; // 0: malloc, 1: calloc 2: page touching 
 // Gtable-Settings
 const uint8_t kByteEmpty = 0xff;
 const uint32_t kEmpty = 0xffffffff;
-const bool WITH_TERM_APPROXIMATION = false;
+const bool WITH_TERM_APPROXIMATION = true;
 const double TERM_APPROXIMATION_EPS = 1e-16;
 const bool WITH_WARNINGS = true; // Used to flag when something may be fishy
 const bool WITH_GB_TABLE_REALLOC = true;
-const bool EXIT_ON_FAILURE = true;
+const bool EXIT_ON_FAILURE = false;
 bool INTEGRABLE_FLAG = true;
 
 // Differential Cell Enumeration Settings
@@ -66,10 +66,10 @@ const int MIN_TERMS_PER_THREAD_GTABLE = 1000;
 
 // Numeric Moment Error Tolerances
 const double THRESHOLD_FZ_IMAG_TO_REAL = 1e-3;
-const double HARD_LIMIT_IMAGINARY_MEAN = 0.01;
-const double THRESHOLD_MEAN_IMAG_TO_REAL = 1e-3;
-const double HARD_LIMIT_IMAGINARY_COVARIANCE = 0.1;
-const double THRESHOLD_COVARIANCE_IMAG_TO_REAL = 0.25;
+const double HARD_LIMIT_IMAGINARY_MEAN = 0.001; //0.1
+const double THRESHOLD_MEAN_IMAG_TO_REAL = 1e-1;
+const double HARD_LIMIT_IMAGINARY_COVARIANCE = 0.001; // 0.75
+const double THRESHOLD_COVARIANCE_IMAG_TO_REAL = 0.75;
 
 // Numeric Covariance Error Flag Bits
 const int COV_ERROR_FLAGS_INVALID_EIGENVALUES = 0;

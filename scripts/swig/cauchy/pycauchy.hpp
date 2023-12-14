@@ -387,6 +387,7 @@ void pycauchy_single_step_ltiv(
     void* _pcdh,
     double* msmts, int size_msmts,
     double* controls, int size_controls,
+    bool full_info,
     double* out_fz, 
     double** out_x, int* size_out_x,
     double** out_P, int* size_out_P, 
@@ -397,29 +398,49 @@ void pycauchy_single_step_ltiv(
     CauchyDynamicsUpdateContainer* duc = pcdh->duc;
     assert(duc->p == size_msmts);
     duc->u = controls;
-    for(int i = 0; i < duc->p; i++)
-        pcdh->cauchyEst->step(msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H, duc->gamma[i], duc->B, duc->u);
 
+    if(full_info)
+    {
+        int num_moments = duc->p;
+        *size_out_x = duc->n * num_moments;
+        *size_out_P = duc->n*duc->n * num_moments;
+        *out_x = (double*) malloc( num_moments * duc->n * sizeof(double) );
+        *out_P = (double*) malloc( num_moments * duc->n * duc->n * sizeof(double) );
+    }
+
+    // Update dynamics if time varying, before the call to step
+    if(pcdh->f_dyn_update_callback != NULL)
+    {
+        convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, duc->x, duc->n);
+        pcdh->f_dyn_update_callback(duc);
+    }
+
+    for(int i = 0; i < duc->p; i++)
+    {
+        pcdh->cauchyEst->step(msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H, duc->gamma[i], duc->B, duc->u);
+        if(full_info)
+        {
+            convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, *out_x + i*duc->n, duc->n);
+            convert_complex_array_to_real(pcdh->cauchyEst->conditional_variance, *out_P + i*duc->n*duc->n, duc->n*duc->n);
+        }
+    }
+    duc->step += 1;
+    
     // Return output data
-    *size_out_x = duc->n;
-    *size_out_P = duc->n*duc->n;
-    *out_x = (double*) malloc( duc->n * sizeof(double) );
-    *out_P = (double*) malloc( duc->n * duc->n * sizeof(double) );
-    convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, *out_x, duc->n);
-    convert_complex_array_to_real(pcdh->cauchyEst->conditional_variance, *out_P, duc->n*duc->n);
+    if(!full_info)
+    {
+        *size_out_x = duc->n;
+        *size_out_P = duc->n*duc->n;
+        *out_x = (double*) malloc( duc->n * sizeof(double) );
+        *out_P = (double*) malloc( duc->n * duc->n * sizeof(double) );
+        convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, *out_x, duc->n);
+        convert_complex_array_to_real(pcdh->cauchyEst->conditional_variance, *out_P, duc->n*duc->n);
+    }
     *out_fz = creal(pcdh->cauchyEst->fz);
     *out_cerr_fz = cimag(pcdh->cauchyEst->fz);
     *out_cerr_x = max_abs_imag_carray(pcdh->cauchyEst->conditional_mean, duc->n);
     *out_cerr_P = max_abs_imag_carray(pcdh->cauchyEst->conditional_variance, duc->n * duc->n);
     *out_err_code = pcdh->cauchyEst->numeric_moment_errors;
-    
-    // Update dynamics if time varying, before the call to step again
-    if(pcdh->f_dyn_update_callback != NULL)
-    {
-        convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, duc->x, duc->n);
-        pcdh->f_dyn_update_callback(duc);
-        duc->step += 1;
-    }
 }
 
 void pycauchy_single_step_nonlin(
@@ -427,6 +448,7 @@ void pycauchy_single_step_nonlin(
     double* msmts, int size_msmts,
     double* controls, int size_controls,
     bool with_propagate,
+    bool full_info,
     double* out_fz, 
     double** out_x, int* size_out_x,
     double** out_P, int* size_out_P, 
@@ -439,10 +461,19 @@ void pycauchy_single_step_nonlin(
     const int n = duc->n;
     const int p = duc->p;
     assert(p == size_msmts);
-    double z_bar[p];    
-    double zs[p];
+    double* z_bar = (double*) malloc(p*sizeof(double));    
+    double* zs = (double*) malloc(p*sizeof(double));  
     memcpy(zs, msmts, p * sizeof(double));
     duc->u = controls;
+
+    if(full_info)
+    {
+        int num_moments = duc->p;
+        *size_out_x = duc->n * num_moments;
+        *size_out_P = duc->n*duc->n * num_moments;
+        *out_x = (double*) malloc( num_moments * duc->n * sizeof(double) );
+        *out_P = (double*) malloc( num_moments * duc->n * duc->n * sizeof(double) );
+    }
 
     // propagate system forwards (i.e, create \bar{x}_{k+1})
     // update the Phi, Gamma, H matrices for the differential system
@@ -452,7 +483,6 @@ void pycauchy_single_step_nonlin(
         duc->is_xbar_set_for_ece = false;
         pcdh->f_dyn_update_callback(duc);
         assert(duc->is_xbar_set_for_ece == true);
-        duc->step += 1;
     }
 
     for(int i = 0; i < p; i++)
@@ -463,20 +493,32 @@ void pycauchy_single_step_nonlin(
         int window_numeric_errors = cauchyEst->step(zs[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], NULL, NULL);
         // Shifts bs in CF by -\delta{x_k}. Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar). Then sets (duc->x) x_bar = creal(conditional_mean)
         cauchyEst->finalize_extended_moments(duc->x);
+
+        if(full_info)
+        {
+            convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, *out_x + i*duc->n, duc->n);
+            convert_complex_array_to_real(pcdh->cauchyEst->conditional_variance, *out_P + i*duc->n*duc->n, duc->n*duc->n);
+        }
     }
+    duc->step += 1;
 
     // Return output data
-    *size_out_x = duc->n;
-    *size_out_P = duc->n*duc->n;
-    *out_x = (double*) malloc( duc->n * sizeof(double) );
-    *out_P = (double*) malloc( duc->n * duc->n * sizeof(double) );
-    convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, *out_x, duc->n );
-    convert_complex_array_to_real(pcdh->cauchyEst->conditional_variance, *out_P, duc->n*duc->n );
+    if(!full_info)
+    {
+        *size_out_x = duc->n;
+        *size_out_P = duc->n*duc->n;
+        *out_x = (double*) malloc( duc->n * sizeof(double) );
+        *out_P = (double*) malloc( duc->n * duc->n * sizeof(double) );
+        convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, *out_x, duc->n);
+        convert_complex_array_to_real(pcdh->cauchyEst->conditional_variance, *out_P, duc->n*duc->n);
+    }
     *out_fz = creal(pcdh->cauchyEst->fz);
     *out_cerr_fz = cimag(pcdh->cauchyEst->fz);
     *out_cerr_x = max_abs_imag_carray(pcdh->cauchyEst->conditional_mean, duc->n);
     *out_cerr_P = max_abs_imag_carray(pcdh->cauchyEst->conditional_variance, duc->n * duc->n);
     *out_err_code = pcdh->cauchyEst->numeric_moment_errors;
+    free(zs);
+    free(z_bar);
 }
 
 void pycauchy_single_step_shutdown(void* _pcdh)
@@ -560,6 +602,41 @@ void pycauchy_get_reinitialization_statistics(
 
     free(x_hat);
     free(P_hat);
+}
+
+void pycauchy_speyers_window_init(
+                double* x1_hat, int size_x1_hat,
+                double* Var, int size_Var,
+                double* H, int size_H,
+                double gamma, double z,  
+                double** out_A0, int* size_out_A0,
+                double** out_p0, int* size_out_p0,
+                double** out_b0, int* size_out_b0)
+{
+    int n = size_x1_hat;
+    assert(size_H == n);
+
+    *out_A0 = (double*) malloc(n*n*sizeof(double));
+    *size_out_A0 = n*n;
+    *out_p0 = (double*) malloc(n*sizeof(double));
+    *size_out_p0 = n;
+    *out_b0 = (double*) malloc(n*sizeof(double));
+    *size_out_b0 = n;
+    speyers_window_init(n, x1_hat, Var, H, gamma, z, *out_A0, *out_p0, *out_b0, 0, 1, NULL);
+}
+
+int pycauchy_set_tr_search_idxs_ordering(int* ordering, int size_ordering)
+{
+    if(size_ordering > 12)
+    {    
+        printf(RED "[ERROR pycauchy_set_tr_search_idxs_ordering:]\n\tCannot run estimation problems over 12 dimensions currently! Please fix the tr_search_idxs_ordering array in cauchy_constants.hpp to fix this and recompile!" NC "\n");
+        return 1;
+    }
+    for(int i = 0; i < size_ordering; i++)
+        TR_SEARCH_IDXS_ORDERING[i] = ordering[i];
+    printf("tr_search_idxs_ordering has successfully been set to:\n");
+    print_mat(TR_SEARCH_IDXS_ORDERING, 1, size_ordering);
+    return 0;
 }
 
 #endif //_PY_CAUCHY_HPP_

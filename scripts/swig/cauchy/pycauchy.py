@@ -103,12 +103,12 @@ def pycauchy_step(msmts, controls):
     return _pycauchy.pycauchy_step(msmts, controls)
 pycauchy_step = _pycauchy.pycauchy_step
 
-def pycauchy_single_step_ltiv(_pcdh, msmts, controls):
-    return _pycauchy.pycauchy_single_step_ltiv(_pcdh, msmts, controls)
+def pycauchy_single_step_ltiv(_pcdh, msmts, controls, full_info):
+    return _pycauchy.pycauchy_single_step_ltiv(_pcdh, msmts, controls, full_info)
 pycauchy_single_step_ltiv = _pycauchy.pycauchy_single_step_ltiv
 
-def pycauchy_single_step_nonlin(_pcdh, msmts, controls, with_propagate):
-    return _pycauchy.pycauchy_single_step_nonlin(_pcdh, msmts, controls, with_propagate)
+def pycauchy_single_step_nonlin(_pcdh, msmts, controls, with_propagate, full_info):
+    return _pycauchy.pycauchy_single_step_nonlin(_pcdh, msmts, controls, with_propagate, full_info)
 pycauchy_single_step_nonlin = _pycauchy.pycauchy_single_step_nonlin
 
 def pycauchy_initialize_lti_window_manager(num_windows, num_sim_steps, A0, p0, b0, Phi, Gamma, B, beta, H, gamma, debug_print, log_seq, log_full, log_dir, dt, init_step, win_var_boost):
@@ -142,6 +142,14 @@ pycauchy_get_2D_pointwise_cpdf = _pycauchy.pycauchy_get_2D_pointwise_cpdf
 def pycauchy_get_reinitialization_statistics(_pcdh, z):
     return _pycauchy.pycauchy_get_reinitialization_statistics(_pcdh, z)
 pycauchy_get_reinitialization_statistics = _pycauchy.pycauchy_get_reinitialization_statistics
+
+def pycauchy_speyers_window_init(x1_hat, Var, H, gamma, z):
+    return _pycauchy.pycauchy_speyers_window_init(x1_hat, Var, H, gamma, z)
+pycauchy_speyers_window_init = _pycauchy.pycauchy_speyers_window_init
+
+def pycauchy_set_tr_search_idxs_ordering(ordering):
+    return _pycauchy.pycauchy_set_tr_search_idxs_ordering(ordering)
+pycauchy_set_tr_search_idxs_ordering = _pycauchy.pycauchy_set_tr_search_idxs_ordering
 # This file is compatible with both classic and new-style classes.
 
 

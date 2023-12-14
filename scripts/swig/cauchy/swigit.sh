@@ -25,7 +25,7 @@ if [ $? -eq 1 ]; then
     echo "[ERROR:] swig -c++ -python ${SWIG_FILE} command returned with failure!"
     exit 1
 fi
-g++ -g -fpic -c ${FILE_NAME}_wrap.cxx $PYTHON_INC_PATH
+g++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $PYTHON_INC_PATH
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] g++ -fpic -c ${FILE_NAME}_wrap.cxx $PYTHON_INC_PATH command returned with failure!"
     exit 1

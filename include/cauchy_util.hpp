@@ -1047,6 +1047,12 @@ struct ChunkedPackedElement
 		}
 	}
 
+	void reset_page_idxs()
+	{
+		current_page_idx = 0;
+		memset(used_elems_per_page, 0, page_limit * sizeof(BYTE_COUNT_TYPE));
+	}
+
 	BYTE_COUNT_TYPE get_total_byte_count()
 	{
 		BYTE_COUNT_TYPE bytes_total = 0;
@@ -1136,6 +1142,16 @@ struct CoalignmentElemStorage
 		chunked_cs_maps.reset();
 	}
 
+	void reset_page_idxs()
+	{
+		chunked_As.reset_page_idxs();
+		chunked_ps.reset_page_idxs();
+		chunked_qs.reset_page_idxs();
+		chunked_bs.reset_page_idxs();
+		chunked_c_maps.reset_page_idxs();
+		chunked_cs_maps.reset_page_idxs();
+	}
+
 	BYTE_COUNT_TYPE get_total_byte_count(bool with_print = false)
 	{
 		BYTE_COUNT_TYPE bytes_total = chunked_As.get_total_byte_count() + 
@@ -1221,6 +1237,13 @@ struct ReductionElemStorage
 		chunked_As.reset();
 		chunked_ps.reset();
 		chunked_bs.reset();
+	}
+
+	void reset_page_idxs()
+	{
+		chunked_As.reset_page_idxs();
+		chunked_ps.reset_page_idxs();
+		chunked_bs.reset_page_idxs();
 	}
 
 	BYTE_COUNT_TYPE get_total_byte_count(bool with_print = false)
@@ -1738,7 +1761,9 @@ int covariance_checker(C_COMPLEX_TYPE* covariance, const int d, const int win_nu
   {
     for(int j = i; j < d; j++)
     {
-	  double ratio = fabs(cov_imag[i*d+j]) / (fabs(cov_real[i*d+j]) + 1e-15);
+	  double cr = fabs(cov_real[i*d+j]);
+	  double ci = fabs(cov_imag[i*d+j]);
+	  double ratio = ci / (cr + 1e-15);
       cov_work[i*d + j] = ratio;
       if( cov_work[i*d + j] > THRESHOLD_COVARIANCE_IMAG_TO_REAL)
         cov_error_flags |= (1<<COV_ERROR_FLAGS_INVALID_I2R_RATIO);
@@ -1754,7 +1779,7 @@ int covariance_checker(C_COMPLEX_TYPE* covariance, const int d, const int win_nu
   }
 
   // Check covariance imaginary part hard limit
-  for(int i = 0; i < d; i++)
+  for(int i = 0; i < d*d; i++)
   {
 	  if( fabs(cov_imag[i]) > HARD_LIMIT_IMAGINARY_COVARIANCE )
 	  	cov_error_flags |= (1<<COV_ERROR_FLAGS_INVALID_IMAGINARY_VALUE);

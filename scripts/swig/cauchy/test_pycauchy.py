@@ -81,6 +81,33 @@ def test_2state_lti_single_window():
     ce.plot_simulation_history( cauchyEst.moment_info, (xs, zs, ws, vs), None )
     cauchyEst.shutdown()
 
+def test_1state_lti():
+    #n = 1
+    #cmcc = 0
+    #pncc = 1
+    #p = 1
+    Phi = np.array([[0.9]])
+    B = None
+    Gamma = np.array([0.4])
+    H = np.array([2.0])
+    beta = np.array([0.1]) # Cauchy process noise scaling parameter(s)
+    gamma = np.array([0.2]) # Cauchy measurement noise scaling parameter(s)
+    A0 = np.array([[1.0]]) # Unit directions of the initial state uncertainty
+    p0 = np.array([0.10]) # Initial state uncertainty cauchy scaling parameter(s)
+    b0 = np.zeros(1) # Initial median of system state
+
+    zs = np.array([-0.44368369151309078, 0.42583824213752575, -0.33410810748025471, -0.50758511396868289, 
+                -0.21567892215326886, 0.22514658508547963, 0.49585892022310135, 0.7119460882715376, 
+                -2.7235055765981881, -2.7488835688860456, 0.6978978132016932])
+    cauchyEst = ce.PyCauchyEstimator("lti", zs.size, True)
+    cauchyEst.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma)
+
+    estimates = []
+    for i in range(zs.size):
+        cauchyEst.step(zs[i], None)
+        estimates.append(cauchyEst.moment_info["x"][i])
+    print("State Estimates are:\n", estimates) # matches 1 state c++ cauchy example
+
 # Creates several estimators and looks at their cpdfs over time
 def test_2state_cpdfs():
     ndim = 2
@@ -169,7 +196,6 @@ def test_2state_cpdfs():
     cmean_list = [xhat1, xhat2]
     ce.plot_2D_pointwise_cpdfs(cpdf_list, cmean_list, colors[:2])
     foo = 9
-
 
 # Runs the estimator for a long estimation horizon, given the chosen window bank size
 def test_3state_lti_window_manager():
@@ -294,8 +320,9 @@ def test_2state_lti_window_manager():
 
 
 if __name__ == "__main__":
+    test_1state_lti()
     #test_2state_cpdfs()
     #test_2state_lti_single_window()
-    test_3state_lti_single_window()
+    #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
     #test_3state_lti_window_manager()

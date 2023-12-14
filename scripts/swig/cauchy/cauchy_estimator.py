@@ -1,8 +1,10 @@
+from cmath import log
 import numpy as np 
 import ctypes as ct
 import pycauchy
 import matplotlib.pyplot as plt 
 import math
+import os
 
 CAUCHY_TO_GAUSSIAN_NOISE = 1.3898
 GAUSSIAN_TO_CAUCHY_NOISE = 1.0 / CAUCHY_TO_GAUSSIAN_NOISE
@@ -13,6 +15,28 @@ GAUSSIAN_TO_CAUCHY_NOISE = 1.0 / CAUCHY_TO_GAUSSIAN_NOISE
 # ltv -- Dynamics matrices non-constant
 # nonlin -- Nonlinear system, uses extended cauchy
 
+# Helper Functions
+def set_tr_search_idxs_ordering(ordering):
+    if type(ordering) == np.ndarray:
+        _ordering = ordering.copy().astype(np.int32)
+    else:
+        _ordering = np.array(ordering).astype(np.int32)
+    return pycauchy.pycauchy_set_tr_search_idxs_ordering(_ordering)
+
+def speyers_window_init(x1_hat, Var, H, gamma, z):
+    assert x1_hat.size == Var.shape[0] == Var.shape[1]
+    assert x1_hat.size == H.size    
+    n = x1_hat.size
+    _x1_hat = x1_hat.astype(np.float64).reshape(-1)
+    _Var = Var.astype(np.float64).reshape(-1)
+    _H = H.astype(np.float64).reshape(-1)
+    _gamma = float(gamma)
+    _z = float(z)
+    _A0, p0, b0 = pycauchy.pycauchy_speyers_window_init(_x1_hat, _Var, _H, _gamma, _z)
+    A0 = _A0.reshape((n,n))
+    return A0, p0, b0
+
+ # Dynamic Update Callback Containers for Underlying LTV/Nonlin run-modes
 class C_CauchyDynamicsUpdateContainer(ct.Structure):
     _fields_ = [
                 ("x", ct.POINTER(ct.c_double)),
@@ -72,6 +96,13 @@ class Py_CauchyDynamicsUpdateContainer():
         for i in range(size_Phi):
             self.cduc.contents.Phi[i] = _Phi[i]
 
+    def cget_Gamma(self):
+        size_Gamma = self.n*self.pncc
+        Gamma = np.zeros(size_Gamma)
+        for i in range(size_Gamma):
+            Gamma[i] = self.cduc.contents.Gamma[i]
+        return Gamma.reshape((self.n, self.pncc))
+
     def cset_Gamma(self, Gamma):
         size_Gamma = self.n*self.pncc
         assert(Gamma.size == size_Gamma)
@@ -107,8 +138,15 @@ class Py_CauchyDynamicsUpdateContainer():
         for i in range(size_H):
             self.cduc.contents.H[i] = _H[i]
 
+    def cget_gamma(self):
+        size_gamma = self.p
+        gamma = np.zeros(size_gamma)
+        for i in range(size_gamma):
+            gamma[i] = self.cduc.contents.gamma[i]
+        return gamma
+    
     def cset_gamma(self, gamma):
-        size_gamma = self.cmcc
+        size_gamma = self.p
         assert(gamma.size == size_gamma)
         _gamma = gamma.reshape(-1)
         for i in range(size_gamma):
@@ -229,7 +267,9 @@ class PySlidingWindowManager():
         assert(A0.shape[0] == p0.size)
         assert(A0.shape[0] == b0.size)
         n = A0.shape[0]
-        assert(n > 1)
+        if(n == 1):
+            print("Cannot use the sliding window manager for 1-dimentional systems! You can use the PyCauchyEstimator class to run the estimator indefinately for 1D systems!")
+            assert(n > 1)
         assert(np.linalg.matrix_rank(A0) == n)
         assert(np.all(p0 >= 0))
         return n
@@ -313,23 +353,23 @@ class PySlidingWindowManager():
             print("LTI initialization not successful!")
             return
         self._ndim_input_checker(A0, p0, b0, Phi, B, Gamma, beta, H, gamma)
-        _A0 = A0.reshape(-1).astype(np.float64)
-        _p0 = p0.reshape(-1).astype(np.float64)
-        _b0 = b0.reshape(-1).astype(np.float64)
-        _Phi = Phi.reshape(-1).astype(np.float64)
-        _Gamma = Gamma.reshape(-1).astype(np.float64) if Gamma is not None else np.array([], dtype = np.float64)
-        _beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
-        _B = B.reshape(-1).astype(np.float64) if B is not None else np.array([], dtype = np.float64)
-        _H = H.reshape(-1).astype(np.float64)
-        _gamma = gamma.reshape(-1).astype(np.float64)
+        self._A0 = A0.reshape(-1).astype(np.float64)
+        self._p0 = p0.reshape(-1).astype(np.float64)
+        self._b0 = b0.reshape(-1).astype(np.float64)
+        self._Phi = Phi.reshape(-1).astype(np.float64)
+        self._Gamma = Gamma.reshape(-1).astype(np.float64) if Gamma is not None else np.array([], dtype = np.float64)
+        self._beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
+        self._B = B.reshape(-1).astype(np.float64) if B is not None else np.array([], dtype = np.float64)
+        self._H = H.reshape(-1).astype(np.float64)
+        self._gamma = gamma.reshape(-1).astype(np.float64)
         _dt = float(dt)
         _step = int(step)
         if(win_var_boost is not None):
             assert(type(win_var_boost) == np.ndarray)
             assert(win_var_boost.size == self.n)
-        _win_var_boost = win_var_boost.reshape(-1).astype(np.float64) if win_var_boost is not None else np.array([], dtype = np.float64)
+        self._win_var_boost = win_var_boost.reshape(-1).astype(np.float64) if win_var_boost is not None else np.array([], dtype = np.float64)
         
-        pycauchy.pycauchy_initialize_lti_window_manager(self.num_windows, self.num_sim_steps, _A0, _p0, _b0, _Phi, _Gamma, _B, _beta, _H, _gamma, self.debug_print, self.log_seq, self.log_full, self.log_dir, _dt, _step, _win_var_boost)
+        pycauchy.pycauchy_initialize_lti_window_manager(self.num_windows, self.num_sim_steps, self._A0, self._p0, self._b0, self._Phi, self._Gamma, self._B, self._beta, self._H, self._gamma, self.debug_print, self.log_seq, self.log_full, self.log_dir, _dt, _step, self._win_var_boost)
         self.is_initialized = True
         print("LTI initialization successful! You can use the step(msmts, controls) method to run the estimtor now!")
         print("Note: Conditional Mean/Variance will be a function of the last {} time-steps, {} measurements per step == {} total!".format(self.num_windows, self.p, self.p * self.num_windows) )
@@ -340,27 +380,27 @@ class PySlidingWindowManager():
             print("LTV initialization not successful!")
             return
         self._ndim_input_checker(A0, p0, b0, Phi, B, Gamma, beta, H, gamma)
-        _A0 = A0.reshape(-1).astype(np.float64)
-        _p0 = p0.reshape(-1).astype(np.float64)
-        _b0 = b0.reshape(-1).astype(np.float64)
-        _Phi = Phi.reshape(-1).astype(np.float64)
-        _Gamma = Gamma.reshape(-1).astype(np.float64) if Gamma is not None else np.array([], dtype = np.float64)
-        _beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
-        _B = B.reshape(-1).astype(np.float64) if B is not None else np.array([], dtype = np.float64)
-        _H = H.reshape(-1).astype(np.float64)
-        _gamma = gamma.reshape(-1).astype(np.float64)
+        self._A0 = A0.reshape(-1).astype(np.float64)
+        self._p0 = p0.reshape(-1).astype(np.float64)
+        self._b0 = b0.reshape(-1).astype(np.float64)
+        self._Phi = Phi.reshape(-1).astype(np.float64)
+        self._Gamma = Gamma.reshape(-1).astype(np.float64) if Gamma is not None else np.array([], dtype = np.float64)
+        self._beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
+        self._B = B.reshape(-1).astype(np.float64) if B is not None else np.array([], dtype = np.float64)
+        self._H = H.reshape(-1).astype(np.float64)
+        self._gamma = gamma.reshape(-1).astype(np.float64)
         _dt = float(dt)
         _step = int(step)
         if(win_var_boost is not None):
             assert(type(win_var_boost) == np.ndarray)
             assert(win_var_boost.size == self.n)
-        _win_var_boost = win_var_boost.reshape(-1).astype(np.float64) if win_var_boost is not None else np.array([], dtype = np.float64)
+        self._win_var_boost = win_var_boost.reshape(-1).astype(np.float64) if win_var_boost is not None else np.array([], dtype = np.float64)
                 # create the dynamics_update_callback ctypes callback function
         py_callback_type1 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer))
         f_duc = py_callback_type1(dynamics_update_callback)
         self.f_duc_ptr1 = ct.cast(f_duc, ct.c_void_p).value
 
-        pycauchy.pycauchy_initialize_ltv_window_manager(self.num_windows, self.num_sim_steps, _A0, _p0, _b0, _Phi, _Gamma, _B, _beta, _H, _gamma, self.f_duc_ptr1, self.debug_print, self.log_seq, self.log_full, self.log_dir, _dt, _step, _win_var_boost)
+        pycauchy.pycauchy_initialize_ltv_window_manager(self.num_windows, self.num_sim_steps, self._A0, self._p0, self._b0, self._Phi, self._Gamma, self._B, self._beta, self._H, self._Gamma, self.f_duc_ptr1, self.debug_print, self.log_seq, self.log_full, self.log_dir, _dt, _step, self._win_var_boost)
         self.is_initialized = True
         print("LTV initialization successful! You can use the step(msmts, controls) method to run the estimtor now!")
         print("Note: Conditional Mean/Variance will be a function of the last {} time-steps, {} measurements per step == {} total!".format(self.num_windows, self.p, self.p * self.num_windows) )
@@ -395,21 +435,21 @@ class PySlidingWindowManager():
         f_duc = py_callback_type3(extended_msmt_update_callback)
         self.f_duc_ptr3 = ct.cast(f_duc, ct.c_void_p).value
 
-        _x0 = x0.reshape(-1).astype(np.float64)
-        _A0 = A0.reshape(-1).astype(np.float64)
-        _p0 = p0.reshape(-1).astype(np.float64)
-        _b0 = b0.reshape(-1).astype(np.float64)
-        _beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
-        _gamma = gamma.reshape(-1).astype(np.float64)
+        self._x0 = x0.reshape(-1).astype(np.float64)
+        self._A0 = A0.reshape(-1).astype(np.float64)
+        self._p0 = p0.reshape(-1).astype(np.float64)
+        self._b0 = b0.reshape(-1).astype(np.float64)
+        self._beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
+        self._gamma = gamma.reshape(-1).astype(np.float64)
         _dt = float(dt)
         _step = int(step)
         _cmcc = self.cmcc
         if(win_var_boost is not None):
             assert(type(win_var_boost) == np.ndarray)
             assert(win_var_boost.size == self.n)
-        _win_var_boost = win_var_boost.reshape(-1).astype(np.float64) if win_var_boost is not None else np.array([], dtype = np.float64)
+        self._win_var_boost = win_var_boost.reshape(-1).astype(np.float64) if win_var_boost is not None else np.array([], dtype = np.float64)
         
-        pycauchy.pycauchy_initialize_nonlin_window_manager(self.num_windows, self.num_sim_steps, _x0, _A0, _p0, _b0, _beta, _gamma, self.f_duc_ptr1, self.f_duc_ptr2, self.f_duc_ptr3, _cmcc, self.debug_print, self.log_seq, self.log_full, self.log_dir, _dt, _step, _win_var_boost)
+        pycauchy.pycauchy_initialize_nonlin_window_manager(self.num_windows, self.num_sim_steps, self._x0, self._A0, self._p0, self._b0, self._beta, self._gamma, self.f_duc_ptr1, self.f_duc_ptr2, self.f_duc_ptr3, _cmcc, self.debug_print, self.log_seq, self.log_full, self.log_dir, _dt, _step, self._win_var_boost)
         self.is_initialized = True
         print("Nonlin initialization successful! You can use the step(msmts, controls) method now to run the Sliding Window Manager!")
         print("Note: Conditional Mean/Variance will be a function of the last {} time-steps, {} measurements per step == {} total!".format(self.num_windows, self.p, self.p * self.num_windows) )
@@ -547,19 +587,19 @@ class PyCauchyEstimator():
             print("LTI initialization not successful!")
             return
         self._ndim_input_checker(A0, p0, b0, Phi, B, Gamma, beta, H, gamma)
-        _A0 = A0.reshape(-1).astype(np.float64)
-        _p0 = p0.reshape(-1).astype(np.float64)
-        _b0 = b0.reshape(-1).astype(np.float64)
-        _Phi = Phi.reshape(-1).astype(np.float64)
-        _Gamma = Gamma.reshape(-1).astype(np.float64) if Gamma is not None else np.array([], dtype = np.float64)
-        _beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
-        _B = B.reshape(-1).astype(np.float64) if B is not None else np.array([], dtype = np.float64)
-        _H = H.reshape(-1).astype(np.float64)
-        _gamma = gamma.reshape(-1).astype(np.float64)
+        self._A0 = A0.reshape(-1).astype(np.float64)
+        self._p0 = p0.reshape(-1).astype(np.float64)
+        self._b0 = b0.reshape(-1).astype(np.float64)
+        self._Phi = Phi.reshape(-1).astype(np.float64)
+        self._Gamma = Gamma.reshape(-1).astype(np.float64) if Gamma is not None else np.array([], dtype = np.float64)
+        self._beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
+        self._B = B.reshape(-1).astype(np.float64) if B is not None else np.array([], dtype = np.float64)
+        self._H = H.reshape(-1).astype(np.float64)
+        self._gamma = gamma.reshape(-1).astype(np.float64)
         _init_step = int(init_step)
         _dt = float(dt)
         
-        self.py_handle = pycauchy.pycauchy_initialize_lti(self.num_steps, _A0, _p0, _b0, _Phi, _Gamma, _B, _beta, _H, _gamma, _dt, _init_step, self.debug_print)
+        self.py_handle = pycauchy.pycauchy_initialize_lti(self.num_steps, self._A0, self._p0, self._b0, self._Phi, self._Gamma, self._B, self._beta, self._H, self._gamma, _dt, _init_step, self.debug_print)
         self.is_initialized = True
         print("LTI initialization successful! You can use the step(msmts, controls) method to run the estimtor now!")
         print("Note: You can call the step function {} time-steps, {} measurements per step == {} total times!".format(self.num_steps, self.p, self.num_steps * self.p) )
@@ -570,24 +610,24 @@ class PyCauchyEstimator():
             print("LTV initialization not successful!")
             return
         self._ndim_input_checker(A0, p0, b0, Phi, B, Gamma, beta, H, gamma)
-        _A0 = A0.reshape(-1).astype(np.float64)
-        _p0 = p0.reshape(-1).astype(np.float64)
-        _b0 = b0.reshape(-1).astype(np.float64)
-        _Phi = Phi.reshape(-1).astype(np.float64)
-        _Gamma = Gamma.reshape(-1).astype(np.float64) if Gamma is not None else np.array([], dtype = np.float64)
-        _beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
-        _B = B.reshape(-1).astype(np.float64) if B is not None else np.array([], dtype = np.float64)
-        _H = H.reshape(-1).astype(np.float64)
-        _gamma = gamma.reshape(-1).astype(np.float64)
+        self._A0 = A0.reshape(-1).astype(np.float64)
+        self._p0 = p0.reshape(-1).astype(np.float64)
+        self._b0 = b0.reshape(-1).astype(np.float64)
+        self._Phi = Phi.reshape(-1).astype(np.float64)
+        self._Gamma = Gamma.reshape(-1).astype(np.float64) if Gamma is not None else np.array([], dtype = np.float64)
+        self._beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
+        self._B = B.reshape(-1).astype(np.float64) if B is not None else np.array([], dtype = np.float64)
+        self._H = H.reshape(-1).astype(np.float64)
+        self._gamma = gamma.reshape(-1).astype(np.float64)
 
         # create the dynamics_update_callback ctypes callback function
-        py_callback_type1 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer))
-        f_duc = py_callback_type1(dynamics_update_callback)
-        self.f_duc_ptr1 = ct.cast(f_duc, ct.c_void_p).value
+        self.py_callback_type1 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer))
+        self.f_duc = self.py_callback_type1(dynamics_update_callback)
+        self.f_duc_ptr1 = ct.cast(self.f_duc, ct.c_void_p).value
         _init_step = int(init_step)
         _dt = float(dt)
 
-        self.py_handle = pycauchy.pycauchy_initialize_ltv(self.num_steps, _A0, _p0, _b0, _Phi, _Gamma, _B, _beta, _H, _gamma, self.f_duc_ptr1, _dt, _init_step, self.debug_print)
+        self.py_handle = pycauchy.pycauchy_initialize_ltv(self.num_steps, self._A0, self._p0, self._b0, self._Phi, self._Gamma, self._B, self._beta, self._H, self._gamma, self.f_duc_ptr1, _dt, _init_step, self.debug_print)
         self.is_initialized = True
         print("LTV initialization successful! You can use the step(msmts, controls) method to run the estimtor now!")
         print("Note: You can call the step function {} time-steps, {} measurements per step == {} total times!".format(self.num_steps, self.p, self.num_steps * self.p) )
@@ -608,36 +648,38 @@ class PyCauchyEstimator():
         self.cmcc = int(cmcc)
         assert(x0.size == self.n)
         # create the dynamics_update_callback ctypes callback function
-        py_callback_type1 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer))
-        f_duc = py_callback_type1(dynamics_update_callback)
-        self.f_duc_ptr1 = ct.cast(f_duc, ct.c_void_p).value
+        self.py_callback_type1 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer))
+        self.f_duc1 = self.py_callback_type1(dynamics_update_callback)
+        self.f_duc_ptr1 = ct.cast(self.f_duc1, ct.c_void_p).value
 
         # create the nonlinear_msmt_model ctypes callback function 
-        py_callback_type2 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer), ct.POINTER(ct.c_double))
-        f_duc = py_callback_type2(nonlinear_msmt_model)
-        self.f_duc_ptr2 = ct.cast(f_duc, ct.c_void_p).value
+        self.py_callback_type2 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer), ct.POINTER(ct.c_double))
+        self.f_duc2 = self.py_callback_type2(nonlinear_msmt_model)
+        self.f_duc_ptr2 = ct.cast(self.f_duc2, ct.c_void_p).value
 
         # create the extended_msmt_update_callback ctypes callback function 
-        py_callback_type3 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer))
-        f_duc = py_callback_type3(extended_msmt_update_callback)
-        self.f_duc_ptr3 = ct.cast(f_duc, ct.c_void_p).value
+        self.py_callback_type3 = ct.CFUNCTYPE(None, ct.POINTER(C_CauchyDynamicsUpdateContainer))
+        self.f_duc3 = self.py_callback_type3(extended_msmt_update_callback)
+        self.f_duc_ptr3 = ct.cast(self.f_duc3, ct.c_void_p).value
 
-        _x0 = x0.reshape(-1).astype(np.float64)
-        _A0 = A0.reshape(-1).astype(np.float64)
-        _p0 = p0.reshape(-1).astype(np.float64)
-        _b0 = b0.reshape(-1).astype(np.float64)
-        _beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
-        _gamma = gamma.reshape(-1).astype(np.float64)
+        self._x0 = x0.reshape(-1).astype(np.float64)
+        self._A0 = A0.reshape(-1).astype(np.float64)
+        self._p0 = p0.reshape(-1).astype(np.float64)
+        self._b0 = b0.reshape(-1).astype(np.float64)
+        self._beta = beta.reshape(-1).astype(np.float64) if beta is not None else np.array([], dtype = np.float64)
+        self._gamma = gamma.reshape(-1).astype(np.float64)
         _dt = float(dt)
         _step = int(step)
         _cmcc = self.cmcc
         
-        self.py_handle = pycauchy.pycauchy_initialize_nonlin(self.num_steps, _x0, _A0, _p0, _b0, _beta, _gamma, self.f_duc_ptr1, self.f_duc_ptr2, self.f_duc_ptr3, _cmcc, _dt, _step, self.debug_print)
+        self.py_handle = pycauchy.pycauchy_initialize_nonlin(self.num_steps, self._x0, self._A0, self._p0, self._b0, self._beta, self._gamma, self.f_duc_ptr1, self.f_duc_ptr2, self.f_duc_ptr3, _cmcc, _dt, _step, self.debug_print)
         self.is_initialized = True
         print("Nonlin initialization successful! You can use the step(msmts, controls) method now to run the Cauchy Estimtor!")
         print("Note: You can call the step function {} time-steps, {} measurements per step == {} total times!".format(self.num_steps, self.p, self.num_steps * self.p) )
 
-    def step(self, msmts, controls):
+    # full_info=True returns list of moments for each measurement processed
+    # full_info=False returns moments after processing all measurements
+    def step(self, msmts, controls, full_info=False):
         if(self.is_initialized == False):
             print("Estimator is not initialized yet. Mode set to {}. Please call method initialize_{} before running step()!".format(self.mode, self.mode))
             print("Not stepping! Please call correct method / fix mode!")
@@ -648,11 +690,24 @@ class PyCauchyEstimator():
             return
         _msmts, _controls = self._msmts_controls_checker(msmts, controls)
         self.last_msmt = _msmts[-1]
+        full_info = bool(full_info)
 
         if self.mode != "nonlin":
-            fz, x, P, cerr_fz, cerr_x, cerr_P, err_code = pycauchy.pycauchy_single_step_ltiv(self.py_handle, _msmts, _controls)
+            fz, x, P, cerr_fz, cerr_x, cerr_P, err_code = pycauchy.pycauchy_single_step_ltiv(self.py_handle, _msmts, _controls, full_info)
         else:
-            fz, x, P, cerr_fz, cerr_x, cerr_P, err_code = pycauchy.pycauchy_single_step_nonlin(self.py_handle, _msmts, _controls, self.step_count != 0)
+            fz, x, P, cerr_fz, cerr_x, cerr_P, err_code = pycauchy.pycauchy_single_step_nonlin(self.py_handle, _msmts, _controls, self.step_count != 0, full_info)
+
+        if full_info:
+            xs = []
+            Ps = []
+            for i in range(self.p):
+                xs.append(x[i*self.n:(i+1)*self.n].copy())
+                Ps.append(P[i*self.n*self.n:(i+1)*self.n*self.n].reshape((self.n, self.n)).copy())
+            x = x[-(self.p-1)*self.n:].copy()
+            P = P[-(self.p-1)*self.n*self.n:].copy()
+        else:
+            xs = x.copy()
+            Ps = P.reshape((self.n, self.n)).copy()
 
         self.moment_info["fz"].append(fz)
         self.moment_info["x"].append(x)
@@ -662,6 +717,7 @@ class PyCauchyEstimator():
         self.moment_info["cerr_fz"].append(cerr_fz)
         self.moment_info["err_code"].append(err_code)
         self.step_count += 1
+        return xs, Ps
 
         # Shuts down sliding window manager
     def shutdown(self):
@@ -758,6 +814,117 @@ class PyCauchyEstimator():
             self.is_initialized = False
 
 
+# Reads and parses window data 
+def load_window_data(f_win_data):
+    file = open(f_win_data, 'r')
+    lines = file.readlines()
+    return np.array([[float(f) for f in line.split(":")[1].split(" ")] for line in lines])
+
+# Reads and parses Kalman Filter Data
+def load_data(f_data):
+    file = open(f_data, 'r')
+    lines = file.readlines()
+    return np.array([[float(f) for f in line.split(" ")] for line in lines])
+
+
+def load_cauchy_log_folder(log_dir, with_win_logging = True):
+    log_dir = log_dir + "/" if log_dir[-1] != "/" else log_dir
+    f_means = "cond_means.txt"
+    f_covars = "cond_covars.txt"
+    f_err_means = "cerr_cond_means.txt"
+    f_err_covars = "cerr_cond_covars.txt"
+    f_err_norm_factors = "cerr_norm_factors.txt"
+
+    # Load in the data points
+    means = load_window_data(log_dir + f_means) if with_win_logging else load_data(log_dir + f_means)
+    print("Means: ", means.shape)
+
+    covars = load_window_data(log_dir + f_covars) if with_win_logging else load_data(log_dir + f_covars)
+    print("Covars: ", covars.shape)
+    n = int(np.sqrt(covars.shape[1]))
+    covars = covars.reshape((covars.shape[0], n,n))
+    print("Covars after Reshaping: ", covars.shape)
+
+    cerr_means = load_window_data(log_dir + f_err_means) if with_win_logging else load_data(log_dir + f_err_means)
+    print("Cerr Means: ", cerr_means.shape)
+    cerr_covars = load_window_data(log_dir + f_err_covars) if with_win_logging else load_data(log_dir + f_err_covars)
+    print("Cerr Covar: ", cerr_covars.shape)
+    cerr_norm_factors = load_window_data(log_dir + f_err_norm_factors) if with_win_logging else load_data(log_dir + f_err_norm_factors)
+    print("Cerr Means: ", cerr_norm_factors.shape)
+
+    return {"x": means, "P": covars, "cerr_x": cerr_means, "cerr_P": cerr_covars, "cerr_fz": cerr_norm_factors}
+
+def load_kalman_log_folder(log_dir):
+    log_dir = log_dir + "/" if log_dir[-1] != "/" else log_dir
+    f_means = "kf_cond_means.txt"
+    f_covars = "kf_cond_covars.txt"
+    xs_kf = load_data(log_dir + f_means)
+    Ps_kf = load_data(log_dir + f_covars)
+    T = Ps_kf.shape[0]
+    n = int( np.sqrt(Ps_kf[0].size) + 0.99 )
+    return (xs_kf, Ps_kf.reshape((T,n,n)))
+
+def load_sim_truth_log_folder(log_dir):
+    log_dir = log_dir + "/" if log_dir[-1] != "/" else log_dir
+    f_msmt_noises = "msmt_noises.txt"
+    f_proc_noises = "proc_noises.txt"
+    f_true_states = "true_states.txt"
+    f_msmts = "msmts.txt"
+    true_states = np.loadtxt(log_dir + f_true_states)
+    if true_states.ndim == 1:
+        true_states = true_states.reshape((true_states.size,1))
+    print("True States: ", true_states.shape)
+
+    msmts = np.loadtxt(log_dir + f_msmts)
+    msmt_noises = np.loadtxt(log_dir + f_msmt_noises)
+    proc_noises = np.loadtxt(log_dir + f_proc_noises)
+    if(msmts.ndim == 1):
+        msmts = msmts.reshape((msmts.size,1))
+    if(proc_noises.ndim == 1):
+        proc_noises = proc_noises.reshape((proc_noises.size,1))
+    if(msmt_noises.ndim == 1):
+        msmt_noises = msmt_noises.reshape((msmt_noises.size,1))
+    print("Msmts: ", msmts.shape)
+    print("Msmt Noises: ", msmt_noises.shape)
+    print("Proc Noises: ", proc_noises.shape)
+    return true_states, msmts, proc_noises, msmt_noises
+
+def log_sim_truth(log_dir, xs, zs, ws, vs):
+    if not os.path.isdir(log_dir):
+        os.mkdir(log_dir)
+    if log_dir[-1] != "/":
+        log_dir += "/"
+    np.savetxt(log_dir+"true_states.txt", xs, delimiter= " ")
+    np.savetxt(log_dir+"msmts.txt", zs, delimiter= " ")
+    np.savetxt(log_dir+"proc_noises.txt", ws, delimiter= " ")
+    np.savetxt(log_dir+"msmt_noises.txt", vs,  delimiter= " ")
+
+def log_kalman(log_dir, xs_kf, Ps_kf):
+    if not os.path.isdir(log_dir):
+        os.mkdir(log_dir)
+    if log_dir[-1] != "/":
+        log_dir += "/"
+    T = xs_kf.shape[0]
+    n = xs_kf.shape[1]
+    np.savetxt(log_dir+"kf_cond_means.txt", xs_kf, delimiter= " ")
+    np.savetxt(log_dir+"kf_cond_covars.txt", Ps_kf.reshape(T, n*n), delimiter= " ")
+
+def log_cauchy(log_dir, moment_dic):
+    if not os.path.isdir(log_dir):
+        os.mkdir(log_dir)
+    if log_dir[-1] != "/":
+        log_dir += "/"
+    T = len(moment_dic["x"])
+    n = moment_dic["x"][0].size
+    np.savetxt(log_dir+"cond_means.txt", np.array(moment_dic["x"]), delimiter= " ")
+    np.savetxt(log_dir+"cond_covars.txt", np.array(moment_dic["P"].reshape(T,n*n)), delimiter= " ")
+    np.savetxt(log_dir+"norm_factors.txt", np.array(moment_dic["fz"]), delimiter= " ")
+    np.savetxt(log_dir+"cerr_cond_means.txt", np.array(moment_dic["cerr_x"]), delimiter= " ")
+    np.savetxt(log_dir+"cerr_cond_covars.txt", np.array(moment_dic["cerr_P"]), delimiter= " ")
+    np.savetxt(log_dir+"cerr_norm_factors.txt", np.array(moment_dic["cerr_fz"]), delimiter= " ")
+    np.savetxt(log_dir+"numeric_error_codes.txt", np.array(moment_dic["err_code"]), delimiter= " ")
+    
+
 def simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H, gamma, with_zeroth_step_msmt = True, dynamics_update_callback = None, other_params = None):
     if(B is not None):
         assert(us is not None)
@@ -800,7 +967,6 @@ def simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H,
     return ( np.array(xs), np.array(zs), np.array(ws), np.array(vs) )
 
 def simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, V, with_zeroth_step_msmt = True, dynamics_update_callback = None, other_params = None):
-
     if(B is not None):
         assert(us is not None)
         assert(us.shape[0] == num_steps)
@@ -851,114 +1017,142 @@ def simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, 
 
 def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, with_partial_plot=False, with_cauchy_delay=False, scale=1):
     
-    # Sim
-    true_states = simulation_history[0]
-    msmts = simulation_history[1]
-    proc_noises = simulation_history[2]
-    msmt_noises = simulation_history[3]
+    with_sim = simulation_history is not None
+    with_kf = kf_history is not None
+    with_ce = cauchy_moment_info is not None
 
-    # Cauchy 
-    means = np.array(cauchy_moment_info["x"])
-    covars = np.array(cauchy_moment_info["P"])
-    cerr_norm_factors = np.array(cauchy_moment_info["cerr_fz"])
-    cerr_means = np.array(cauchy_moment_info["cerr_x"])
-    cerr_covars = np.array(cauchy_moment_info["cerr_P"])
+    if with_sim:
+        n = simulation_history[0].shape[1]
+        T = np.arange(0, simulation_history[1].shape[0])
+    elif with_kf:
+        n = kf_history[0].shape[1]
+        T = np.arange(0, kf_history[0].shape[0])
+    elif with_ce:
+        n = cauchy_moment_info["x"][0].size
+        T = len(cauchy_moment_info["x"]) + with_cauchy_delay
+    else:
+        print("Must provide simulation data, kalman filter data or cauchy estimator data!\nExiting function with no plotting (Nothing Given!)")
+        return 
+
+    # Simulation history
+    if with_sim:
+        true_states = simulation_history[0]
+        msmts = simulation_history[1]
+        proc_noises = simulation_history[2]
+        msmt_noises = simulation_history[3]
+
+    # Cauchy Estimator
+    if with_ce:
+        means = np.array(cauchy_moment_info["x"])
+        covars = np.array(cauchy_moment_info["P"])
+        cerr_norm_factors = np.array(cauchy_moment_info["cerr_fz"])
+        cerr_means = np.array(cauchy_moment_info["cerr_x"])
+        cerr_covars = np.array(cauchy_moment_info["cerr_P"])
+        n = means.shape[1]
     
     # Kalman filter 
     with_kf = kf_history is not None
     if with_kf:
         kf_cond_means = kf_history[0]
         kf_cond_covars = kf_history[1] 
+        
+
 
     # Check array lengths, cauchy_delay, partial plot parameters
-    n = means.shape[1]
-    T = np.arange(0, msmts.shape[0])
-    cd = with_cauchy_delay 
-    #plot_len variable has been introduced so that runs which fail can still be partially plotted
-    if(not with_partial_plot and with_cauchy_delay):
-        plot_len = covars.shape[0] + cd
-        if(plot_len != T.size):
-            print("[ERROR]: covars.shape[0] + with_cauchy_delay != T.size. You have mismatch in array lengths")
-            print("Cauchy Covars size: ", covars.shape)
-            print("with_cauchy_delay: ", with_cauchy_delay)
-            print("T size: ", T.size)
-            print("Please fix appropriately!")
-            assert(False)
-    elif(with_partial_plot or with_cauchy_delay):
-        plot_len = covars.shape[0] + cd
-        if(plot_len > T.size):
-            print("[ERROR]: covars.shape[0] + with_cauchy_delay > T.size. You have mismatch in array lengths")
-            print("Cauchy Covars size: ", covars.shape)
-            print("with_cauchy_delay: ", with_cauchy_delay)
-            print("T size: ", T.size)
-            print("Please fix appropriately!")
-            assert(False)
+    if with_ce:
+        cd = with_cauchy_delay 
+        #plot_len variable has been introduced so that runs which fail can still be partially plotted
+        if(not with_partial_plot and with_cauchy_delay):
+            plot_len = covars.shape[0] + cd
+            if(plot_len != T.size):
+                print("[ERROR]: covars.shape[0] + with_cauchy_delay != T.size. You have mismatch in array lengths")
+                print("Cauchy Covars size: ", covars.shape)
+                print("with_cauchy_delay: ", with_cauchy_delay)
+                print("T size: ", T.size)
+                print("Please fix appropriately!")
+                assert(False)
+        elif(with_partial_plot or with_cauchy_delay):
+            plot_len = covars.shape[0] + cd
+            if(plot_len > T.size):
+                print("[ERROR]: covars.shape[0] + with_cauchy_delay > T.size. You have mismatch in array lengths")
+                print("Cauchy Covars size: ", covars.shape)
+                print("with_cauchy_delay: ", with_cauchy_delay)
+                print("T size: ", T.size)
+                print("Please fix appropriately!")
+                assert(False)
+        else:
+            if(covars.shape[0] + cd != T.size):
+                print("[ERROR]: covars.shape[0] + with_cauchy_delay != T.size. You have mismatch in array lengths")
+                print("Cauchy Covars size: ", covars.shape)
+                print("with_cauchy_delay: ", with_cauchy_delay)
+                print("T size: ", T.size)
+                print("Please toggle on 'p' option for partial plotting or set 'd' to lag cauchy estimator appropriately")
+                assert(False)
+            plot_len = T.size
     else:
-        if(covars.shape[0] + cd != T.size):
-            print("[ERROR]: covars.shape[0] + with_cauchy_delay != T.size. You have mismatch in array lengths")
-            print("Cauchy Covars size: ", covars.shape)
-            print("with_cauchy_delay: ", with_cauchy_delay)
-            print("T size: ", T.size)
-            print("Please toggle on 'p' option for partial plotting or set 'd' to lag cauchy estimator appropriately")
-            assert(False)
         plot_len = T.size
-    
+
     # 1.) Plot the true state history vs the conditional mean estimate  
     # 2.) Plot the state error and one-sigma bound of the covariance 
     # 3.) Plot the msmts, and the msmt and process noise 
     # 4.) Plot the max complex error in the mean/covar and norm factor 
     fig = plt.figure(1)
-    if with_kf:
-        fig.suptitle("True States (r) vs Cauchy (b) vs Kalman (g--)")
-    else:
-        fig.suptitle("True States (r) vs Cauchy Estimates (b)")
-    for i in range(covars.shape[1]):
+    #if with_kf:
+    fig.suptitle("True States (r) vs Cauchy (b) vs Kalman (g--)")
+    #else:
+    #   fig.suptitle("True States (r) vs Cauchy Estimates (b)")
+    for i in range(n):
         plt.subplot(int(str(n) + "1" + str(i+1)))
-        plt.plot(T[:plot_len], true_states[:plot_len,i], 'r')
-        plt.plot(T[cd:plot_len], means[:,i], 'b')
+        if with_sim:
+            plt.plot(T[:plot_len], true_states[:plot_len,i], 'r')
+        if with_ce:
+            plt.plot(T[cd:plot_len], means[:,i], 'b')
         if with_kf:
             plt.plot(T[:plot_len], kf_cond_means[:plot_len,i], 'g--')
 
-    fig = plt.figure(2)
-    if with_kf:
+    if with_kf or with_ce:
+        fig = plt.figure(2)
+        #if with_kf:
         fig.suptitle("Cauchy 1-Sig (b/r) vs Kalman 1-Sig (g-/m-)")
-    else:
-        fig.suptitle("State Error (b) vs One Sigma Bound (r)")
-    for i in range(covars.shape[1]):
-        plt.subplot(int(str(n) + "1" + str(i+1)))
-        plt.plot(T[cd:plot_len], true_states[cd:plot_len,i] - means[:,i], 'b')
-        plt.plot(T[cd:plot_len], scale*np.sqrt(covars[:,i,i]), 'b--')
-        plt.plot(T[cd:plot_len], -scale*np.sqrt(covars[:,i,i]), 'b--')
-        if with_kf:
-            plt.plot(T[:plot_len], true_states[:plot_len,i] - kf_cond_means[:plot_len,i], 'g--')
-            plt.plot(T[:plot_len], scale*np.sqrt(kf_cond_covars[:plot_len,i,i]), 'g--')
-            plt.plot(T[:plot_len], -scale*np.sqrt(kf_cond_covars[:plot_len,i,i]), 'g--')
+        #else:
+        #    fig.suptitle("State Error (b) vs One Sigma Bound (r)")
+        for i in range(n):
+            plt.subplot(int(str(n) + "1" + str(i+1)))
+            if with_ce:
+                plt.plot(T[cd:plot_len], true_states[cd:plot_len,i] - means[:,i], 'b')
+                plt.plot(T[cd:plot_len], scale*np.sqrt(covars[:,i,i]), 'r')
+                plt.plot(T[cd:plot_len], -scale*np.sqrt(covars[:,i,i]), 'r')
+            if with_kf:
+                plt.plot(T[:plot_len], true_states[:plot_len,i] - kf_cond_means[:plot_len,i], 'g--')
+                plt.plot(T[:plot_len], scale*np.sqrt(kf_cond_covars[:plot_len,i,i]), 'm--')
+                plt.plot(T[:plot_len], -scale*np.sqrt(kf_cond_covars[:plot_len,i,i]), 'm--')
 
-    line_types = ['-', '--', '-.', ':', '-']
-    fig = plt.figure(3)
-    fig.suptitle("Msmts (m), Msmt Noise (g), Proc Noise (b)")
-    m = 3 #proc_noises.shape[1] + msmt_noises.shape[1] + msmts.shape[1]
-    count = 1
-    plt.subplot(int(str(m) + "1" + str(count)))
-    for i in range(msmts.shape[1]):
-        plt.plot(T[:plot_len], msmts[:plot_len,i], "m" + line_types[i])
-    count += 1
-    plt.subplot(int(str(m) + "1" + str(count)))
-    for i in range(msmt_noises.shape[1]):
-        plt.plot(T[:plot_len], msmt_noises[:plot_len,i], "m" + line_types[i])
-    count += 1
-    plt.subplot(int(str(m) + "1" + str(count)))
-    for i in range(proc_noises.shape[1]):
-        plt.plot(T[1:plot_len], proc_noises[:plot_len-1,i], "k" + line_types[i])
-
-    fig = plt.figure(4)
-    fig.suptitle("Complex Errors (mean,covar,norm factor) in Semi-Log")
-    plt.subplot(311)
-    plt.semilogy(T[cd:plot_len], cerr_means, 'g')
-    plt.subplot(312)
-    plt.semilogy(T[cd:plot_len], cerr_covars, 'g')
-    plt.subplot(313)
-    plt.semilogy(T[cd:plot_len], cerr_norm_factors, 'g')
+    if with_sim:
+        line_types = ['-', '--', '-.', ':', '-']
+        fig = plt.figure(3)
+        fig.suptitle("Msmts (m), Msmt Noise (g), Proc Noise (b)")
+        m = 3 #proc_noises.shape[1] + msmt_noises.shape[1] + msmts.shape[1]
+        count = 1
+        plt.subplot(int(str(m) + "1" + str(count)))
+        for i in range(msmts.shape[1]):
+            plt.plot(T[:plot_len], msmts[:plot_len,i], "m" + line_types[i])
+        count += 1
+        plt.subplot(int(str(m) + "1" + str(count)))
+        for i in range(msmt_noises.shape[1]):
+            plt.plot(T[:plot_len], msmt_noises[:plot_len,i], "m" + line_types[i])
+        count += 1
+        plt.subplot(int(str(m) + "1" + str(count)))
+        for i in range(proc_noises.shape[1]):
+            plt.plot(T[1:plot_len], proc_noises[:plot_len-1,i], "k" + line_types[i])
+    if with_ce:
+        fig = plt.figure(4)
+        fig.suptitle("Complex Errors (mean,covar,norm factor) in Semi-Log")
+        plt.subplot(311)
+        plt.semilogy(T[cd:plot_len], cerr_means, 'g')
+        plt.subplot(312)
+        plt.semilogy(T[cd:plot_len], cerr_covars, 'g')
+        plt.subplot(313)
+        plt.semilogy(T[cd:plot_len], cerr_norm_factors, 'g')
     plt.show()
 
 def plot_2D_pointwise_cpdfs(XYZ_list, cond_means_list, colors):
@@ -1056,3 +1250,70 @@ def discretize_ctime_process_noise(A, Q, dt, order):
         Phi += np.linalg.matrix_power(A, i) * dt**i / math.factorial(i)
     Qk = P - Phi @ P @ Phi.T
     return Qk
+
+# Draw a random exponential variable of the pdf \lambda * exp(-\lambda * x)
+#@nb.njit(cache=True)
+def random_exponential(lam):
+    EPS = 1e-16
+    ALMOST_ONE = 1.0 - EPS
+    # Draw a random uniform variable on the open interval (0,1)
+    U = np.random.uniform(EPS, ALMOST_ONE)
+    return  -np.log( U ) / lam
+
+# Draw a random alpha stable variable 
+# the parameters are: 
+# 1.) alpha \in (0,2] -- this is the stability param (2=Gaussian, 1 = Cauchy, 0.5 = Levy)
+# 2.) beta \in [-1,1] -- this is the skewness param 
+# 3.) c \in (0, inf] -- this is the scale param (standard deviation for Gaussian)
+# 4.) mu \in [-inf,inf] -- this is the location parameter
+# Note: For any value of alpha less than or equal to 2, the variance is undefined 
+# This implements the Chambers, Mallows, and Stuck (CMS) method from their seminal paper in 1976
+#@nb.njit(cache=True)
+def random_alpha_stable(alpha, beta, c, mu):
+    EPS = 1e-16
+    ALMOST_ONE = 1.0 - EPS
+    #Generate a random variable on the open interval (-pi/2, pi/2)
+    U = np.random.uniform(-np.pi/2.0, np.pi/2.0) * ALMOST_ONE
+    #Generate a random exponential variable with mean of 1.0
+    W = random_exponential(1.0)
+    zeta = -beta * np.tan(np.pi * alpha / 2.0)
+    xi = np.pi / 2.0 if alpha == 1.0 else 1.0 / alpha * np.arctan(-zeta)
+    X = 0.0 # ~ S_\alpha(\beta,1,0)
+    if(alpha == 1.0):
+        X =  1.0 / xi * ( (np.pi / 2.0 + beta * U) * np.tan(U) - beta * np.log((np.pi/2.0 * W * np.cos(U)) / (np.pi/2.0 + beta * U)) )
+    else:
+        X = (1.0 + zeta**2)**(1.0/(2.0*alpha)) * np.sin(alpha*(U+xi)) / (np.cos(U)**(1.0/alpha)) * ((np.cos(U - alpha*(U + xi))) / W)**( (1.0 - alpha) / alpha )
+    # Now scale and locate the random variable depending on alpha == 1.0 or not 
+    Y = 0.0
+    if(alpha == 1.0):
+        Y = c*X + (2.0/np.pi)*beta*c*np.log(c) + mu
+    else:
+        Y = c*X + mu 
+    return Y
+
+# Draw a random alpha stable variable 
+# This function assumes that the beta (skewness parameter) for the random alpha stable method is zero 
+# the parameters are: 
+# 1.) alpha \in (0,2] -- this is the stability param (2=Gaussian, 1 = Cauchy, 0.5 = Levy)
+# 2.) c \in (0, inf] -- this is the scale param (standard deviation for Gaussian)
+# 3.) mu \in [-inf,inf] -- this is the location parameter
+# Note: For any value of alpha less than or equal to 2, the variance is undefined 
+# This implements the Chambers, Mallows, and Stuck (CMS) method from their seminal paper in 1976
+#@nb.njit(cache=True)
+def random_symmetric_alpha_stable(alpha, c, mu):
+    EPS = 1e-16
+    ALMOST_ONE = 1.0 - EPS
+    #Generate a random variable on interval (-pi/2, pi/2)
+    U = np.random.uniform(-np.pi/2.0, np.pi/2.0) * ALMOST_ONE
+    #Generate a random exponential variable with mean of 1.0
+    W = random_exponential(1.0)
+    xi = np.pi / 2.0 if alpha == 1.0 else 0.0
+    X = 0.0 # ~ S_\alpha(\beta,1,0)
+    if(alpha == 1.0):
+        X = np.tan(U)
+    else:
+        X = np.sin(alpha*(U+xi)) / (np.cos(U)**(1.0/alpha)) * ((np.cos(U - alpha*(U + xi))) / W)**( (1.0 - alpha) / alpha )
+    # Now scale and locate the random variable
+    Y = c*X + mu
+    return Y
+

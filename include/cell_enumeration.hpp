@@ -55,6 +55,14 @@ int cell_count_general(int hyp, int dim)
   return (int) fc;
 }
 
+BKEYS_TYPE remove_bit(BKEYS_TYPE b, BKEYS_TYPE bit)
+{
+    BKEYS_TYPE high = b >> (bit+1);
+    BKEYS_TYPE low = b & ((1<<bit)-1);
+    BKEYS_TYPE b_bit_removed = (high << bit) | low;
+    return b_bit_removed;
+}
+
 int sort_func_B_enc(const void* p1, const void* p2)
 {
   return *((int*)p1) - *((int*)p2);
@@ -1060,5 +1068,159 @@ void make_time_prop_btable_fast(CauchyTerm* term, DiffCellEnumHelper* dce_helper
         term->cells_gtable = count_Btp;
     }
 }
+
+// Function to propagate the parent enumeration matrix to the child's enumeration matrix 
+void make_lowered_child_btable(CauchyTerm* term,
+    BKEYS B_mu, int cells_parent,
+    KeyValue* B_mu_hash, int size_B_mu_hash, 
+    KeyValue* B_coal_hash, int size_B_coal_hash, 
+    BKEYS B_uncoal, bool* F)
+{
+    // Make sure m > d...otherwise the lower child should just be removed
+    assert(term->m >= term->d);
+    // If m == d, all we need to do is assign the trivial set of sign vectors to it
+    if(term->m == term->d)
+    {
+        int num_cells = (1<<term->d) / (1 + HALF_STORAGE);
+        for(int i = 0; i < num_cells; i++)
+            term->enc_B[i] = i;
+        term->cells_gtable = num_cells;
+        return;
+    }
+    // Otherwise, run algorithm
+    int phc = term->phc;
+    BKEYS B = term->enc_B;
+    uint8_t* c_map = term->c_map;
+    int z = term->z;
+    int enc_lhp = term->enc_lhp;
+    
+    memset(B_mu_hash, kByteEmpty, size_B_mu_hash * sizeof(KeyValue));
+    memset(F, 1, cells_parent * sizeof(bool));
+    int bit_mask[phc];
+    bool is_child_coaligned = c_map != NULL;
+
+    // Step 1: Hash all Sign-Vectors of B_mu
+    // If child is not coaligned, then we can directly fill enc_B with the result of the alg
+    KeyValue* kv_query;
+    KeyValue kv;
+    BKEYS Buc = is_child_coaligned ? B_uncoal : B;
+    // Insert all sign vectors in B_mu into the temporary hashtable
+    for(int j = 0; j < cells_parent; j++)
+    {
+        kv.key = B_mu[j] ^ enc_lhp;
+        kv.value = j;
+        if( hashtable_insert(B_mu_hash, &kv, size_B_mu_hash) )
+        {
+            printf(RED"[ERROR #1 DCE_MU:] Error when inserting value into B_mu_hash hashtable. Debug here! Exiting!" NC"\n");
+            exit(1);
+        }
+    }
+
+    // Take the parent sign vector (psv) of length m, and manipulates the integer to create the child sign vectors (csv1, csv2) for the z-th child
+    int count_B = 0;
+    bool is_last_child = (z == (phc-1));
+    int mask_z = (1 << z);
+    int rev_phc_sv = (1<<phc) - 1;
+    int csv1, csv2;
+    for(int j = 0; j < cells_parent; j++)
+    {
+        if(F[j])
+        {
+            int b = B_mu[j];
+            int b_query = b ^ mask_z;
+            // Make sure b_query is reversed if using half storage
+            if(HALF_STORAGE)
+            {
+                // The last child will look over and flip the last indices sign vectors, 
+                // Therefore, all queried sign vectors (b_query) will be in negative halfspace w.r.t parent arrangement
+                // Reverse the queried sign vector, look for it instead
+                if(is_last_child)
+                    b_query ^= rev_phc_sv;
+            }
+            if( hashtable_find(B_mu_hash, &kv_query, b_query, size_B_mu_hash) )
+            {
+                printf(RED"[ERROR #2 DCE_MU:] Error when finding value in B_mu_hash hashtable. Debug here! Exiting!" NC"\n");
+                exit(1);
+            }
+            if(kv_query != NULL)
+            {
+                F[j] = 0;
+                F[kv_query->value] = 0;
+                csv1 = remove_bit(b, z);
+                if(FULL_STORAGE)
+                {
+                    Buc[count_B++] = csv1;
+                }
+                else 
+                {
+                    csv1 = remove_bit(b, z);
+                    Buc[count_B++] = csv1;
+                    // For last child, b and b_query (after removing the z-th bit) will now be opposites
+                    // One of these opposites will be in the negative halfspace of the child's last hyperplane
+                    // Only store the sign vector in the positive halfspace w.r.t the last hyperplane
+                    // This will be the sign vector with lower encoded magnitude, store it
+                    if(is_last_child)
+                    {
+                        csv2 = remove_bit(b_query, z);
+                        assert( (csv1 & csv2) == 0); // must be opposites, or I have wrong thinking...
+                        Buc[count_B++] = csv1 < csv2 ? csv1 : csv2;
+                    }
+                }
+            }
+        }
+    }
+
+    // Only enter coalignment section if there is coalignment
+    if(is_child_coaligned)
+    {
+        // Step 2: Use c_map and F to make a mask of bits to select non-coaligned signs from B_p
+        memset(F, 1, phc * sizeof(bool));
+        memset(B_coal_hash, kByteEmpty, size_B_coal_hash * sizeof(KeyValue));
+        int count_coal = 0;
+        for(int j = 0; j < phc; j++)
+        {
+            int c_idx = c_map[j];
+            if(F[c_idx])
+            {
+                F[c_idx] = 0;
+                bit_mask[count_coal] = (1<<j);
+                count_coal++;
+            }
+        }             
+        // Step 3: Coalign Buc into B_coal
+        int bc;
+        int count_Bc = 0;
+        kv.value = 0;
+        for(int j = 0; j < count_B; j++)
+        {
+            bc = 0;
+            int b = Buc[j];
+            for(int l = 0; l < count_coal; l++)
+                if( b & bit_mask[l] )
+                    bc |= (1 << l);
+            // Check if bc is not in the coaligned hash table
+            if( hashtable_find(B_coal_hash, &kv_query, bc, size_B_coal_hash) )
+            {
+                printf(RED"[ERROR #3 DCE_MU:] Error when finding value in B_coal_hash hashtable. Debug here! Exiting!" NC"\n");
+                exit(1);
+            }
+            // If bc is not in the coaligned hash table, add it, and add to final set
+            if( kv_query == NULL )
+            {
+                kv.key = bc;
+                if( hashtable_insert(B_coal_hash, &kv, size_B_coal_hash) )
+                {
+                    printf(RED"[ERROR #4 DCE_MU:] Error when inserting value into B_coal_hash hashtable. Debug here! Exiting!" NC"\n");
+                    exit(1);
+                }
+                B[count_Bc++] = bc;
+            }
+        }
+        term->cells_gtable = count_Bc;
+    }
+    else
+        term->cells_gtable = count_B;
+}
+
 
 #endif

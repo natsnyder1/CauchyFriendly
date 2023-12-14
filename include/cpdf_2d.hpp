@@ -321,6 +321,7 @@ struct PointWise2DCauchyCPDF
                 uint cpdf_idx = i*num_gridx + j;
                 cpdf_points[cpdf_idx].x = point_x;
                 cpdf_points[cpdf_idx].y = point_y;
+                cpdf_points[cpdf_idx].z = -1;
             }
         }
     }

@@ -31,13 +31,21 @@ bin/leo_satellite_5state : src/leo_satellite_5state.cpp
 bin/leo_satellite_7state : src/leo_satellite_7state.cpp
 	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
 
+bin/leo_satellite_5state_gps : src/leo_satellite_5state_gps.cpp
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+
+bin/leo_satellite_7state_gps : src/leo_satellite_7state_gps.cpp
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+
 cauchy : bin/cauchy_estimator
 window : bin/window_manager
 leo5 : bin/leo_satellite_5state
+leo5_gps : bin/leo_satellite_5state_gps
 leo7 : bin/leo_satellite_7state
+leo7_gps : bin/leo_satellite_7state_gps
 
 all :
 	cauchy window
 
 clean : 
-	rm -f bin/cauchy_estimator bin/window_manager bin/leo_satellite_5state bin/leo_satellite_7state
+	rm -f bin/cauchy_estimator bin/window_manager bin/leo_satellite_5state bin/leo_satellite_7state bin/leo_satellite_5state_gps bin/leo_satellite_7state_gps

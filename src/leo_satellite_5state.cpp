@@ -118,14 +118,17 @@ struct leo_satellite_5state
         r0 = r_earth + r_sat; // orbit distance from center of earth
         v0 = sqrt(mu/r0); // speed of the satellite in orbit for distance r0
         x0[0] = r0/sqrt(2); x0[1] = r0/sqrt(2); x0[2] = v0/sqrt(2); x0[3] = -v0/sqrt(2); x0[4] = 0.0;
+        //x0[0] = sqrt(2)*r0/sqrt(3); x0[1] = r0/sqrt(3); x0[2] = sqrt(2)*v0/sqrt(3); x0[3] = -v0/sqrt(3); x0[4] = 0.0;
         omega0 = v0/r0; // rad/sec (angular rate of orbit)
         orbital_period = 2.0*PI / omega0; // Period of orbit in seconds
         time_steps_per_period = (int)(orbital_period / dt + 0.50); // number of dt's until 1 revolution is made
         num_revolutions = 10;
         num_simulation_steps =  num_revolutions * time_steps_per_period;
         // Satellite parameters for measurement update
-        satellite_positions[0] = -7e6; satellite_positions[1] = -7e6; 
-        satellite_positions[2] = 7e6; satellite_positions[3] = 7e6;
+        satellite_positions[0] = -7e6; satellite_positions[1] = -7e6; //-7e6 -7e6
+        satellite_positions[2] = 7e6; satellite_positions[3] = 7e6;  // 7e6  7e6
+        //satellite_positions[0] = 1e6; satellite_positions[1] = -2e6; //-7e6 -7e6
+        //satellite_positions[2] = 5e6; satellite_positions[3] = 1e6;  // 7e6  7e6
         dt_R = 0.0; // bias time of sattelite clocks, for now its zero
         b[0] = 0; b[1] = 0; // bias time of the sattelites, for now its zero
         std_dev_gps = 2.0; // uncertainty in GPS measurement
@@ -464,7 +467,7 @@ void test_5state_leo()
     unsigned int seed = 0; //time(NULL);
     printf("Seeding with %u \n", seed);
     srand ( seed );
-    char log_dir[50] = "../log/leo5";
+    char log_dir[50] = "../log/leo5/dense/w8";
 
     count = 0;
     leo_satellite_5state leo;
@@ -575,7 +578,7 @@ void test_5state_leo()
     int ftr_idx_ordering[5] = {3,2,4,1,0};
     set_tr_search_idxs_ordering(ftr_idx_ordering, 5);
     
-    ///*
+    ///* 
     int foo_steps = 7;
     bool print_basic_info = true;
     CauchyEstimator cauchyEst(A0, p0, b0, foo_steps, n, cmcc, pncc, p, print_basic_info);
@@ -606,7 +609,7 @@ void test_5state_leo()
     ece_leo_5state_transition_model_and_jacobians(&duc);
     ece_leo_5state_measurement_jacobian(&duc);
     const int total_steps = sim_num_steps+1;
-    const int num_windows = 4; 
+    const int num_windows = 5; 
     const bool WINDOW_PRINT_DEBUG = true;
     const bool WINDOW_LOG_SEQUENTIAL = true;
     const bool WINDOW_LOG_FULL = true;

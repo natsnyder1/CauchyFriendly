@@ -224,137 +224,38 @@ def run_extended_kalman_filter(x0, us, msmts, f, h, callback_Phi_Gam, callback_H
         Ps.append(P)
     return np.array(xs), np.array(Ps)
 
-def test_particle_filter_kalman_filter():
-    # True Start State of the Time Invariant System
-    x0 = np.array([.5, 0])
-    # Particle Filter State Set
-    x0pf = np.random.uniform(-5.0, 5.0, size = (1000,2))
-    # Kalman Filter Start State  
-    x0kf = x0 + 2*np.random.randn(2)
-    P0kf = 2*np.eye(x0.size)
+# This function smooths the results of the extended kalman filter by applying a backward recursive smoother
+# xs_kf is a T x n array of state estimates {x1, x2, ..., xT}
+# Ps_kf is a T x n x n array of posteriori state covariance estimates {P1, P2, ..., PT}
+# Ms_kf is a T x n x n array of apriori state covariance estimates {M1, M2, ..., MT}
+# Phis_kf is a (T-1) x n x n of state transition matrices {Phi1, Phi2, ...Phi_{T-1} }
+# nonlin_transition_model is the nonlinear propagation model x_k+1 = f(x_k)
+# Returns on output: xs_smoothed (T x n array), Ps_smoothed (T x n x n array) of smoothes estimates
+# NOTE: This function can easily be changed to accomadate controls or linear dynamics...
+def ekf_smoother(xs_kf, Ps_kf, Ms_kf, Phis_kf, nonlin_transition_model):
+    assert xs_kf.shape[0] == Ps_kf.shape[0] == Ms_kf.shape[0] == (Phis_kf.shape[0]+1)
+    assert xs_kf.shape[1] == Ps_kf.shape[1] == Ms_kf.shape[1] == Phis_kf.shape[1]
+    assert nonlin_transition_model is not None
 
-    # Simple Mass Spring Damper Dynamics w/ Gaussian Process and Msmt Noise
-    Phi = np.array([ [0, 1], [-1.5, -.25] ])
-    Gam = np.array([[0],[1]])
-    H = np.array([1,0])
-    V = np.array([.01])
-    W = np.array([.02])
-    
-    # C-Time to D-Time Conversion
-    dt = 1.0 / 20.0
-    Phi_dt = np.sum([ (np.linalg.matrix_power(Phi,i) * dt**i) / math.factorial(i) for i in range(3)], axis = 0)
-    Gam_dt = Phi_dt @ Gam * dt
-    SIM_LENGTH = 200
-    times = np.arange(0, SIM_LENGTH) * dt
-    zero_control = np.zeros((SIM_LENGTH,1))
-    
-    # Generate True States, True Measurements, Noisy Measurements
-    true_states = get_simulated_states_dtime(x0, Phi_dt, Gam_dt, zero_control )
-    true_msmts = (true_states @ H).reshape((SIM_LENGTH + 1,1))
-    noisy_msmts = true_msmts[1:] + np.random.normal(0, np.sqrt(V), SIM_LENGTH).reshape((SIM_LENGTH,1))
-    
-    # Run Particle filter simulation
-    tic = time.time()
-    pf_ests, pf_vars = run_particle_filter(x0pf, Phi_dt, Gam_dt, H, zero_control, noisy_msmts, W, V)
-    el_t = time.time() - tic 
-    print("PF Time Taken: ", el_t)
-    print("PF Time / Step: ", el_t / times.size)
+    T = len(xs_kf)
+    x_smoothed = xs_kf[-1].copy()
+    P_smoothed = Ps_kf[-1].copy()
+    xs_smoothed = [x_smoothed.copy()]
+    Ps_smoothed = [P_smoothed.copy()]
+    for i in reversed(range(T-1)):
+        Phi = Phis_kf[i]
+        x_kf = xs_kf[i]
+        P_kf = Ps_kf[i]
+        M_kf = Ms_kf[i+1]
 
-    # Run Kalman filter simulation 
-    tic = time.time()
-    kf_ests, _ = run_kalman_filter(x0kf, zero_control, noisy_msmts, P0kf, Phi_dt, Gam_dt, H.reshape((1,2)), np.atleast_2d(W), np.atleast_2d(V) )
-    el_t = time.time() - tic 
-    print("KF Time Taken: ", el_t)
-    print("KF Time / Step: ", el_t / times.size)
-
-    # Plot Particle Simulation Results
-    plt.figure(1)
-    plt.subplot(211)
-    plt.title("Particle Filter Means (b) vs Truth (g)")
-    plt.plot(times, pf_ests[:,0], 'b')
-    plt.plot(times, true_states[1:,0], 'g')
-    plt.subplot(212)
-    plt.plot(times, pf_ests[:,1], 'b')
-    plt.plot(times, true_states[1:,1], 'g')
-    # Plot Kalman Simulation Results
-    plt.figure(2)
-    plt.subplot(211)
-    plt.title("Kalman Filter Means (b) vs Truth (g)")
-    plt.plot(times, kf_ests[:,0], 'b')
-    plt.plot(times, true_states[1:,0], 'g')
-    plt.subplot(212)
-    plt.plot(times, kf_ests[:,1], 'b')
-    plt.plot(times, true_states[1:,1], 'g')
-    # Display
-    plt.show()
-
-
-def test_4state_kalman():
-    DT = 0.1
-    Phi = np.array([1,DT,0,0,0,1,0,0,0,0,1,DT,0,0,0,1]).reshape((4,4))
-    Gamma = np.array([0.5*DT*DT, 0, DT, 0, 0, 0.5*DT*DT, 0, DT]).reshape((4,2))
-    H = np.array([1,0,0,0, 0,0,1,0.0]).reshape((2,4))
-    W = np.array([1.5, 0.1, 0.1, 1.5]).reshape((2,2))
-    V = np.array([1.2, 0.2, 0.2, 1.2]).reshape((2,2))
-
-    x = np.array([0,0,0,0])
-    u = np.array([1, 2.])
-    P = np.array([1, 0, 0,  0, 0,  1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1]).reshape((4,4))
-
-    msmts = np.array([0.154914, 0.215172, 
-                    -1.54821, 0.0707649, 
-                    0.144694, 0.805929, 
-                    0.0107711, 0.780828, 
-                    1.28027, 0.628823, 
-                    -1.0378, 0.728563, 
-                    -0.999518, -0.0609128, 
-                    1.92718, 1.16976, 
-                    -0.440777, 1.83967, 
-                    0.149059, 0.335838, 
-                    0.0650556, 2.6097, 
-                    1.13946, 2.80649, 
-                    0.920578, 2.10558, 
-                    0.582518, 1.76105, 
-                    -0.0648976, 3.89787, 
-                    1.32872, 2.04418, 
-                    1.40127, 2.83793, 
-                    3.95089, 1.24606, 
-                    2.79387, 4.07122, 
-                    2.77409, 4.95685]).reshape((20,2))
-
-    us = np.repeat(u.reshape((1,2)), 20, axis = 0).reshape((20,2))
-    xs, Ps = run_kalman_filter(x, us, msmts, P, Phi, Gamma, H, W, V, is_debug = False)
-    print("Connditional Means:")
-    for x in xs:
-        print(x)
-    print("Connditional Covariances:")
-    for P in Ps:
-        print(P)
-
-# KF on Moshe's 3-state problem
-def test_simple_kalman():
-    steps = 7
-    Phi = np.array([1.4000, -0.6000, -1.0000, -0.2000, 1.0000, 0.5000, 0.6000, -0.6000, -0.2000]).reshape((3,3))
-    Gamma = np.array([0.1000, 0.3000, -0.2000]).reshape((3,1))
-    H = np.array([1.0000, 0.5000, 0.2000]).reshape((1,3))
-    W = np.array([[(0.1*1.3898)**2]])
-    V = np.array([[(0.2*1.3898)**2]])
-
-    x = np.array([-0.4644, 0.2079, 0.1394])
-    P = np.array([(0.10 * 1.3898)**2, 0, 0,
-         0, (0.08 * 1.3898)**2, 0, 
-         0, 0, (0.05 * 1.3898)**2]).reshape((3,3))
-    
-    us = np.repeat(0, steps).reshape((steps, 1))
-    msmts = np.array([-1.0780, -1.3594, 1.8163, 3.0419, 3.2480, 3.3815, 3.3265]).reshape((steps,1))
-
-    xs, Ps = run_kalman_filter(x, us, msmts, P, Phi, Gamma, H, W, V)
-    print("Connditional Means:")
-    for x in xs:
-        print(x)
-    print("Connditional Covariances:")
-    for P in Ps:
-        print(P)
-
-if __name__ == "__main__":
-    test_simple_kalman()
+        C = P_kf @ Phi.T @ np.linalg.inv(M_kf)
+        x_smoothed = x_kf + C @ (x_smoothed - nonlin_transition_model(x_kf) )
+        P_smoothed = P_kf + C @ ( P_smoothed - M_kf ) @ C.T
+        print("Smoothed Diff is: ", x_smoothed - x_kf)
+        xs_smoothed.append(x_smoothed.copy())
+        Ps_smoothed.append(P_smoothed.copy())
+    xs_smoothed.reverse()
+    Ps_smoothed.reverse()
+    xs_smoothed = np.array(xs_smoothed)
+    Ps_smoothed = np.array(Ps_smoothed)
+    return xs_smoothed, Ps_smoothed

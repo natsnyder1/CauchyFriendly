@@ -196,9 +196,6 @@ bool make_gtable(
       enc_lm = 0;
       while(k < phc)
       {
-        bval_idx = c_map[l]; // index of the sign value sign_b[k] in the parent sign vector lambda_p and lambda_m (due to coalignment)
-        coal_sign = cs_map[l]; // sign flip of the sign value sign_b[k] in the parent sign vector lambda_p and lambda_m (due to coalignment)
-        b_val = sign_b[bval_idx] * coal_sign; // flip (potentially) 
         if(k == z_idx)
         {
           enc_lm |= (1 << k);
@@ -206,6 +203,9 @@ bool make_gtable(
           if(k == phc)
             break;
         }
+        bval_idx = c_map[l]; // index of the sign value sign_b[k] in the parent sign vector lambda_p and lambda_m (due to coalignment)
+        coal_sign = cs_map[l]; // sign flip of the sign value sign_b[k] in the parent sign vector lambda_p and lambda_m (due to coalignment)
+        b_val = sign_b[bval_idx] * coal_sign; // flip (potentially) 
         if(b_val < 0)
         {
           enc_lp |= (1 << k);
@@ -326,7 +326,8 @@ void make_gtables(
          int* B_dense, const double G_SCALE_FACTOR,
          const int Nt_shape, const int max_Nt_reduced_shape, 
          const int m, const int d,
-         int start_idx = -1, int end_idx = -1)
+         int start_idx = -1, int end_idx = -1, 
+         bool is_unlowered_child = true)
 {
   // Only in the threaded case are these useful
   start_idx = (start_idx == -1) ? 0 : start_idx;
@@ -368,11 +369,23 @@ void make_gtables(
                   BKEYS parent_B = child_j->enc_B;
                   int num_cells_parent = child_j->cells_gtable;
                   gb_tables->set_term_btable_pointer(&(child_j->enc_B), max_cells_shape, false);
-                  make_new_child_btable(child_j, 
-                      parent_B, num_cells_parent,
-                      dce_helper->B_mu_hash, num_cells_parent * dce_helper->storage_multiplier,
-                      dce_helper->B_coal_hash, dce_temp_hashtable_size,
-                      dce_helper->B_uncoal, dce_helper->F);
+                  // Regular functionality of make gtables
+                  if(is_unlowered_child)
+                  {
+                    make_new_child_btable(child_j, 
+                        parent_B, num_cells_parent,
+                        dce_helper->B_mu_hash, num_cells_parent * dce_helper->storage_multiplier,
+                        dce_helper->B_coal_hash, dce_temp_hashtable_size,
+                        dce_helper->B_uncoal, dce_helper->F);
+                  }
+                  else 
+                  {
+                    make_lowered_child_btable(child_j, 
+                        parent_B, num_cells_parent,
+                        dce_helper->B_mu_hash, num_cells_parent * dce_helper->storage_multiplier,
+                        dce_helper->B_coal_hash, dce_temp_hashtable_size,
+                        dce_helper->B_uncoal, dce_helper->F);
+                  }
               }
           }
           //printf("B%d is:\n", Nt_reduced_shape);

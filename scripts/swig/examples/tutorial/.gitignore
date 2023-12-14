@@ -1,0 +1,8 @@
+_gfg*
+build
+gfg.o
+gfg_wrap.c
+gfg_wrap.o
+gfg.py
+__pycache__
+

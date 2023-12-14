@@ -22,7 +22,12 @@ bin/gamma : gamma.cpp
 bin/binsearch : binsearch.cpp
 	$(CC) $(CFLAGS) $^ -o $@
 
-all : bin/gamma bin/binsearch
+bin/test_cpdf_ndim : test_cpdf_ndim.cpp
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+
+cpdf : bin/test_cpdf_ndim
+
+all : bin/gamma bin/binsearch cpdf
 
 clean : 
-	rm -f bin/gamma bin/binsearch 
+	rm -f bin/gamma bin/binsearch bin/test_cpdf_ndim

@@ -359,7 +359,6 @@ void speyers_window_init(const int N, double* x1_hat, double* Var,
     if(window_var_boost != NULL)
         for(int i = 0; i < N; i++)
             Var[i*N+i] += window_var_boost[i];
-    
     // Check for positive definiteness of Var
     memcpy(work, Var, N*N*sizeof(double));
     memset(work2, 0, N*sizeof(double));

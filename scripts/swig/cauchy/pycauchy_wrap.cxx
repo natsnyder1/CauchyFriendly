@@ -4210,195 +4210,6 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_ltiv(PyObject *SWIGUNUSEDPARM(se
   int arg3 ;
   double *arg4 = (double *) 0 ;
   int arg5 ;
-  double *arg6 = (double *) 0 ;
-  double **arg7 = (double **) 0 ;
-  int *arg8 = (int *) 0 ;
-  double **arg9 = (double **) 0 ;
-  int *arg10 = (int *) 0 ;
-  double *arg11 = (double *) 0 ;
-  double *arg12 = (double *) 0 ;
-  double *arg13 = (double *) 0 ;
-  int *arg14 = (int *) 0 ;
-  int res1 ;
-  PyArrayObject *array2 = NULL ;
-  int is_new_object2 = 0 ;
-  PyArrayObject *array4 = NULL ;
-  int is_new_object4 = 0 ;
-  double temp6 ;
-  int res6 = SWIG_TMPOBJ ;
-  double *data_temp7 = NULL ;
-  int dim_temp7 ;
-  double *data_temp9 = NULL ;
-  int dim_temp9 ;
-  double temp11 ;
-  int res11 = SWIG_TMPOBJ ;
-  double temp12 ;
-  int res12 = SWIG_TMPOBJ ;
-  double temp13 ;
-  int res13 = SWIG_TMPOBJ ;
-  int temp14 ;
-  int res14 = SWIG_TMPOBJ ;
-  PyObject * obj0 = 0 ;
-  PyObject * obj1 = 0 ;
-  PyObject * obj2 = 0 ;
-  
-  arg6 = &temp6;
-  {
-    arg7 = &data_temp7;
-    arg8 = &dim_temp7;
-  }
-  {
-    arg9 = &data_temp9;
-    arg10 = &dim_temp9;
-  }
-  arg11 = &temp11;
-  arg12 = &temp12;
-  arg13 = &temp13;
-  arg14 = &temp14;
-  if (!PyArg_ParseTuple(args,(char *)"OOO:pycauchy_single_step_ltiv",&obj0,&obj1,&obj2)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
-  if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_ltiv" "', argument " "1"" of type '" "void *""'"); 
-  }
-  {
-    npy_intp size[1] = {
-      -1 
-    };
-    array2 = obj_to_array_contiguous_allow_conversion(obj1,
-      NPY_DOUBLE,
-      &is_new_object2);
-    if (!array2 || !require_dimensions(array2, 1) ||
-      !require_size(array2, size, 1)) SWIG_fail;
-    arg2 = (double*) array_data(array2);
-    arg3 = (int) array_size(array2,0);
-  }
-  {
-    npy_intp size[1] = {
-      -1 
-    };
-    array4 = obj_to_array_contiguous_allow_conversion(obj2,
-      NPY_DOUBLE,
-      &is_new_object4);
-    if (!array4 || !require_dimensions(array4, 1) ||
-      !require_size(array4, size, 1)) SWIG_fail;
-    arg4 = (double*) array_data(array4);
-    arg5 = (int) array_size(array4,0);
-  }
-  pycauchy_single_step_ltiv(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14);
-  resultobj = SWIG_Py_Void();
-  if (SWIG_IsTmpObj(res6)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg6)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res6) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg6), SWIGTYPE_p_double, new_flags));
-  }
-  {
-    npy_intp dims[1] = {
-      *arg8 
-    };
-    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg7));
-    PyArrayObject* array = (PyArrayObject*) obj;
-    
-    if (!array) SWIG_fail;
-    
-#ifdef SWIGPY_USE_CAPSULE
-    PyObject* cap = PyCapsule_New((void*)(*arg7), SWIGPY_CAPSULE_NAME, free_cap);
-#else
-    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg7), free);
-#endif
-    
-#if NPY_API_VERSION < 0x00000007
-    PyArray_BASE(array) = cap;
-#else
-    PyArray_SetBaseObject(array,cap);
-#endif
-    
-    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
-  }
-  {
-    npy_intp dims[1] = {
-      *arg10 
-    };
-    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg9));
-    PyArrayObject* array = (PyArrayObject*) obj;
-    
-    if (!array) SWIG_fail;
-    
-#ifdef SWIGPY_USE_CAPSULE
-    PyObject* cap = PyCapsule_New((void*)(*arg9), SWIGPY_CAPSULE_NAME, free_cap);
-#else
-    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg9), free);
-#endif
-    
-#if NPY_API_VERSION < 0x00000007
-    PyArray_BASE(array) = cap;
-#else
-    PyArray_SetBaseObject(array,cap);
-#endif
-    
-    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
-  }
-  if (SWIG_IsTmpObj(res11)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg11)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res11) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg11), SWIGTYPE_p_double, new_flags));
-  }
-  if (SWIG_IsTmpObj(res12)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg12)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res12) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg12), SWIGTYPE_p_double, new_flags));
-  }
-  if (SWIG_IsTmpObj(res13)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg13)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res13) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg13), SWIGTYPE_p_double, new_flags));
-  }
-  if (SWIG_IsTmpObj(res14)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_int((*arg14)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res14) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg14), SWIGTYPE_p_int, new_flags));
-  }
-  {
-    if (is_new_object2 && array2)
-    {
-      Py_DECREF(array2); 
-    }
-  }
-  {
-    if (is_new_object4 && array4)
-    {
-      Py_DECREF(array4); 
-    }
-  }
-  return resultobj;
-fail:
-  {
-    if (is_new_object2 && array2)
-    {
-      Py_DECREF(array2); 
-    }
-  }
-  {
-    if (is_new_object4 && array4)
-    {
-      Py_DECREF(array4); 
-    }
-  }
-  return NULL;
-}
-
-
-SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
-  PyObject *resultobj = 0;
-  void *arg1 = (void *) 0 ;
-  double *arg2 = (double *) 0 ;
-  int arg3 ;
-  double *arg4 = (double *) 0 ;
-  int arg5 ;
   bool arg6 ;
   double *arg7 = (double *) 0 ;
   double **arg8 = (double **) 0 ;
@@ -4448,10 +4259,10 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(
   arg13 = &temp13;
   arg14 = &temp14;
   arg15 = &temp15;
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:pycauchy_single_step_nonlin",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:pycauchy_single_step_ltiv",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
   res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_nonlin" "', argument " "1"" of type '" "void *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_ltiv" "', argument " "1"" of type '" "void *""'"); 
   }
   {
     npy_intp size[1] = {
@@ -4479,10 +4290,10 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(
   }
   ecode6 = SWIG_AsVal_bool(obj3, &val6);
   if (!SWIG_IsOK(ecode6)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "pycauchy_single_step_nonlin" "', argument " "6"" of type '" "bool""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "pycauchy_single_step_ltiv" "', argument " "6"" of type '" "bool""'");
   } 
   arg6 = static_cast< bool >(val6);
-  pycauchy_single_step_nonlin(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15);
+  pycauchy_single_step_ltiv(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15);
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg7)));
@@ -4559,6 +4370,213 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(
   } else {
     int new_flags = SWIG_IsNewObj(res15) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg15), SWIGTYPE_p_int, new_flags));
+  }
+  {
+    if (is_new_object2 && array2)
+    {
+      Py_DECREF(array2); 
+    }
+  }
+  {
+    if (is_new_object4 && array4)
+    {
+      Py_DECREF(array4); 
+    }
+  }
+  return resultobj;
+fail:
+  {
+    if (is_new_object2 && array2)
+    {
+      Py_DECREF(array2); 
+    }
+  }
+  {
+    if (is_new_object4 && array4)
+    {
+      Py_DECREF(array4); 
+    }
+  }
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  void *arg1 = (void *) 0 ;
+  double *arg2 = (double *) 0 ;
+  int arg3 ;
+  double *arg4 = (double *) 0 ;
+  int arg5 ;
+  bool arg6 ;
+  bool arg7 ;
+  double *arg8 = (double *) 0 ;
+  double **arg9 = (double **) 0 ;
+  int *arg10 = (int *) 0 ;
+  double **arg11 = (double **) 0 ;
+  int *arg12 = (int *) 0 ;
+  double *arg13 = (double *) 0 ;
+  double *arg14 = (double *) 0 ;
+  double *arg15 = (double *) 0 ;
+  int *arg16 = (int *) 0 ;
+  int res1 ;
+  PyArrayObject *array2 = NULL ;
+  int is_new_object2 = 0 ;
+  PyArrayObject *array4 = NULL ;
+  int is_new_object4 = 0 ;
+  bool val6 ;
+  int ecode6 = 0 ;
+  bool val7 ;
+  int ecode7 = 0 ;
+  double temp8 ;
+  int res8 = SWIG_TMPOBJ ;
+  double *data_temp9 = NULL ;
+  int dim_temp9 ;
+  double *data_temp11 = NULL ;
+  int dim_temp11 ;
+  double temp13 ;
+  int res13 = SWIG_TMPOBJ ;
+  double temp14 ;
+  int res14 = SWIG_TMPOBJ ;
+  double temp15 ;
+  int res15 = SWIG_TMPOBJ ;
+  int temp16 ;
+  int res16 = SWIG_TMPOBJ ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  PyObject * obj4 = 0 ;
+  
+  arg8 = &temp8;
+  {
+    arg9 = &data_temp9;
+    arg10 = &dim_temp9;
+  }
+  {
+    arg11 = &data_temp11;
+    arg12 = &dim_temp11;
+  }
+  arg13 = &temp13;
+  arg14 = &temp14;
+  arg15 = &temp15;
+  arg16 = &temp16;
+  if (!PyArg_ParseTuple(args,(char *)"OOOOO:pycauchy_single_step_nonlin",&obj0,&obj1,&obj2,&obj3,&obj4)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_nonlin" "', argument " "1"" of type '" "void *""'"); 
+  }
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array2 = obj_to_array_contiguous_allow_conversion(obj1,
+      NPY_DOUBLE,
+      &is_new_object2);
+    if (!array2 || !require_dimensions(array2, 1) ||
+      !require_size(array2, size, 1)) SWIG_fail;
+    arg2 = (double*) array_data(array2);
+    arg3 = (int) array_size(array2,0);
+  }
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array4 = obj_to_array_contiguous_allow_conversion(obj2,
+      NPY_DOUBLE,
+      &is_new_object4);
+    if (!array4 || !require_dimensions(array4, 1) ||
+      !require_size(array4, size, 1)) SWIG_fail;
+    arg4 = (double*) array_data(array4);
+    arg5 = (int) array_size(array4,0);
+  }
+  ecode6 = SWIG_AsVal_bool(obj3, &val6);
+  if (!SWIG_IsOK(ecode6)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "pycauchy_single_step_nonlin" "', argument " "6"" of type '" "bool""'");
+  } 
+  arg6 = static_cast< bool >(val6);
+  ecode7 = SWIG_AsVal_bool(obj4, &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "pycauchy_single_step_nonlin" "', argument " "7"" of type '" "bool""'");
+  } 
+  arg7 = static_cast< bool >(val7);
+  pycauchy_single_step_nonlin(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16);
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res8)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg8)));
+  } else {
+    int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_double, new_flags));
+  }
+  {
+    npy_intp dims[1] = {
+      *arg10 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg9));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg9), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg9), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg12 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg11));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg11), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg11), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  if (SWIG_IsTmpObj(res13)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg13)));
+  } else {
+    int new_flags = SWIG_IsNewObj(res13) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg13), SWIGTYPE_p_double, new_flags));
+  }
+  if (SWIG_IsTmpObj(res14)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg14)));
+  } else {
+    int new_flags = SWIG_IsNewObj(res14) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg14), SWIGTYPE_p_double, new_flags));
+  }
+  if (SWIG_IsTmpObj(res15)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg15)));
+  } else {
+    int new_flags = SWIG_IsNewObj(res15) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg15), SWIGTYPE_p_double, new_flags));
+  }
+  if (SWIG_IsTmpObj(res16)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_int((*arg16)));
+  } else {
+    int new_flags = SWIG_IsNewObj(res16) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg16), SWIGTYPE_p_int, new_flags));
   }
   {
     if (is_new_object2 && array2)
@@ -6792,6 +6810,258 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_pycauchy_speyers_window_init(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  double *arg1 = (double *) 0 ;
+  int arg2 ;
+  double *arg3 = (double *) 0 ;
+  int arg4 ;
+  double *arg5 = (double *) 0 ;
+  int arg6 ;
+  double arg7 ;
+  double arg8 ;
+  double **arg9 = (double **) 0 ;
+  int *arg10 = (int *) 0 ;
+  double **arg11 = (double **) 0 ;
+  int *arg12 = (int *) 0 ;
+  double **arg13 = (double **) 0 ;
+  int *arg14 = (int *) 0 ;
+  PyArrayObject *array1 = NULL ;
+  int is_new_object1 = 0 ;
+  PyArrayObject *array3 = NULL ;
+  int is_new_object3 = 0 ;
+  PyArrayObject *array5 = NULL ;
+  int is_new_object5 = 0 ;
+  double val7 ;
+  int ecode7 = 0 ;
+  double val8 ;
+  int ecode8 = 0 ;
+  double *data_temp9 = NULL ;
+  int dim_temp9 ;
+  double *data_temp11 = NULL ;
+  int dim_temp11 ;
+  double *data_temp13 = NULL ;
+  int dim_temp13 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  PyObject * obj4 = 0 ;
+  
+  {
+    arg9 = &data_temp9;
+    arg10 = &dim_temp9;
+  }
+  {
+    arg11 = &data_temp11;
+    arg12 = &dim_temp11;
+  }
+  {
+    arg13 = &data_temp13;
+    arg14 = &dim_temp13;
+  }
+  if (!PyArg_ParseTuple(args,(char *)"OOOOO:pycauchy_speyers_window_init",&obj0,&obj1,&obj2,&obj3,&obj4)) SWIG_fail;
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array1 = obj_to_array_contiguous_allow_conversion(obj0,
+      NPY_DOUBLE,
+      &is_new_object1);
+    if (!array1 || !require_dimensions(array1, 1) ||
+      !require_size(array1, size, 1)) SWIG_fail;
+    arg1 = (double*) array_data(array1);
+    arg2 = (int) array_size(array1,0);
+  }
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array3 = obj_to_array_contiguous_allow_conversion(obj1,
+      NPY_DOUBLE,
+      &is_new_object3);
+    if (!array3 || !require_dimensions(array3, 1) ||
+      !require_size(array3, size, 1)) SWIG_fail;
+    arg3 = (double*) array_data(array3);
+    arg4 = (int) array_size(array3,0);
+  }
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array5 = obj_to_array_contiguous_allow_conversion(obj2,
+      NPY_DOUBLE,
+      &is_new_object5);
+    if (!array5 || !require_dimensions(array5, 1) ||
+      !require_size(array5, size, 1)) SWIG_fail;
+    arg5 = (double*) array_data(array5);
+    arg6 = (int) array_size(array5,0);
+  }
+  ecode7 = SWIG_AsVal_double(obj3, &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "pycauchy_speyers_window_init" "', argument " "7"" of type '" "double""'");
+  } 
+  arg7 = static_cast< double >(val7);
+  ecode8 = SWIG_AsVal_double(obj4, &val8);
+  if (!SWIG_IsOK(ecode8)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "pycauchy_speyers_window_init" "', argument " "8"" of type '" "double""'");
+  } 
+  arg8 = static_cast< double >(val8);
+  pycauchy_speyers_window_init(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14);
+  resultobj = SWIG_Py_Void();
+  {
+    npy_intp dims[1] = {
+      *arg10 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg9));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg9), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg9), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg12 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg11));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg11), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg11), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg14 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg13));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg13), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg13), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    if (is_new_object1 && array1)
+    {
+      Py_DECREF(array1); 
+    }
+  }
+  {
+    if (is_new_object3 && array3)
+    {
+      Py_DECREF(array3); 
+    }
+  }
+  {
+    if (is_new_object5 && array5)
+    {
+      Py_DECREF(array5); 
+    }
+  }
+  return resultobj;
+fail:
+  {
+    if (is_new_object1 && array1)
+    {
+      Py_DECREF(array1); 
+    }
+  }
+  {
+    if (is_new_object3 && array3)
+    {
+      Py_DECREF(array3); 
+    }
+  }
+  {
+    if (is_new_object5 && array5)
+    {
+      Py_DECREF(array5); 
+    }
+  }
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_pycauchy_set_tr_search_idxs_ordering(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  int *arg1 = (int *) 0 ;
+  int arg2 ;
+  PyArrayObject *array1 = NULL ;
+  int is_new_object1 = 0 ;
+  PyObject * obj0 = 0 ;
+  int result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"O:pycauchy_set_tr_search_idxs_ordering",&obj0)) SWIG_fail;
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array1 = obj_to_array_contiguous_allow_conversion(obj0,
+      NPY_INT,
+      &is_new_object1);
+    if (!array1 || !require_dimensions(array1, 1) ||
+      !require_size(array1, size, 1)) SWIG_fail;
+    arg1 = (int*) array_data(array1);
+    arg2 = (int) array_size(array1,0);
+  }
+  result = (int)pycauchy_set_tr_search_idxs_ordering(arg1,arg2);
+  resultobj = SWIG_From_int(static_cast< int >(result));
+  {
+    if (is_new_object1 && array1)
+    {
+      Py_DECREF(array1); 
+    }
+  }
+  return resultobj;
+fail:
+  {
+    if (is_new_object1 && array1)
+    {
+      Py_DECREF(array1); 
+    }
+  }
+  return NULL;
+}
+
+
 static PyMethodDef SwigMethods[] = {
 	 { (char *)"SWIG_PyInstanceMethod_New", (PyCFunction)SWIG_PyInstanceMethod_New, METH_O, NULL},
 	 { (char *)"pycauchy_shutdown", _wrap_pycauchy_shutdown, METH_VARARGS, NULL},
@@ -6807,6 +7077,8 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"pycauchy_initialize_lti", _wrap_pycauchy_initialize_lti, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_get_2D_pointwise_cpdf", _wrap_pycauchy_get_2D_pointwise_cpdf, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_get_reinitialization_statistics", _wrap_pycauchy_get_reinitialization_statistics, METH_VARARGS, NULL},
+	 { (char *)"pycauchy_speyers_window_init", _wrap_pycauchy_speyers_window_init, METH_VARARGS, NULL},
+	 { (char *)"pycauchy_set_tr_search_idxs_ordering", _wrap_pycauchy_set_tr_search_idxs_ordering, METH_VARARGS, NULL},
 	 { NULL, NULL, 0, NULL }
 };
 

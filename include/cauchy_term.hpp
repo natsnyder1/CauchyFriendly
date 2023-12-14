@@ -666,7 +666,7 @@ struct CauchyTerm
     void become_parent()
     {
         phc = m;
-        cells_gtable_p = cells_gtable;
+        cells_gtable_p = cells_gtable; // maybe should clear cells_gtable to zero...
         gtable_p = gtable;
         gtable = NULL;
         is_new_child = false;

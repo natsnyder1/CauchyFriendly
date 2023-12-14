@@ -90,8 +90,8 @@ f_xbars = "x_bars.txt"
 f_residuals = "residuals.txt"
 f_full_residuals = "full_residuals.txt"
 
-partial_run = False 
-cd = 0
+partial_run = True 
+cd = 1
 
 # Reads and parses window data 
 def load_window_data(f_win_data):
@@ -280,7 +280,7 @@ for i in range(n):
         plt.plot(T[cd:sim_len+cd], np.sqrt(full_window_covars[:,i,i]), 'k--')
         plt.plot(T[cd:sim_len+cd], -1.0*np.sqrt(full_window_covars[:,i,i]), 'k--')
 
-line_types = ['-', '--', '-.', ':']
+line_types = ['-', '--', '-.', ':', '-']
 fig = plt.figure(3)
 fig.suptitle("Msmts (m), Msmt Noise (g), Proc Noise (b)")
 m = 3 #proc_noises.shape[1] + msmt_noises.shape[1] + msmts.shape[1]

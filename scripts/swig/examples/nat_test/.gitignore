@@ -1,0 +1,7 @@
+_hello_swig.so
+hello_swig_wrap.cxx
+hello_swig_wrap.o 
+hello_swig.py 
+hello_swig.pyc 
+__pycache__
+

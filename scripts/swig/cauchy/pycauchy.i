@@ -42,6 +42,7 @@ void pycauchy_single_step_ltiv(
     void* _pcdh,
     double* msmts, int size_msmts,
     double* controls, int size_controls,
+    bool full_info,
     double* out_fz, 
     double** out_x, int* size_out_x,
     double** out_P, int* size_out_P, 
@@ -53,6 +54,7 @@ void pycauchy_single_step_nonlin(
     double* msmts, int size_msmts,
     double* controls, int size_controls,
     bool with_propagate,
+    bool full_info,
     double* out_fz, 
     double** out_x, int* size_out_x,
     double** out_P, int* size_out_P, 
@@ -275,6 +277,8 @@ void* pycauchy_initialize_lti(
     bool debug_print);
 
 
+// CPDF Wrappers
+
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cpdf_data, int *size_out_cpdf_data)};
 %apply int* OUTPUT { int* out_num_gridx, int* out_num_gridy };
 
@@ -293,3 +297,20 @@ void pycauchy_get_reinitialization_statistics(
     double** out_A0, int* size_out_A0,
     double** out_p0, int* size_out_p0,
     double** out_b0, int* size_out_b0 );
+
+
+%apply (double* IN_ARRAY1, int DIM1) {(double* x1_hat, int size_x1_hat)};
+%apply (double* IN_ARRAY1, int DIM1) {(double* Var, int size_Var)};
+
+void pycauchy_speyers_window_init(
+                double* x1_hat, int size_x1_hat,
+                double* Var, int size_Var,
+                double* H, int size_H,
+                double gamma, double z,  
+                double** out_A0, int* size_out_A0,
+                double** out_p0, int* size_out_p0,
+                double** out_b0, int* size_out_b0);
+
+// Helper Wrappers
+%apply (int* IN_ARRAY1, int DIM1) {(int* ordering, int size_ordering)};
+int pycauchy_set_tr_search_idxs_ordering(int* ordering, int size_ordering);

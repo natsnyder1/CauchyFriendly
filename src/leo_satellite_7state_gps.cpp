@@ -283,7 +283,7 @@ void leo_7state_measurement_model(leo_satellite_7state* leo, double* x, double* 
     int p = leo->p;
     double* sat_pos = leo->satellite_positions;
     for(int i = 0; i < p; i++)
-        z[i] = sqrt(pow(x[0] - sat_pos[p*i],2) + pow(x[1] - sat_pos[p*i + 1],2) + pow(x[2] - sat_pos[p*i + 2],2)) - c*leo->dt_R + leo->b[i];
+        z[i] = x[i]; //sqrt(pow(x[0] - sat_pos[p*i],2) + pow(x[1] - sat_pos[p*i + 1],2) + pow(x[2] - sat_pos[p*i + 2],2)) - c*leo->dt_R + leo->b[i];
 }
 
 void leo_7state_transition_model_jacobians(double* Phi_k, double* Gamma_k, double* x, leo_satellite_7state* leo)
@@ -348,11 +348,12 @@ void leo_7state_measurement_model_jacobian(double* H_k, double* x, leo_satellite
     memset(H_k, 0, p*n*sizeof(double));
     for(int i = 0; i < p; i++)
     {
-        sp = leo->satellite_positions + i*p;
-        double dr = sqrt(pow(x[0] - sp[0],2) + pow(x[1] - sp[1],2) + pow(x[2] - sp[2],2));
-        H_k[i*n] = (x[0] - sp[0]) / dr;
-        H_k[i*n+1] = (x[1] - sp[1]) / dr;
-        H_k[i*n+2] = (x[2] - sp[2]) / dr;
+        H_k[i*n+i] = 1.0;
+        //sp = leo->satellite_positions + i*p;
+        //double dr = sqrt(pow(x[0] - sp[0],2) + pow(x[1] - sp[1],2) + pow(x[2] - sp[2],2));
+        //H_k[i*n] = (x[0] - sp[0]) / dr;
+        //H_k[i*n+1] = (x[1] - sp[1]) / dr;
+        //H_k[i*n+2] = (x[2] - sp[2]) / dr;
     }
 }
 

@@ -1,6 +1,52 @@
 #include "../include/cauchy_estimator.hpp"
 #include "../include/cpdf_2d.hpp"
 
+
+// Scalar problem
+void test_cauchy_1_state_moshe()
+{
+  const int n = 1;
+  const int cmcc = 0;
+  const int pncc = 1;
+  const int p = 1;
+  double Phi[n*n] = {0.9};
+  double Gamma[n*pncc] = {0.4};
+  double H[n] = {2.0};
+  double beta[pncc] = {0.1};
+  double gamma[p] = {0.2};
+  double A0[n*n] =  {1.0}; 
+  double p0[n] = {0.10};
+  double b0[n] = {0};
+  CauchyDynamicsUpdateContainer duc;
+  duc.n = n; duc.pncc = pncc; duc.p = p; duc.cmcc = cmcc;
+  duc.Phi = Phi; duc.Gamma = Gamma; duc.H = H; 
+  duc.B = NULL; duc.u = NULL; duc.x = NULL;
+  duc.beta = beta; duc.gamma = gamma;
+  duc.step = 0; duc.dt = 0; duc.other_stuff = NULL; 
+
+  int sim_steps = 20;
+  int total_steps = sim_steps + 1;
+  SimulationLogger sim_log(NULL, sim_steps, b0, &duc, cauchy_lti_transition_model, cauchy_lti_measurement_model);
+  sim_log.run_simulation_and_log();
+
+  bool print_basic_info = true;
+  CauchyEstimator cauchyEst(A0, p0, b0, total_steps, n, cmcc, pncc, p, print_basic_info);
+
+  double estimates[total_steps];
+  for(int i = 0; i < total_steps; i++)
+  {  
+    cauchyEst.step(sim_log.msmt_history[i], Phi, Gamma, beta, H, gamma[0], NULL, NULL);
+    estimates[i] = creal(cauchyEst.conditional_mean[0]);
+  }
+  for(int i = 0; i < total_steps; i++)
+  {
+    printf("Step %d: True State: %.4lf, Estimate: %.4lf, Msmt %.4lf, Msmt Noise: %.4lf, Proc Noise: %.4lf\n", 
+      i, sim_log.true_state_history[i], estimates[i], 
+      sim_log.msmt_history[i], sim_log.msmt_noise_history[i], i > 0 ? sim_log.proc_noise_history[i-1] : 0);
+  }
+
+}
+
 // Moshes Two State Problem
 void test_cauchy_2_state_moshe()
 {
@@ -244,7 +290,8 @@ int main()
 {
     printf("Size of Cauchy Term is %lu\n", sizeof(CauchyTerm));
     printf("Size of Cauchy Estimator is %lu\n", sizeof(CauchyEstimator));
-    test_cauchy_2_state_moshe();
+    test_cauchy_1_state_moshe();
+    //test_cauchy_2_state_moshe();
     //test_cauchy_3_state_moshe();
     //test_cauchy_4_state_moshe();
     //test_cauchy_3_state_moshe_3msmts();
