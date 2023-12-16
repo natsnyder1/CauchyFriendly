@@ -586,6 +586,14 @@ void update_btable(double* A_i, BKEYS btable_i, double* A_j, BKEYS btable_j, con
     k += 1;
     kd += d;
   }
+  // Adding: If sigma_enc has '-1' in m-th bit, reverse sigma_enc
+  if(HALF_STORAGE)
+  {
+      int rev_mask = (1<<m) - 1;
+      int two_to_m_minus1 = (1<<(m-1));
+      if(sigma_enc & two_to_m_minus1)
+        sigma_enc ^= rev_mask;
+  }
   // Only update if a HP orientation of A_j is fliiped negative w.r.t A_i
   
   if(btable_j == NULL)
@@ -1093,6 +1101,14 @@ void make_lowered_child_btable(CauchyTerm* term,
     uint8_t* c_map = term->c_map;
     int z = term->z;
     int enc_lhp = term->enc_lhp;
+    int mask_phc = 1<<(phc-1);
+    int rev_phc_sv = (1<<phc) - 1;
+    // If enc_lhp has a '-1' w.r.t the last HP, need to reverse, so that B_mu[j] ^ enc_lhp remains in positive halfspace
+    if(HALF_STORAGE)
+    {
+        if(enc_lhp & mask_phc)
+            enc_lhp ^= rev_phc_sv;
+    }
     
     memset(B_mu_hash, kByteEmpty, size_B_mu_hash * sizeof(KeyValue));
     memset(F, 1, cells_parent * sizeof(bool));
@@ -1120,13 +1136,12 @@ void make_lowered_child_btable(CauchyTerm* term,
     int count_B = 0;
     bool is_last_child = (z == (phc-1));
     int mask_z = (1 << z);
-    int rev_phc_sv = (1<<phc) - 1;
     int csv1, csv2;
     for(int j = 0; j < cells_parent; j++)
     {
         if(F[j])
         {
-            int b = B_mu[j];
+            int b = B_mu[j] ^ enc_lhp;
             int b_query = b ^ mask_z;
             // Make sure b_query is reversed if using half storage
             if(HALF_STORAGE)
@@ -1153,8 +1168,6 @@ void make_lowered_child_btable(CauchyTerm* term,
                 }
                 else 
                 {
-                    csv1 = remove_bit(b, z);
-                    Buc[count_B++] = csv1;
                     // For last child, b and b_query (after removing the z-th bit) will now be opposites
                     // One of these opposites will be in the negative halfspace of the child's last hyperplane
                     // Only store the sign vector in the positive halfspace w.r.t the last hyperplane
@@ -1165,6 +1178,8 @@ void make_lowered_child_btable(CauchyTerm* term,
                         assert( (csv1 & csv2) == 0); // must be opposites, or I have wrong thinking...
                         Buc[count_B++] = csv1 < csv2 ? csv1 : csv2;
                     }
+                    else
+                        Buc[count_B++] = csv1;
                 }
             }
         }

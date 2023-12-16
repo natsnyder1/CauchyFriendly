@@ -34,7 +34,7 @@ const bool WITH_TERM_APPROXIMATION = true;
 const double TERM_APPROXIMATION_EPS = 1e-16;
 const bool WITH_WARNINGS = true; // Used to flag when something may be fishy
 const bool WITH_GB_TABLE_REALLOC = true;
-const bool EXIT_ON_FAILURE = false;
+const bool EXIT_ON_FAILURE = true;
 bool INTEGRABLE_FLAG = true;
 
 // Differential Cell Enumeration Settings

@@ -290,9 +290,9 @@ int main()
 {
     printf("Size of Cauchy Term is %lu\n", sizeof(CauchyTerm));
     printf("Size of Cauchy Estimator is %lu\n", sizeof(CauchyEstimator));
-    test_cauchy_1_state_moshe();
+    //test_cauchy_1_state_moshe();
     //test_cauchy_2_state_moshe();
-    //test_cauchy_3_state_moshe();
+    test_cauchy_3_state_moshe();
     //test_cauchy_4_state_moshe();
     //test_cauchy_3_state_moshe_3msmts();
     //test_cauchy_5_state_moshe();
