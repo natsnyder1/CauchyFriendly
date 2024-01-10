@@ -55,6 +55,69 @@ int cell_count_general(int hyp, int dim)
   return (int) fc;
 }
 
+// Returns encoded sign sequences for encircling a vertex, with -1 encoded as 1 and 1 encoded as 0
+// The array returned is sized (2^d x d)
+int* init_encoded_sign_sequences_around_vertex(int d)
+{
+    int num_cells_around_vetex = (1 << d);
+    int* SSav = (int*) malloc( num_cells_around_vetex * d * sizeof(int) ); // Indicator Sequences around vertex
+    null_ptr_check(SSav);
+    for(int i = 0; i < num_cells_around_vetex; i++)
+        for(int j = 0; j < d; j++)
+            SSav[i*d + j] = (i & (1 << j) ) >> j;
+    return SSav;
+}
+
+int* combinations(int n, int k)
+{
+    int* combos = (int*) malloc( nchoosek(n,k)*k*sizeof(int));
+    null_ptr_check(combos);
+    std::string bitmask(k, 1); // K leading 1's
+    bitmask.resize(n, 0); // N-K trailing 0's
+    int position = 0;
+    // print integers and permute bitmask
+    do {
+        for (int i = 0; i < n; ++i) // [0..N-1] integers
+        {
+            if (bitmask[i])
+            {
+                //std::cout << " " << i;
+                combos[position] = i;
+                position += 1;
+            }
+        }
+        //std::cout << std::endl;
+    } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
+    return combos;
+}
+
+// Returns the integers of m that are not in combos
+// anti_combos array is sized num_combos x (m-n) on return
+int* init_anti_combos(int* combos, int num_combos, int m, int n)
+{
+    assert(m>n);
+    int num_anti_combo = m-n;
+    int* anti_combos = (int*) malloc(num_anti_combo*num_combos*sizeof(int));
+    null_ptr_check(anti_combos);
+    for(int i = 0; i < num_combos; i++)
+    {
+        int* anti_combo = anti_combos + i*num_anti_combo;
+        int* combo = combos + i*n;
+        int count = 0;
+        // test if j is in combo
+        for(int j = 0; j < m; j++)
+        {
+            bool not_in_combo = true;
+            for(int k = 0; k < n; k++)
+                if(j == combo[k])
+                    not_in_combo = false;
+            if(not_in_combo)
+                anti_combo[count++] = j;
+        }
+    }
+    return anti_combos;
+}
+
 BKEYS_TYPE remove_bit(BKEYS_TYPE b, BKEYS_TYPE bit)
 {
     BKEYS_TYPE high = b >> (bit+1);
@@ -66,6 +129,11 @@ BKEYS_TYPE remove_bit(BKEYS_TYPE b, BKEYS_TYPE bit)
 int sort_func_B_enc(const void* p1, const void* p2)
 {
   return *((int*)p1) - *((int*)p2);
+}
+
+void sort_encoded_B(int* B_enc, int cell_count)
+{
+    qsort(B_enc, cell_count, sizeof(int), &sort_func_B_enc);
 }
 
 int is_Bs_different(int* B1, int* B2, int cells)
@@ -82,7 +150,7 @@ void print_B_encoded(int *B_enc, int cell_count, int m, bool with_sort)
 {
     if(with_sort)
     {    
-        qsort(B_enc, cell_count, sizeof(int), &sort_func_B_enc);
+        sort_encoded_B(B_enc, cell_count);
         printf("B_enc (with %d sorted sign-vectors) is:\n", cell_count);
     }
     else
@@ -111,7 +179,7 @@ void print_B_unencoded(int* B_enc, int cell_count, int m, bool with_sort = false
 {
     if(with_sort)
     {    
-        qsort(B_enc, cell_count, sizeof(int), &sort_func_B_enc);
+        sort_encoded_B(B_enc, cell_count);
         printf("B_enc (with sorted sign-vectors) is:\n");
     }
     else
@@ -367,7 +435,7 @@ struct DiffCellEnumHelper
     void make_tp_dce_helpers()
     {
         int shape_range = max_shape + 1;
-        init_encoded_sign_sequences_around_vertex();
+        SSav = init_encoded_sign_sequences_around_vertex(d);
         if(!FAST_TP_DCE)
         {
             combos = (int**) malloc(shape_range * sizeof(int*));
@@ -421,18 +489,6 @@ struct DiffCellEnumHelper
         }
     }
 
-    // Returns encoded sign sequences for encircling a vertex, with -1 encoded as 1 and 1 encoded as 0
-    // The array returned is sized (2^d x d)
-    void init_encoded_sign_sequences_around_vertex()
-    {
-        int num_cells_around_vetex = (1 << d);
-        SSav = (int*) malloc( num_cells_around_vetex * d * sizeof(int) ); // Indicator Sequences around vertex
-        null_ptr_check(SSav);
-        for(int i = 0; i < num_cells_around_vetex; i++)
-            for(int j = 0; j < d; j++)
-                SSav[i*d + j] = (i & (1 << j) ) >> j;
-    }
-
     // Initialized encoded sign sequences for encircling a vertex, with -1 encoded as 1 and 1 encoded as 0
     // The arrays are returned sized (2^mi x mi), for mi in [1,...,max_shape-d]
     // Since d HPs form the vertex, we only need these helpers for max_shape - d HPs
@@ -455,55 +511,6 @@ struct DiffCellEnumHelper
             }
 
         }
-    }
-
-    int* combinations(int n, int k)
-    {
-        int* combos = (int*) malloc( nchoosek(n,k)*k*sizeof(int));
-        null_ptr_check(combos);
-        std::string bitmask(k, 1); // K leading 1's
-        bitmask.resize(n, 0); // N-K trailing 0's
-        int position = 0;
-        // print integers and permute bitmask
-        do {
-            for (int i = 0; i < n; ++i) // [0..N-1] integers
-            {
-                if (bitmask[i])
-                {
-                    //std::cout << " " << i;
-                    combos[position] = i;
-                    position += 1;
-                }
-            }
-            //std::cout << std::endl;
-        } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
-        return combos;
-    }
-    // Returns the integers of m that are not in combos
-    // anti_combos array is sized num_combos x (m-n) on return
-    int* init_anti_combos(int* combos, int num_combos, int m, int n)
-    {
-        assert(m>n);
-        int num_anti_combo = m-n;
-        int* anti_combos = (int*) malloc(num_anti_combo*num_combos*sizeof(int));
-        null_ptr_check(anti_combos);
-        for(int i = 0; i < num_combos; i++)
-        {
-            int* anti_combo = anti_combos + i*num_anti_combo;
-            int* combo = combos + i*n;
-            int count = 0;
-            // test if j is in combo
-            for(int j = 0; j < m; j++)
-            {
-                bool not_in_combo = true;
-                for(int k = 0; k < n; k++)
-                    if(j == combo[k])
-                        not_in_combo = false;
-                if(not_in_combo)
-                    anti_combo[count++] = j;
-            }
-        }
-        return anti_combos;
     }
     
     void print_tp_info()
@@ -1235,6 +1242,208 @@ void make_lowered_child_btable(CauchyTerm* term,
     }
     else
         term->cells_gtable = count_B;
+}
+
+// General purposed 'inc-enu' like algorithm to solve a cell enumeration for a central arrangement
+// Input: an m x d central hyperplane arrangement (stored row-wise), with m=#hyperplanes and d=dimension
+// Output: returns a pointer to the enumeration array, which has *num_cells encoded sign-vectors
+// Note: If you wish to view the non-encoded representation of the sign vectors, call print_B_unencoded() function
+// If dce_helper == NULL, helpers (which are members of this structure) are created then cleaned up internally
+// If dce_helper != NULL. helpers are already initialized, which saves some time
+// If half_enum == false, the full encoded arrangement is returned
+// If half_enum == true, only the encoded sign vectors in the positive halspace of the last hyperplane are returned (half the SVs)
+// If warn_checks
+int* make_enumeration_matrix(double* A, const int m, const int d, int* num_cells, DiffCellEnumHelper* dce_helper = NULL, const bool half_enum = false, const bool warn_checks = false)
+{
+    assert(m <= 32);
+    if(m<=d)
+    {
+        int two_to_m = (1 << m) / (1 + half_enum);
+        int* enc_B = (int*) malloc(two_to_m * sizeof(int));
+        for(int i = 0; i < two_to_m; i++)
+            enc_B[i] = i;
+        
+        return enc_B;
+    }
+    int cells_gen;
+    int B_hash_table_size;
+    BTABLE B_hash;
+    BKEYS B_intermediate;
+    bool* F;
+    int* combos;
+    int num_combos;
+    int* anti_combos;
+    int m_minus_d;
+    int* SSav;
+    bool is_dce_null;
+    double* b_pert;
+    if(dce_helper == NULL)
+    {
+        is_dce_null = true;
+        cells_gen = cell_count_general(m, d);
+        B_hash_table_size = cells_gen * 4;
+        B_hash = (BTABLE) malloc( B_hash_table_size * sizeof(BTABLE_TYPE) );
+        null_ptr_check(B_hash);
+        memset(B_hash, kByteEmpty, B_hash_table_size * sizeof(BTABLE_TYPE));
+        B_intermediate = (BKEYS) malloc(cells_gen * sizeof(BKEYS_TYPE));
+        null_ptr_check(B_intermediate);
+        F = (bool*) malloc( (1<<m) * sizeof(bool) );
+        null_ptr_check(F);
+        memset(F, 1, (1<<m) * sizeof(bool) );
+        combos = combinations(m, d);
+        num_combos = nchoosek(m, d);
+        anti_combos = init_anti_combos(combos, num_combos, m, d);
+        m_minus_d = m - d;
+        SSav = init_encoded_sign_sequences_around_vertex(d);
+        b_pert = (double*) malloc( m * sizeof(double) );
+        null_ptr_check(b_pert);
+        for(int i = 0; i < m; i++)
+            b_pert[i] = 2*random_uniform() - 1;
+    }
+    else 
+    {
+        is_dce_null = false;
+        cells_gen = dce_helper->cell_counts_gen[m];
+        B_hash_table_size = cells_gen * dce_helper->storage_multiplier;
+        B_hash = dce_helper->B_mu_hash; // renaming temp space
+        B_intermediate = dce_helper->B_uncoal; // renaming temp space
+        memset(B_hash, kByteEmpty, B_hash_table_size * sizeof(BTABLE_TYPE));
+        F = dce_helper->F;
+        memset(F, 1, (1<<m) * sizeof(bool) );
+        combos = dce_helper->combos[m];
+        num_combos = dce_helper->combo_counts[m];
+        anti_combos = dce_helper->anti_combos[m];
+        m_minus_d = m - d;
+        SSav = dce_helper->SSav;
+        b_pert = dce_helper->b_pert;
+    }
+
+    double Ac[d*d];
+    double work[d*d];
+    double bc[d];
+    double vertex[d];
+    int P[d];
+    int count_B_set = 0;
+    int two_to_d = 1<<d;
+    KeyValue kv;
+    // We need to loop through the combinations of Gamma, find vertices, and encircle them
+    for(int i = 0; i < num_combos; i++)
+    {
+        // Form a vertex point corresponding to Gamma 
+        int* combo = combos + i*d;
+        for(int j = 0; j < d; j++)
+        {
+            memcpy(Ac + j * d, A + combo[j] * d, d*sizeof(double));
+            bc[j] = b_pert[combo[j]];
+        }
+        // Solve for vertex:
+        if(STABLE_SOLVE)
+        {
+            double cond_num = cond('1', Ac, work, P, d, PLU_EPS);
+            if(cond_num > COND_EPS)
+                continue;
+            solve_trf(Ac, P, bc, vertex, d);
+        }
+        else
+        {
+            if( PLU(Ac, P, d, PLU_EPS) )
+                continue;
+            if( (fabs(Ac[0]) / (fabs(Ac[d*d-1]) + 1e-25)) > COND_EPS)
+                continue;
+            solve_trf(Ac, P, bc, vertex, d);
+        }
+        // Find signs of HPs not in vertex
+        int* anti_combo = anti_combos + i * m_minus_d;
+        if(warn_checks)
+            tp_enu_warnings_check(A, b_pert, vertex, combo, anti_combo, m, d, -1, i);
+        int enc_sv_niv = 0;
+        for(int j = 0; j < m_minus_d; j++)
+        {
+            int ac = anti_combo[j];
+            if( (dot_prod(A + ac*d, vertex, d) - b_pert[ac]) < 0 )
+                enc_sv_niv |= (1 << ac);
+        }
+        // Use sign sequences around vertex array to fill in all signs around  
+        for(int j = 0; j < two_to_d; j++)
+        {
+            int* ssav = SSav + j*d;
+            int enc_sv = enc_sv_niv;
+            for(int k = 0; k < d; k++)
+                if(ssav[k])
+                    enc_sv |= (1 << combo[k]);
+            // Only process this sign vector if it has not yet been processed
+            if(F[enc_sv])
+            {
+                F[enc_sv] = 0;
+                kv.key = enc_sv;
+                kv.value = count_B_set;
+                if( hashtable_insert(B_hash, &kv, B_hash_table_size) )
+                {
+                    printf(RED "[Error Make Btable #1]: hashtable find has failed! Debug here!" NC "\n");
+                    exit(1);
+                }
+
+                B_intermediate[count_B_set++] = enc_sv;
+                assert(count_B_set <= cells_gen);
+            }
+        }
+        if(count_B_set == cells_gen)
+            break;
+    }
+    // All sign vectors of a central arrangement must have an opposite sign vector
+    memset(F, 1, count_B_set);
+    KeyValue* kv_query;
+    int count_B = 0;
+    int rev_m_mask = (1<<m) - 1;
+    int mask_m = (1<<(m-1));
+    int* enc_B = (int*) malloc( cells_gen * sizeof(int) );
+    null_ptr_check(enc_B);
+    for(int i = 0; i < count_B_set; i++)
+    {
+        if(F[i])
+        {
+            int b = B_intermediate[i];
+            int b_rev = b ^ rev_m_mask;
+            if( hashtable_find(B_hash, &kv_query, b_rev, B_hash_table_size) )
+            {
+                printf(RED "[Error Make Btable #2]: hashtable find has failed! Debug here!" NC "\n");
+                exit(1);
+            }
+
+            // If its opposite has been found, add them to Bprop_pred. Mark both in F
+            if(kv_query != NULL)
+            {
+                F[i] = 0; // dont really need to mark this, I think
+                F[kv_query->value] = 0;
+                if(half_enum)
+                {
+                    if(b & mask_m)
+                        enc_B[count_B++] = b_rev;
+                    else
+                        enc_B[count_B++] = b;
+                }
+                else
+                {
+                    enc_B[count_B++] = b;
+                    enc_B[count_B++] = b_rev;
+                }
+            }
+        }
+    }
+    enc_B = (int*) realloc(enc_B, count_B * sizeof(int));
+    null_ptr_check(enc_B);
+    *num_cells = count_B;
+    if(is_dce_null)
+    {
+        free(B_hash);
+        free(B_intermediate);
+        free(F);
+        free(combos);
+        free(anti_combos);
+        free(SSav);
+        free(b_pert);
+    }
+    return enc_B;
 }
 
 

@@ -14,8 +14,6 @@
 #include "term_reduction.hpp"
 #include "flattening.hpp"
 #include "cpu_timer.hpp"
-#include <cstdlib>
-#include <pthread.h>
 
 // Function/Structure Prototypes
 struct CauchyEstimator;
@@ -1185,6 +1183,12 @@ struct CauchyEstimator
             printf(RED "[Window %d:] ERROR_FZ_NEGATIVE triggered. Cannot continue stepping until this estimator has been reset!"
                    NC "\n", win_num);
             return numeric_moment_errors;
+        }
+        if(master_step == num_estimation_steps)
+        {
+            printf(RED "[Window %d:] ERROR MASTER STEP. master_step == num_estimation_steps (max measurements=%d)!\nCannot continue stepping until this estimator has been reset!"
+                   NC "\n", win_num, master_step);
+            exit(1);
         }
 
         CPUTimer tmr;

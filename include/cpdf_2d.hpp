@@ -196,13 +196,6 @@ double eval_2D_ucpdf_at_x(double x1, double x2, CauchyEstimator* cauchyEst)
     return real_ucpdf_val_at_x1_x2;
 }
 
-struct CauchyPoint3D
-{
-    double x;
-    double y;
-    double z;
-};
-
 struct ThreadedEvalPDF
 {
     int start;

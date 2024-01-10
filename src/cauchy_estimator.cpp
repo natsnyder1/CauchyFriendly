@@ -64,7 +64,7 @@ void test_cauchy_2_state_moshe()
   double b0[n] = {0,0}; // Initial median of system state
   const int steps = 10;
   bool print_basic_info = true;
-  char log_dir[10] = "foobar";
+  char* log_dir = NULL;
   CauchyEstimator cauchyEst(A0, p0, b0, steps, n, cmcc, pncc, p, print_basic_info);
   PointWise2DCauchyCPDF cpdf(log_dir,-1.5, 1.5, 0.25, -3, 1, 0.25);
   double zs[steps] = {0.022356919463887182, -0.22675889756491788, 0.42133397996398181, 
@@ -216,10 +216,10 @@ void test_cauchy_5_state_moshe()
   double beta[pncc] = {0.1};
   double gamma[p] = {0.2};
   double A0[n*n] =  {1, 0, 0, 0, 0,
-                         0, 1, 0, 0, 0, 
-                         0, 0, 1, 0, 0,
-                         0, 0, 0, 1, 0,
-                         0, 0, 0, 0, 1};
+                    0, 1, 0, 0, 0, 
+                    0, 0, 1, 0, 0,
+                    0, 0, 0, 1, 0,
+                    0, 0, 0, 0, 1};
   double p0[n] = {0.1, 0.08, 0.05, 0.2, 0.3}; //{0.0, 0.0, 0.0}; //
   double b0[n] = {0, 0, 0, 0, 0};
   const int steps = 9;
@@ -266,7 +266,7 @@ void test_cauchy_four_state_two_pnoise()
   double p0[n] = {0.4, 0.5, 0.6, 0.70};
   double b0[n] = {0.0, 0.0, 0.0, 0.0};
 
-  const int steps = 5;
+  const int steps = 7;
   bool print_basic_info = true;
   CauchyEstimator cauchyEst(A0, p0, b0, steps, n, cmcc, pncc, p, print_basic_info);
 

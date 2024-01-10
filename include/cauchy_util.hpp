@@ -235,7 +235,6 @@ struct FastTermRedHelper
   }
 };
 
-
 // Creates a forwards pointing flag array from the backward pointing flag array that is created by term reduction
 struct ForwardFlagArray
 {
@@ -1009,6 +1008,57 @@ struct ChunkedPackedElement
 		used_elems_per_page[current_page_idx] += num_elems;
 	}
 
+	void set_elem_ptr_then_copy_vector(T** elem, T* vector, BYTE_COUNT_TYPE num_elems)
+	{
+		// Set A ptr
+		BYTE_COUNT_TYPE elems_used_in_page = used_elems_per_page[current_page_idx];
+		if( (elems_used_in_page + num_elems) > page_size_num_elements )
+		{
+			current_page_idx++;
+			elems_used_in_page = 0;
+			//assert(current_page_idx < page_limit); // REMOVE
+			if(current_page_idx == page_limit)
+			{
+				if(WITH_WARNINGS)
+				{
+					printf(YEL "[WARN ChunkedPackedElement:]\n  Allocated memory after extending memory range was found to be insufficient.\n"
+						   YEL "  Consider increasing CP_STORAGE_PAGE_SIZE in cauchy_types.hpp! Extending Memory Range Again!"
+						   NC "\n");
+				}
+				extend_elems(3 * page_size_bytes); // Enlarge memory range by 3 page sizes.
+			}
+		}
+		T* elem_addr = chunked_elems[current_page_idx] + elems_used_in_page;
+		*elem = elem_addr;
+		memcpy(elem_addr, vector, num_elems * sizeof(T));
+		used_elems_per_page[current_page_idx] += num_elems;
+	}
+
+	void set_elem_ptr(T** elem, BYTE_COUNT_TYPE num_elems)
+	{
+		// Set A ptr
+		BYTE_COUNT_TYPE elems_used_in_page = used_elems_per_page[current_page_idx];
+		if( (elems_used_in_page + num_elems) > page_size_num_elements )
+		{
+			current_page_idx++;
+			elems_used_in_page = 0;
+			//assert(current_page_idx < page_limit); // REMOVE
+			if(current_page_idx == page_limit)
+			{
+				if(WITH_WARNINGS)
+				{
+					printf(YEL "[WARN ChunkedPackedElement:]\n  Allocated memory after extending memory range was found to be insufficient.\n"
+						   YEL "  Consider increasing CP_STORAGE_PAGE_SIZE in cauchy_types.hpp! Extending Memory Range Again!"
+						   NC "\n");
+				}
+				extend_elems(3 * page_size_bytes); // Enlarge memory range by 3 page sizes.
+			}
+		}
+		T* elem_addr = chunked_elems[current_page_idx] + elems_used_in_page;
+		*elem = elem_addr;
+		used_elems_per_page[current_page_idx] += num_elems;
+	}
+
 	void unallocate_unused_space()
 	{
 		for(uint i = current_page_idx+1; i < page_limit; i++)
@@ -1680,6 +1730,19 @@ struct SimulationLogger
 		free(proc_noise_history);
 		free(x0);
 	}
+};
+
+struct CauchyPoint3D
+{
+    double x;
+    double y;
+    double z;
+};
+
+struct CauchyPoint2D
+{
+    double x;
+    double y;
 };
 
 // Numerical checks on the covariance computed

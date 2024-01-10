@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+// Return Codes
+// 0: Directory does not exist
+// 1: Directory exists
 void check_dir_and_create(char* dir_path)
 {
    // If this directory does not exist, create this directory
@@ -17,6 +20,7 @@ void check_dir_and_create(char* dir_path)
   if(dir)
   {
     // The directory exists
+    //return 1;
   }
   else if(ENOENT == errno)
   {
@@ -27,6 +31,7 @@ void check_dir_and_create(char* dir_path)
       printf("Failure making the directory %s. mkdir returns %d. Exiting!\n", dir_path, success);
       assert(false);
     }
+    //return 0;
   }
   else
   {
