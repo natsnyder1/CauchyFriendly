@@ -1661,13 +1661,18 @@ struct CauchyCPDFGridDispatcher2D
     }
 
     // Grid points on x correspond to marg_idx1, and grid points on y correspond to marg_idx2
-    void evaluate_point_grid(int marg_idx1, int marg_idx2, int num_threads, bool with_timing = false)
+    int evaluate_point_grid(int marg_idx1, int marg_idx2, int num_threads, bool with_timing = false)
     {
         assert(marg_idx1 < marg_idx2);
         assert(marg_idx2 < cpdf->cauchyEst->d);
         assert(marg_idx1 > -1);
         assert(marg_idx2 > 0);
         assert(num_threads > 0);
+        if( (cpdf->cauchyEst->master_step == cpdf->cauchyEst->num_estimation_steps) && (SKIP_LAST_STEP == true) )
+        {
+            printf(YEL "[WARN CauchyCPDFGridDispatcher2D:] Cannot evaluate cauchy estimator cpdf for the last step since SKIP_LAST_STEP == true! (The G Tables were not created, as they were skipped!)" NC "\n");
+            return 1;
+        }
         if(num_grid_points < num_threads)
             num_threads = num_grid_points-1;
         // Evaluate with first point and setup caching
@@ -1716,19 +1721,25 @@ struct CauchyCPDFGridDispatcher2D
             printf("  Computing %d gridpoints took: %d ms (used %d threads)\n", num_grid_points, tmr.cpu_time_used,num_threads);
             printf("  Total Time: %d ms\n", compute_time + cache_time);
         }
+        return 0;
     }
 
     // File binary data is logged to: {log_dir}/cpdf_{marg_idx1}{marg_idx2}_{log_count}
     // File binary data dimensions is logged to {log_dir}/grid_elems_{marg_idx1}{marg_idx2}.txt
     // File row format for binary data dimensions: {num_points_x},{num_points_y}
-    void log_point_grid()
+    int log_point_grid()
     {
         FILE* data_file;
         FILE* dims_file;
         if(log_dir == NULL)
         {
             printf(YEL "[WARN CauchyCPDFGridDispatcher2D:]\n  Cannot Log! The log directory was not set!" NC "\n");
-            return;
+            return 1;
+        }
+        if( (cpdf->cauchyEst->master_step == cpdf->cauchyEst->num_estimation_steps) && (SKIP_LAST_STEP == true) )
+        {
+            printf(YEL "[WARN CauchyCPDFGridDispatcher2D:] Cannot log cpdf for the last step since SKIP_LAST_STEP == true! (The G Tables were not created, as they were skipped!)" NC "\n");
+            return 1;
         }
 
         // Create path character array
@@ -1774,6 +1785,7 @@ struct CauchyCPDFGridDispatcher2D
         fwrite(points, sizeof(CauchyPoint3D), num_grid_points, data_file);
         fclose(data_file);
         fclose(dims_file);
+        return 0;
     }
 
     // returns index of tag in tag array if the tag exists
@@ -1867,11 +1879,16 @@ struct CauchyCPDFGridDispatcher1D
     }
 
     // Grid points on x correspond to marg_idx1, and grid points on y correspond to marg_idx2
-    void evaluate_point_grid(int marg_idx, int num_threads, bool with_timing = false)
+    int evaluate_point_grid(int marg_idx, int num_threads, bool with_timing = false)
     {
         assert(marg_idx < cpdf->cauchyEst->d);
         assert(marg_idx > -1);
         assert(num_threads > 0);
+        if( (cpdf->cauchyEst->master_step == cpdf->cauchyEst->num_estimation_steps) && (SKIP_LAST_STEP == true) )
+        {
+            printf(YEL "[WARN CauchyCPDFGridDispatcher1D:] Cannot evaluate cauchy estimator cpdf for the last step since SKIP_LAST_STEP == true! (The G Tables were not created, as they were skipped!)" NC "\n");
+            return 1;
+        }
         if(num_grid_points < num_threads)
             num_threads = num_grid_points-1;
         // Evaluate first point and setup caching
@@ -1920,19 +1937,25 @@ struct CauchyCPDFGridDispatcher1D
             printf("  Computing %d gridpoints took: %d ms (used %d threads)\n", num_grid_points, tmr.cpu_time_used,num_threads);
             printf("  Total Time: %d ms\n", compute_time + cache_time);
         }
+        return 0;
     }
 
     // File binary data is logged to: {log_dir}/cpdf_{marg_idx1}{marg_idx2}_{log_count}
     // File binary data dimensions is logged to {log_dir}/grid_elems_{marg_idx1}{marg_idx2}.txt
     // File row format for binary data dimensions: {num_points_x},{num_points_y}
-    void log_point_grid()
+    int log_point_grid()
     {
         FILE* data_file;
         FILE* dims_file;
         if(log_dir == NULL)
         {
             printf(YEL "[WARN CauchyCPDFGridDispatcher1D:]\n  Cannot Log! The log directory was not set!" NC "\n");
-            return;
+            return 1;
+        }
+        if( (cpdf->cauchyEst->master_step == cpdf->cauchyEst->num_estimation_steps) && (SKIP_LAST_STEP == true) )
+        {
+            printf(YEL "[WARN CauchyCPDFGridDispatcher2D:] Cannot log cpdf for the last step since SKIP_LAST_STEP == true! (The G Tables were not created, as they were skipped!)" NC "\n");
+            return 1;
         }
 
         // Create path character array
@@ -1977,6 +2000,7 @@ struct CauchyCPDFGridDispatcher1D
         fwrite(points, sizeof(CauchyPoint2D), num_grid_points, data_file);
         fclose(data_file);
         fclose(dims_file);
+        return 0;
     }
 
     // returns index of tag in tag array if the tag exists

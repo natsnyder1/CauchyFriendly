@@ -2,7 +2,8 @@
 #define _PY_CAUCHY_HPP_
 
 #include "../../../include/cauchy_windows.hpp"
-#include "../../../include/cpdf_2d.hpp"
+#include "../../../include/cpdf_ndim.hpp"
+//#include "../../../include/cpdf_2d.hpp"
 
 CauchyDynamicsUpdateContainer* cduc;
 SlidingWindowManager* swm;
@@ -192,7 +193,7 @@ void pycauchy_step(
     int data_idx = swm->msmt_count-1;
     if(data_idx < 0)
     {
-        printf(RED "[ERROR pycauchy_step:] swm->msmt_count-1 is less than 0, this implies a bug! Please gdb here!\n");
+        printf(RED "[ERROR pycauchy_step:] swm->msmt_count-1 is less than 0, this implies a bug! Please gdb here!" NC "\n");
         exit(1);
     }
     int n = swm->n;
@@ -225,7 +226,9 @@ struct PyCauchyDataHandler
 {
     CauchyDynamicsUpdateContainer* duc;
     CauchyEstimator* cauchyEst;
-    PointWise2DCauchyCPDF* cpdf;
+    PointWiseNDimCauchyCPDF* cpdf;
+    CauchyCPDFGridDispatcher1D* grid_1d;
+    CauchyCPDFGridDispatcher2D* grid_2d;
     void (*f_dyn_update_callback)(CauchyDynamicsUpdateContainer*);
     void (*f_nonlinear_msmt_model)(CauchyDynamicsUpdateContainer*, double*);
     void (*f_extended_msmt_update_callback)(CauchyDynamicsUpdateContainer*);
@@ -235,6 +238,8 @@ struct PyCauchyDataHandler
         duc = NULL;
         cauchyEst = NULL;
         cpdf = NULL;
+        grid_1d = NULL;
+        grid_2d = NULL;
         f_dyn_update_callback = NULL;
         f_nonlinear_msmt_model = NULL;
         f_extended_msmt_update_callback = NULL;
@@ -529,13 +534,37 @@ void pycauchy_single_step_shutdown(void* _pcdh)
     delete pcdh->cauchyEst;
     if(pcdh->cpdf != NULL)
         delete pcdh->cpdf;
+    if(pcdh->grid_2d != NULL)
+        delete pcdh->grid_2d;
+    if(pcdh->grid_1d != NULL)
+        delete pcdh->grid_1d;
     delete pcdh;
 }
 
-
-// Constructing 2D cpdf 
-void pycauchy_get_2D_pointwise_cpdf(
+void pycauchy_single_step_reset(
     void* _pcdh, 
+    double* A0, int size_A0, 
+    double* p0, int size_p0, 
+    double* b0, int size_b0, 
+    double* xbar, int size_xbar)
+{
+    PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
+    int n = pcdh->cauchyEst->d;
+    if(size_A0 > 0)
+        memcpy(pcdh->cauchyEst->A0_init, A0, n*n*sizeof(double));
+    if(size_p0 > 0)
+        memcpy(pcdh->cauchyEst->p0_init, p0, n*sizeof(double));
+    if(size_b0 > 0)
+        memcpy(pcdh->cauchyEst->p0_init, b0, n*sizeof(double));
+    if(size_xbar > 0)
+        memcpy(pcdh->duc->x, xbar, n*sizeof(double));
+    pcdh->cauchyEst->reset();
+}
+
+// Construct marginal 2D cpdf 
+void pycauchy_get_marginal_2D_pointwise_cpdf(
+    void* _pcdh, 
+    int marg_idx1, int marg_idx2,
     double gridx_low, double gridx_high, double gridx_resolution, 
     double gridy_low, double gridy_high, double gridy_resolution, 
     char* log_dir, 
@@ -545,24 +574,30 @@ void pycauchy_get_2D_pointwise_cpdf(
     CauchyEstimator* cauchyEst = pcdh->cauchyEst;
     if(pcdh->cpdf == NULL)
     {
-        pcdh->cpdf = new PointWise2DCauchyCPDF(log_dir, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);
+        pcdh->cpdf = new PointWiseNDimCauchyCPDF(cauchyEst); //PointWise2DCauchyCPDF(log_dir, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);
         null_ptr_check(pcdh->cpdf);
     }
+    if(pcdh->grid_2d == NULL)
+    {
+        pcdh->grid_2d = new CauchyCPDFGridDispatcher2D(pcdh->cpdf, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir);
+        null_ptr_check(pcdh->grid_2d);
+    }
     else
-        pcdh->cpdf->reset_grid(gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);
+        pcdh->grid_2d->reset_grid(gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);
     
-    if( pcdh->cpdf->evaluate_point_wise_cpdf(pcdh->cauchyEst, NUM_CPUS) )
+    if( pcdh->grid_2d->evaluate_point_grid(marg_idx1, marg_idx2, NUM_CPUS, true) )
     {
         // If something goes wrong...
         *out_num_gridx = 0;
         *out_num_gridy = 0;
         *size_out_cpdf_data = 0;
         *out_cpdf_data = (double*) malloc(0);
+        return;
     }
 
-    double* cpdf_points = (double*) pcdh->cpdf->cpdf_points;
-    int num_gridx = pcdh->cpdf->num_gridx;
-    int num_gridy = pcdh->cpdf->num_gridy;
+    double* cpdf_points = (double*) pcdh->grid_2d->points;
+    int num_gridx = pcdh->grid_2d->num_points_x;
+    int num_gridy = pcdh->grid_2d->num_points_y;
     BYTE_COUNT_TYPE size_gridvals = num_gridx * num_gridy * 3 * sizeof(double);
     *out_num_gridx = num_gridx;
     *out_num_gridy = num_gridy;
@@ -570,16 +605,87 @@ void pycauchy_get_2D_pointwise_cpdf(
     *out_cpdf_data = (double*) malloc(size_gridvals);
     memcpy(*out_cpdf_data, cpdf_points, size_gridvals);
     if(log_dir != NULL)
-        pcdh->cpdf->store_2d_cpdf(pcdh->cauchyEst->master_step-1);
+        pcdh->grid_2d->log_point_grid();
 }
 
-// Gets reinitialization statistics to restart an estimator about the other
+// Constructing 2D cpdf 
+void pycauchy_get_2D_pointwise_cpdf(
+    void* _pcdh, 
+    double gridx_low, double gridx_high, double gridx_resolution, 
+    double gridy_low, double gridy_high, double gridy_resolution, 
+    char* log_dir, 
+    double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx, int* out_num_gridy)
+{
+    pycauchy_get_marginal_2D_pointwise_cpdf(
+        _pcdh, 0,1,
+        gridx_low, gridx_high, gridx_resolution, 
+        gridy_low, gridy_high, gridy_resolution, log_dir, 
+        out_cpdf_data, size_out_cpdf_data, out_num_gridx, out_num_gridy);
+}
 
+// Construct marginal 1D cpdf 
+void pycauchy_get_marginal_1D_pointwise_cpdf(
+    void* _pcdh, 
+    int marg_idx1,
+    double gridx_low, double gridx_high, double gridx_resolution, 
+    char* log_dir, 
+    double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx)
+{
+    PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
+    CauchyEstimator* cauchyEst = pcdh->cauchyEst;
+    if(pcdh->cpdf == NULL)
+    {
+        pcdh->cpdf = new PointWiseNDimCauchyCPDF(cauchyEst); //PointWise2DCauchyCPDF(log_dir, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);
+        null_ptr_check(pcdh->cpdf);
+    }
+    if(pcdh->grid_1d == NULL)
+    {
+        pcdh->grid_1d = new CauchyCPDFGridDispatcher1D(pcdh->cpdf, gridx_low, gridx_high, gridx_resolution, log_dir);
+        null_ptr_check(pcdh->grid_1d);
+    }
+    else
+        pcdh->grid_1d->reset_grid(gridx_low, gridx_high, gridx_resolution);
+    
+    if( pcdh->grid_1d->evaluate_point_grid(marg_idx1, NUM_CPUS, true) )
+    {
+        // If something goes wrong...
+        *out_num_gridx = 0;
+        *size_out_cpdf_data = 0;
+        *out_cpdf_data = (double*) malloc(0);
+        return;
+    }
+
+    double* cpdf_points = (double*) pcdh->grid_1d->points;
+    int num_gridx = pcdh->grid_1d->num_grid_points;
+    BYTE_COUNT_TYPE size_gridvals = num_gridx * 2 * sizeof(double);
+    *out_num_gridx = num_gridx;
+    *size_out_cpdf_data = 2 * num_gridx;
+    *out_cpdf_data = (double*) malloc(size_gridvals);
+    memcpy(*out_cpdf_data, cpdf_points, size_gridvals);
+    if(log_dir != NULL)
+        pcdh->grid_1d->log_point_grid();
+}
+
+// Construct 1D cpdf
+void pycauchy_get_1D_pointwise_cpdf(
+    void* _pcdh,
+    double gridx_low, double gridx_high, double gridx_resolution, 
+    char* log_dir, 
+    double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx)
+{
+    pycauchy_get_marginal_1D_pointwise_cpdf(
+        _pcdh, 0,
+        gridx_low, gridx_high, gridx_resolution, 
+        log_dir, out_cpdf_data, size_out_cpdf_data, out_num_gridx);
+}
+
+
+// Gets reinitialization statistics to restart an estimator about the other
 void pycauchy_get_reinitialization_statistics(
     void* _pcdh, double z,
     double** out_A0, int* size_out_A0,
     double** out_p0, int* size_out_p0,
-    double** out_b0, int* size_out_b0 )
+    double** out_b0, int* size_out_b0)
 {
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
     CauchyDynamicsUpdateContainer* duc = pcdh->duc;

@@ -686,7 +686,7 @@ class PyCauchyEstimator():
             return
         if(self.step_count == self.num_steps):
             print("[Error:] Cannot step estimator again, you have already stepped the estimator the initialized number of steps")
-            print("Not stepping! Please shut estimator down!")
+            print("Not stepping! Please shut estimator down or reset it!")
             return
         _msmts, _controls = self._msmts_controls_checker(msmts, controls)
         self.last_msmt = _msmts[-1]
@@ -719,7 +719,7 @@ class PyCauchyEstimator():
         self.step_count += 1
         return xs, Ps
 
-        # Shuts down sliding window manager
+    # Shuts down sliding window manager
     def shutdown(self):
         if(self.is_initialized == False):
             print("Cannot shutdown Cauchy Estimator before it has been initialized!")
@@ -728,11 +728,37 @@ class PyCauchyEstimator():
         self.py_handle = None
         print("Cauchy estimator backend C data structure has been shutdown!")
         self.is_initialized = False
-    
-    def get_2D_pointwise_cpdf(self, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir = None):
+
+    # provide optional arguments A0, p0, b0, xbar if you'd like these to change upon reset
+    def reset(self, A0 = None, p0 = None, b0 = None, xbar = None):
+        if(self.is_initialized == False):
+            print("Cannot reset estimator before it has been initialized (or after shutdown has been called)!")
+            return
+        if A0 is not None:
+            assert(A0.size == self.n*self.n)
+        if p0 is not None:
+            assert(p0.size == self.n)
+        if b0 is not None:
+            assert(b0.size == self.n)
+        if xbar is not None:
+            assert(xbar.size == self.n)
+        assert(b0.size == self.n)
+        if (self.mode != "nonlin") and (xbar is not None):
+            print("Note to user: Setting xbar for any mode besides 'nonlinear' will have no effect!")
+        self.step_count = 0
+        _A0 = A0.copy().reshape(-1) if A0 is not None else np.array([], dtype=np.float64)
+        _p0 = p0.copy().reshape(-1) if p0 is not None else np.array([], dtype=np.float64)
+        _b0 = b0.copy().reshape(-1) if b0 is not None else np.array([], dtype=np.float64)
+        _xbar = xbar.copy().reshape(-1) if xbar is not None else np.array([], dtype=np.float64)
+        pycauchy.pycauchy_single_step_reset(self.py_handle, _A0, _p0, _b0, _xbar)
+
+    def get_marginal_2D_pointwise_cpdf(self, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir = None):
         if(self.is_initialized == False):
             print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
-            return
+            return None,None,None
+        
+        _marg_idx1 = int(marg_idx1)
+        _marg_idx2 = int(marg_idx2)
         _gridx_low = float(gridx_low)
         _gridx_high = float(gridx_high)
         _gridx_resolution = float(gridx_resolution)
@@ -743,6 +769,7 @@ class PyCauchyEstimator():
         assert(_gridy_high > _gridy_low)
         assert(_gridx_resolution > 0)
         assert(_gridy_resolution > 0)
+        assert((_marg_idx1 > -1) and (_marg_idx1 < _marg_idx2) and (_marg_idx2 < self.n))
         if log_dir is None:
             _log_dir = None
         else:
@@ -752,13 +779,58 @@ class PyCauchyEstimator():
             elif _log_dir[-1] == "/":
                 _log_dir = log_dir[:-1]
 
-        cpdf_points, num_gridx, num_gridy = pycauchy.pycauchy_get_2D_pointwise_cpdf(self.py_handle, _gridx_low, _gridx_high, _gridx_resolution, _gridy_low, _gridy_high, _gridy_resolution, _log_dir)
+        cpdf_points, num_gridx, num_gridy = pycauchy.pycauchy_get_marginal_2D_pointwise_cpdf(self.py_handle, _marg_idx1, _marg_idx2, _gridx_low, _gridx_high, _gridx_resolution, _gridy_low, _gridy_high, _gridy_resolution, _log_dir)
         cpdf_points = cpdf_points.reshape(num_gridx*num_gridy, 3)
         X = cpdf_points[:,0].reshape( (num_gridy, num_gridx) )
         Y = cpdf_points[:,1].reshape( (num_gridy, num_gridx) )
         Z = cpdf_points[:,2].reshape( (num_gridy, num_gridx) )
         return X, Y, Z
+
+    def get_2D_pointwise_cpdf(self, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir = None):
+        if(self.is_initialized == False):
+            print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
+            return None,None,None
+        if(self.n != 2):
+            print("Cannot evaluate Cauchy Estimator 2D CPDF for a {}-state system!".format(self.n))
+            return None,None,None
+        return self.get_marginal_2D_pointwise_cpdf(0, 1, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir)
     
+    def get_marginal_1D_pointwise_cpdf(self, marg_idx, gridx_low, gridx_high, gridx_resolution, log_dir = None):
+        if(self.is_initialized == False):
+            print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
+            return None,None
+        
+        _marg_idx = int(marg_idx)
+        _gridx_low = float(gridx_low)
+        _gridx_high = float(gridx_high)
+        _gridx_resolution = float(gridx_resolution)
+        assert(_gridx_high > _gridx_low)
+        assert(_gridx_resolution > 0)
+        assert((_marg_idx > -1) and (_marg_idx < self.n))
+        if log_dir is None:
+            _log_dir = None
+        else:
+            _log_dir = str(log_dir)
+            if _log_dir == "":
+                _log_dir = None
+            elif _log_dir[-1] == "/":
+                _log_dir = log_dir[:-1]
+
+        cpdf_points, num_gridx = pycauchy.pycauchy_get_marginal_1D_pointwise_cpdf(self.py_handle, _marg_idx, _gridx_low, _gridx_high, _gridx_resolution, _log_dir)
+        cpdf_points = cpdf_points.reshape(num_gridx, 2)
+        X = cpdf_points[:,0]
+        Y = cpdf_points[:,1]
+        return X, Y
+
+    def get_1D_pointwise_cpdf(self, gridx_low, gridx_high, gridx_resolution, log_dir = None):
+        if(self.is_initialized == False):
+            print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
+            return None,None,None
+        if(self.n != 1):
+            print("Cannot evaluate Cauchy Estimator 1D CPDF for a {}-state system!".format(self.n))
+            return None,None,None
+        return self.get_marginal_1D_pointwise_cpdf(0, gridx_low, gridx_high, gridx_resolution, log_dir)
+
     def get_reinitialization_statistics(self):
         if( (self.step_count == 0) or (self.is_initialized == False) ):
             print("[Error get_reinitialization_statistics]: Cannot find reinitialization stats of an estimator not initialized, or that has not processed at least one measurement! Please correct!")
@@ -770,10 +842,11 @@ class PyCauchyEstimator():
         else:
             print("Mode Nonlinear Not implemented yet!")
             return None, None, None
+    
     def get_last_mean_cov(self):
         return self.moment_info["x"][-1], self.moment_info["P"][-1]
         
-    def plot_2D_pointwise_cpdf(self, X,Y,Z):
+    def plot_2D_pointwise_cpdf(self, X, Y, Z):
         GRID_HEIGHT = 8
         GRID_WIDTH = 2
         #plt.rc('text', usetex=True)
@@ -807,7 +880,6 @@ class PyCauchyEstimator():
         #ax.legend(loc=2, bbox_to_anchor=(-.52, 1), fontsize=14)
         plt.show()
 
-
     def __del__(self):
         if self.is_initialized:
             self.shutdown()
@@ -825,7 +897,6 @@ def load_data(f_data):
     file = open(f_data, 'r')
     lines = file.readlines()
     return np.array([[float(f) for f in line.split(" ")] for line in lines])
-
 
 def load_cauchy_log_folder(log_dir, with_win_logging = True):
     log_dir = log_dir + "/" if log_dir[-1] != "/" else log_dir
@@ -924,7 +995,6 @@ def log_cauchy(log_dir, moment_dic):
     np.savetxt(log_dir+"cerr_norm_factors.txt", np.array(moment_dic["cerr_fz"]), delimiter= " ")
     np.savetxt(log_dir+"numeric_error_codes.txt", np.array(moment_dic["err_code"]), delimiter= " ")
     
-
 def simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H, gamma, with_zeroth_step_msmt = True, dynamics_update_callback = None, other_params = None):
     if(B is not None):
         assert(us is not None)

@@ -276,11 +276,26 @@ void* pycauchy_initialize_lti(
     int init_step,  
     bool debug_print);
 
+//void pycauchy_single_step_shutdown(void* _pcdh); // this was not placed in here but still is okay
+
+%apply (double* IN_ARRAY1, int DIM1) {(double* xbar, int size_xbar)};
+void pycauchy_single_step_reset(
+    void* _pcdh, 
+    double* A0, int size_A0, 
+    double* p0, int size_p0, 
+    double* b0, int size_b0, 
+    double* xbar, int size_xbar);
 
 // CPDF Wrappers
-
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cpdf_data, int *size_out_cpdf_data)};
 %apply int* OUTPUT { int* out_num_gridx, int* out_num_gridy };
+
+void pycauchy_get_marginal_2D_pointwise_cpdf(void* _pcdh, 
+    int marg_idx1, int marg_idx2,
+    double gridx_low, double gridx_high, double gridx_resolution, 
+    double gridy_low, double gridy_high, double gridy_resolution, 
+    char* log_dir, 
+    double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx, int* out_num_gridy);
 
 void pycauchy_get_2D_pointwise_cpdf(void* _pcdh, 
     double gridx_low, double gridx_high, double gridx_resolution, 
@@ -288,6 +303,20 @@ void pycauchy_get_2D_pointwise_cpdf(void* _pcdh,
     char* log_dir, 
     double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx, int* out_num_gridy);
 
+void pycauchy_get_marginal_1D_pointwise_cpdf(
+    void* _pcdh, 
+    int marg_idx1,
+    double gridx_low, double gridx_high, double gridx_resolution, 
+    char* log_dir, 
+    double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx);
+
+void pycauchy_get_1D_pointwise_cpdf(
+    void* _pcdh,
+    double gridx_low, double gridx_high, double gridx_resolution, 
+    char* log_dir, 
+    double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx);
+
+// Helper Wrappers
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_A0, int *size_out_A0)};
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_p0, int *size_out_p0)};
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_b0, int *size_out_b0)};
@@ -297,7 +326,6 @@ void pycauchy_get_reinitialization_statistics(
     double** out_A0, int* size_out_A0,
     double** out_p0, int* size_out_p0,
     double** out_b0, int* size_out_b0 );
-
 
 %apply (double* IN_ARRAY1, int DIM1) {(double* x1_hat, int size_x1_hat)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* Var, int size_Var)};
@@ -311,6 +339,5 @@ void pycauchy_speyers_window_init(
                 double** out_p0, int* size_out_p0,
                 double** out_b0, int* size_out_b0);
 
-// Helper Wrappers
 %apply (int* IN_ARRAY1, int DIM1) {(int* ordering, int size_ordering)};
 int pycauchy_set_tr_search_idxs_ordering(int* ordering, int size_ordering);

@@ -2,6 +2,7 @@ import os
 import numpy as np
 import cauchy_estimator as ce
 import gaussian_filters as gf
+import matplotlib.pyplot as plt
 file_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Creates a single cauchy estimator instance and runs the estimator for several steps
@@ -183,6 +184,8 @@ def test_2state_cpdfs():
     XYZ2 = cauchyEsts[1].get_2D_pointwise_cpdf(xhat2[0]-0.5, xhat2[0]+0.5, 0.004, xhat2[1]-0.5, xhat2[1]+0.5, 0.004)
     cpdf_list = [XYZ1, XYZ2]
     cmean_list = [xhat1, xhat2]
+    cauchyEsts[0].plot_2D_pointwise_cpdf(*XYZ1)
+    cauchyEsts[1].plot_2D_pointwise_cpdf(*XYZ2)
     ce.plot_2D_pointwise_cpdfs(cpdf_list, cmean_list, colors[:2])
 
     for i in range(3,7):
@@ -317,12 +320,108 @@ def test_2state_lti_window_manager():
     ce.plot_simulation_history( cauchyEst.moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf) )
     #foobar = 0 # hold plots up in debug mode by breaking here
 
+# Runs the 3-state dummy problem and looks at their marginals
+def test_3state_marginal_cpdfs():
+    ndim = 3
+    Phi = np.array([ [1.4, -0.6, -1.0], 
+                     [-0.2,  1.0,  0.5],  
+                     [0.6, -0.6, -0.2]] )
+    Gamma = np.array([.1, 0.3, -0.2])
+    H = np.array([1.0, 0.5, 0.2])
+    beta = np.array([0.1]) # Cauchy process noise scaling parameter(s)
+    gamma = np.array([0.2]) # Cauchy measurement noise scaling parameter(s)
+    A0 = np.eye(ndim) # Unit directions of the initial state uncertainty
+    p0 = np.array([0.10, 0.08, 0.05]) # Initial state uncertainty cauchy scaling parameter(s)
+    b0 = np.zeros(ndim) # Initial median of system state
+
+    zs = [0.022172011200334241, -0.11943271347277583, -1.22353301003957098, 
+            -1.4055389648301792, -1.34053610027255954, 0.4580483915838776, 
+            0.65152999529515989, 0.52378648722334, 0.75198272983]
+    num_steps = len(zs)
+    
+    # 2D Grid Params
+    g2lx = -2
+    g2hx = 2
+    g2rx = 0.025
+    g2ly = -2
+    g2hy = 2
+    g2ry = 0.025
+
+    # 1D Grid Params
+    g1lx = -4
+    g1hx = 4
+    g1rx = 0.001
+    
+    # Testing Single Cauchy Estimator Instance
+    cauchyEst = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
+    cauchyEst.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
+    for i in range(len(zs)-1):
+        zk1 = zs[i]
+        cauchyEst.step(zk1, None)
+        X01, Y01, Z01 = cauchyEst.get_marginal_2D_pointwise_cpdf(0, 1, g2lx, g2hx, g2rx, g2ly, g2hy, g2ry)
+        X02, Y02, Z02 = cauchyEst.get_marginal_2D_pointwise_cpdf(0, 2, g2lx, g2hx, g2rx, g2ly, g2hy, g2ry)
+        X12, Y12, Z12 = cauchyEst.get_marginal_2D_pointwise_cpdf(1, 2, g2lx, g2hx, g2rx, g2ly, g2hy, g2ry)
+        x0, y0 = cauchyEst.get_marginal_1D_pointwise_cpdf(0, g1lx, g1hx, g1rx)
+        x1, y1 = cauchyEst.get_marginal_1D_pointwise_cpdf(1, g1lx, g1hx, g1rx)
+        x2, y2 = cauchyEst.get_marginal_1D_pointwise_cpdf(2, g1lx, g1hx, g1rx)
+
+        # set up a figure three times as wide as it is tall
+        fig1 = plt.figure(figsize = (18,5))
+        ax12 = fig1.add_subplot(1,3,1,projection='3d')
+        ax13 = fig1.add_subplot(1,3,2,projection='3d')
+        ax23 = fig1.add_subplot(1,3,3,projection='3d')
+        plt.tight_layout()
+        # Marg 2D
+        # Marg (0,1)
+        ax12.set_title("Marginal of States 1 and 2", pad=-15)
+        ax12.plot_wireframe(X01, Y01, Z01, zorder=2, color='b')
+        ax12.set_xlabel("x-axis (State-1)")
+        ax12.set_ylabel("y-axis (State-2)")
+        ax12.set_zlabel("z-axis (CPDF Probability)")
+        # Marg (0,2)
+        ax13.set_title("Marginal of States 1 and 3", pad=-8)
+        ax13.plot_wireframe(X02, Y02, Z02, zorder=2, color='g')
+        ax13.set_xlabel("x-axis (State-1)")
+        ax13.set_ylabel("y-axis (State-3)")
+        ax13.set_zlabel("z-axis (CPDF Probability)")
+        # Marg (1,2)
+        ax23.set_title("Marginal of States 2 and 3", pad=-8)
+        ax23.plot_wireframe(X12, Y12, Z12, zorder=2, color='r')
+        ax23.set_xlabel("x-axis (State-2)")
+        ax23.set_ylabel("y-axis (State-3)")
+        ax23.set_zlabel("z-axis (CPDF Probability)")
+
+        # set up a figure three times as wide as it is tall
+        fig2 = plt.figure(figsize = (18,4))
+        ax1 = fig2.add_subplot(1,3,1)
+        ax2 = fig2.add_subplot(1,3,2)
+        ax3 = fig2.add_subplot(1,3,3)
+        # Marg 1D
+        # Marg 1
+        ax1.set_title("1D Marg of State 1")
+        ax1.plot(x0,y0)
+        ax1.set_xlabel("State 1")
+        ax1.set_ylabel("CPDF Probability")
+        # Marg 2
+        ax2.set_title("1D Marg of State 2")
+        ax2.plot(x1,y1)
+        ax2.set_xlabel("State 2")
+        ax2.set_ylabel("CPDF Probability")
+        # # Marg 3
+        ax3.set_title("1D Marg of State 3")
+        ax3.plot(x2,y2)
+        ax3.set_xlabel("State 3")
+        ax3.set_ylabel("CPDF Probability")
+        plt.show()
+        plt.close()
+    cauchyEst.shutdown()
 
 
 if __name__ == "__main__":
-    test_1state_lti()
+    #test_1state_lti()
     #test_2state_cpdfs()
     #test_2state_lti_single_window()
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
     #test_3state_lti_window_manager()
+    test_3state_marginal_cpdfs()
