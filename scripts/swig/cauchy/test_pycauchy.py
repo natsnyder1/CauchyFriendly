@@ -357,7 +357,7 @@ def test_3state_marginal_cpdfs():
     cauchyEst.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
     for i in range(len(zs)-1):
         zk1 = zs[i]
-        cauchyEst.step(zk1, None)
+        xs, Ps = cauchyEst.step(zk1, None)
         X01, Y01, Z01 = cauchyEst.get_marginal_2D_pointwise_cpdf(0, 1, g2lx, g2hx, g2rx, g2ly, g2hy, g2ry)
         X02, Y02, Z02 = cauchyEst.get_marginal_2D_pointwise_cpdf(0, 2, g2lx, g2hx, g2rx, g2ly, g2hy, g2ry)
         X12, Y12, Z12 = cauchyEst.get_marginal_2D_pointwise_cpdf(1, 2, g2lx, g2hx, g2rx, g2ly, g2hy, g2ry)
@@ -414,7 +414,8 @@ def test_3state_marginal_cpdfs():
         ax3.set_ylabel("CPDF Probability")
         plt.show()
         plt.close()
-    cauchyEst.shutdown()
+        
+
 
 
 if __name__ == "__main__":

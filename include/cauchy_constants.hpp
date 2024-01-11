@@ -16,7 +16,7 @@ const double COALIGN_TP_EPS = 1e-8;
 // MU Settings
 const double MU_EPS = 1e-10;
 const double COALIGN_MU_EPS = COALIGN_TP_EPS;
-const bool SKIP_LAST_STEP = true;
+const bool SKIP_LAST_STEP = false;
 const bool WITH_MSMT_UPDATE_ORTHOG_WARNING = false;
 
 // Shared TP and MU Coalignment Settings

@@ -22,64 +22,105 @@ import_array();
 void pycauchy_shutdown();
 void pycauchy_single_step_shutdown(void *_pcdh);
 
-// Python Wrapper to step the C-side Sliding Window Manager
+// Input array naming convention
 %apply (double* IN_ARRAY1, int DIM1) {(double* msmts, int size_msmts)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* controls, int size_controls)};
-%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_x, int *size_out_x)};
-%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_P, int *size_out_P)};
-%apply double* OUTPUT { double *out_fz, double *out_cerr_x, double* out_cerr_P, double* out_cerr_fz };
-%apply int* OUTPUT { int* out_win_idx, int* out_err_code };
-void pycauchy_step(
-    double* msmts, int size_msmts,
-    double* controls, int size_controls,
-    double* out_fz, 
-    double** out_x, int* size_out_x,
-    double** out_P, int* size_out_P, 
-    double* out_cerr_fz, double* out_cerr_x, double* out_cerr_P, 
-    int* out_win_idx, int* out_err_code);
-
-void pycauchy_single_step_ltiv(
-    void* _pcdh,
-    double* msmts, int size_msmts,
-    double* controls, int size_controls,
-    bool full_info,
-    double* out_fz, 
-    double** out_x, int* size_out_x,
-    double** out_P, int* size_out_P, 
-    double* out_cerr_fz, double* out_cerr_x, double* out_cerr_P, 
-    int* out_err_code);
-
-void pycauchy_single_step_nonlin(
-    void* _pcdh,
-    double* msmts, int size_msmts,
-    double* controls, int size_controls,
-    bool with_propagate,
-    bool full_info,
-    double* out_fz, 
-    double** out_x, int* size_out_x,
-    double** out_P, int* size_out_P, 
-    double* out_cerr_fz, double* out_cerr_x, double* out_cerr_P, 
-    int* out_err_code);
-
-%clear (double* msmts, int size_msmts);
-%clear (double* controls, int size_controls);
-%clear (double **out_x, int *size_out_x);
-%clear (double **out_P, int *size_out_P);
-%clear (double *out_fz, double *out_cerr_x, double* out_cerr_P, double* out_cerr_fz);
-%clear (int* out_win_idx, int* out_err_code);
-
-// Python Wrapper to initialize the C-side Sliding Window Manager for LTI systems
+%apply (double* IN_ARRAY1, int DIM1) {(double* x0, int size_x0)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* A0, int size_A0)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* p0, int size_p0)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* b0, int size_b0)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* Phi, int size_Phi)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* Gamma, int size_Gamma)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* B, int size_B)};
-%apply (double* IN_ARRAY1, int DIM1) {(double* beta, int size_beta)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* H, int size_H)};
+%apply (double* IN_ARRAY1, int DIM1) {(double* beta, int size_beta)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* gamma, int size_gamma)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* win_var_boost, int size_wvb)};
+%apply (double* IN_ARRAY1, int DIM1) {(double* xbar, int size_xbar)};
+%apply (double* IN_ARRAY1, int DIM1) {(double* xhat, int size_xhat)};
+%apply (double* IN_ARRAY1, int DIM1) {(double* Phat, int size_Phat)};
+%apply (int* IN_ARRAY1, int DIM1) {(int* ordering, int size_ordering)};
 
+// Output array naming convention
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_A0, int *size_out_A0)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_p0, int *size_out_p0)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_b0, int *size_out_b0)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_Phi, int *size_out_Phi)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_Gamma, int *size_out_Gamma)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_B, int *size_out_B)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_H, int *size_out_H)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_gamma, int *size_out_gamma)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_beta, int *size_out_beta)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_xhat, int *size_out_xhat)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_Phat, int *size_out_Phat)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_xbar, int *size_out_xbar)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_zbar, int *size_out_zbar)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_fz, int *size_out_fz)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cerr_xhat, int *size_out_cerr_xhat)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cerr_Phat, int *size_out_cerr_Phat)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cerr_fz, int *size_out_cerr_fz)};
+%apply (int** ARGOUTVIEWM_ARRAY1, int* DIM1) {(int **out_err_code, int *size_out_err_code)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cpdf_data, int *size_out_cpdf_data)};
+
+// Output scalar naming convention
+%apply int* OUTPUT { int* out_num_gridx, int* out_num_gridy };
+%apply double* OUTPUT { double *out_swm_fz, double *out_swm_cerr_xhat, double* out_swm_cerr_Phat, double* out_swm_cerr_fz };
+%apply int* OUTPUT { int* out_swm_win_idx, int* out_swm_err_code };
+
+// Python Wrapper to step the C-side Sliding Window Manager
+void pycauchy_step(
+    double* msmts, int size_msmts,
+    double* controls, int size_controls,
+    double* out_swm_fz, 
+    double** out_xhat, int* size_out_xhat,
+    double** out_Phat, int* size_out_Phat, 
+    double* out_swm_cerr_fz, 
+    double* out_swm_cerr_xhat, 
+    double* out_swm_cerr_Phat, 
+    int* out_swm_win_idx, 
+    int* out_swm_err_code);
+
+void pycauchy_single_step_ltiv(
+    void* _pcdh,
+    double* msmts, int size_msmts,
+    double* controls, int size_controls,
+    double** out_Phi, int* size_out_Phi,
+    double** out_Gamma, int* size_out_Gamma, 
+    double** out_B, int* size_out_B,
+    double** out_H, int* size_out_H,
+    double** out_beta, int* size_out_beta,
+    double** out_gamma, int* size_out_gamma,
+    double** out_fz, int* size_out_fz,
+    double** out_xhat, int* size_out_xhat,
+    double** out_Phat, int* size_out_Phat, 
+    double** out_cerr_fz, int* size_out_cerr_fz,
+    double** out_cerr_xhat, int* size_out_cerr_xhat,
+    double** out_cerr_Phat, int* size_out_cerr_Phat,
+    int** out_err_code, int* size_out_err_code);
+
+void pycauchy_single_step_nonlin(
+    void* _pcdh,
+    double* msmts, int size_msmts,
+    double* controls, int size_controls,
+    bool with_propagate, 
+    double** out_Phi, int* size_out_Phi,
+    double** out_Gamma, int* size_out_Gamma, 
+    double** out_B, int* size_out_B,
+    double** out_H, int* size_out_H,
+    double** out_beta, int* size_out_beta,
+    double** out_gamma, int* size_out_gamma,
+    double** out_fz, int* size_out_fz,
+    double** out_xhat, int* size_out_xhat,
+    double** out_Phat, int* size_out_Phat,
+    double** out_xbar, int* size_out_xbar,
+    double** out_zbar, int* size_out_zbar, 
+    double** out_cerr_fz, int* size_out_cerr_fz,
+    double** out_cerr_xhat, int* size_out_cerr_xhat,
+    double** out_cerr_Phat, int* size_out_cerr_Phat,
+    int** out_err_code, int* size_out_err_code);
+
+
+// Python Wrapper to initialize the C-side Sliding Window Manager for LTI systems
 void pycauchy_initialize_lti_window_manager(
     int num_windows, int num_sim_steps,
     double* A0, int size_A0,
@@ -166,7 +207,7 @@ void pycauchy_initialize_lti_window_manager(
         void (*f_dyn_update_callback)(CauchyDynamicsUpdateContainer*),
         void (*f_nonlinear_msmt_model)(CauchyDynamicsUpdateContainer*, double*),
         void (*f_extended_msmt_update_callback)(CauchyDynamicsUpdateContainer*),
-        int cmcc,  
+        int cmcc,
         double dt, int init_step, bool debug_print);
 
     void* pycauchy_initialize_ltv(
@@ -184,10 +225,8 @@ void pycauchy_initialize_lti_window_manager(
         double dt,
         int init_step,  
         bool debug_print);
-
 %}
 
-%apply (double* IN_ARRAY1, int DIM1) {(double* x0, int size_x0)};
 // Python Wrapper to initialize the C-side Sliding Window Manager for Nonlinear systems
 void pycauchy_initialize_nonlin_window_manager(
     int num_windows, int num_sim_steps,
@@ -278,7 +317,6 @@ void* pycauchy_initialize_lti(
 
 //void pycauchy_single_step_shutdown(void* _pcdh); // this was not placed in here but still is okay
 
-%apply (double* IN_ARRAY1, int DIM1) {(double* xbar, int size_xbar)};
 void pycauchy_single_step_reset(
     void* _pcdh, 
     double* A0, int size_A0, 
@@ -287,8 +325,6 @@ void pycauchy_single_step_reset(
     double* xbar, int size_xbar);
 
 // CPDF Wrappers
-%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cpdf_data, int *size_out_cpdf_data)};
-%apply int* OUTPUT { int* out_num_gridx, int* out_num_gridy };
 
 void pycauchy_get_marginal_2D_pointwise_cpdf(void* _pcdh, 
     int marg_idx1, int marg_idx2,
@@ -317,27 +353,24 @@ void pycauchy_get_1D_pointwise_cpdf(
     double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx);
 
 // Helper Wrappers
-%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_A0, int *size_out_A0)};
-%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_p0, int *size_out_p0)};
-%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_b0, int *size_out_b0)};
-
 void pycauchy_get_reinitialization_statistics(
-    void* _pcdh, double z,
+    void* _pcdh, 
+    double z, 
+    double* xhat, int size_xhat,
+    double* Phat, int size_Phat,
+    double* H, int size_H,
+    double gamma,
     double** out_A0, int* size_out_A0,
     double** out_p0, int* size_out_p0,
-    double** out_b0, int* size_out_b0 );
-
-%apply (double* IN_ARRAY1, int DIM1) {(double* x1_hat, int size_x1_hat)};
-%apply (double* IN_ARRAY1, int DIM1) {(double* Var, int size_Var)};
+    double** out_b0, int* size_out_b0);
 
 void pycauchy_speyers_window_init(
-                double* x1_hat, int size_x1_hat,
-                double* Var, int size_Var,
+                double* xhat, int size_xhat,
+                double* Phat, int size_Phat,
                 double* H, int size_H,
                 double gamma, double z,  
                 double** out_A0, int* size_out_A0,
                 double** out_p0, int* size_out_p0,
                 double** out_b0, int* size_out_b0);
 
-%apply (int* IN_ARRAY1, int DIM1) {(int* ordering, int size_ordering)};
 int pycauchy_set_tr_search_idxs_ordering(int* ordering, int size_ordering);

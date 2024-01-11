@@ -41,7 +41,7 @@ class leo_satellite_5state():
     cmcc = 1
     # Orbital distances
     r_earth = 6378.1e3 # spherical approximation of earths radius (meters)
-    r_sat = 350e3 # orbit distance of satellite above earths surface (meters)
+    r_sat = 200e3 # orbit distance of satellite above earths surface (meters)
     
     # Satellite parameter specifics
     M = 5.9722e24 # Mass of earth (kg)
@@ -298,13 +298,13 @@ def test_leo5():
     #zs = np.genfromtxt(file_dir + "/../../../log/leo5/dense/w5/msmts.txt", delimiter= ' ')
     #zs = zs[1:,:]
     prop_steps = 150
-    xs, zs, ws, vs = simulate_leo5_state(prop_steps, with_sas_density=True, with_added_jumps=False)
+    xs, zs, ws, vs = simulate_leo5_state(prop_steps, with_sas_density=True, with_added_jumps=True)
     zs_without_z0 = zs[1:,:]
 
     # Run EKF 
     W_kf = leo.W.copy()
     V_kf = leo.V.copy()
-    #W_kf[4,4] *= 1000
+    W_kf[4,4] *= 1000
     xs_kf, Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs_without_z0, ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
     
     ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
@@ -1068,7 +1068,106 @@ def test_innovation2():
     plt.show()
     print("max_diff is", max_diff)
     
+def test_python_debug_window_manager():
+    global leo
+    # 2124125479 -- no huge jumps
+    seed = 2124125479 #int(np.random.rand() * (2**32 -1)) #3872826552#
+    print("Seeding with seed: ", seed)
+    np.random.seed(seed)
 
+    # Get Ground Truth and Measurements
+    #zs = np.genfromtxt(file_dir + "/../../../log/leo5/dense/w5/msmts.txt", delimiter= ' ')
+    #zs = zs[1:,:]
+    prop_steps = 150
+    xs, zs, ws, vs = simulate_leo5_state(prop_steps, with_sas_density=True, with_added_jumps=True)
+    zs_without_z0 = zs[1:,:]
+
+    # Run EKF 
+    '''
+    W_kf = leo.W.copy()
+    V_kf = leo.V.copy()
+    W_kf[4,4] *= 1000
+    xs_kf, Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs_without_z0, ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
+    
+    ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
+    '''
+
+    # Run Cauchy Estimator
+    #'''
+    beta = np.array([leo.beta_cauchy])
+    gamma = np.array([leo.std_dev_gps * leo.GAUSS_TO_CAUCHY, leo.std_dev_gps * leo.GAUSS_TO_CAUCHY])
+    #beta_scale = 50
+    #beta = np.array([leo.beta_cauchy / beta_scale])
+    #gamma_scale = 5
+    #gamma = gamma_scale*np.array([leo.std_dev_gps * leo.GAUSS_TO_CAUCHY, leo.std_dev_gps * leo.GAUSS_TO_CAUCHY])
+    
+    # Create Phi.T as A0, start at propagated x0
+    # Initialize Initial Hyperplanes
+    Phi, _ = leo_5state_transition_model_jacobians(leo.x0)
+    xbar = leo_5state_transition_model(leo.x0)
+    A0 = Phi.T.copy()
+    p0 = np.repeat(leo.alpha_pv_cauchy, 5)
+    p0[4] = leo.alpha_density_cauchy
+    b0 = np.zeros(5)
+    num_controls = 0
+
+    num_windows = 6
+    total_steps = prop_steps
+    ce.set_tr_search_idxs_ordering([3,2,4,1,0])
+    log_dir = file_dir + "/pylog/debug_w"+str(6) + "_" + str(int(leo.r_sat/1000)) + "km"
+    debug_print = True
+    #cauchyEsts = [ce.PyCauchyEstimator("nonlin", num_windows, debug_print) for _ in range(num_windows)]#ce.PySlidingWindowManager("nonlin", num_windows, total_steps, log_dir=log_dir, log_seq=True, log_full=True)
+    #cauchyEsts[0].initialize_nonlin(xbar, A0, p0, b0, beta, gamma, ece_dynamics_update_callback, ece_nonlinear_msmt_model, ece_extended_msmt_update_callback, num_controls)
+
+    cauchyEst = ce.PyCauchyEstimator("nonlin", num_windows, debug_print)
+    cauchyEst.initialize_nonlin(xbar, A0, p0, b0, beta, gamma, ece_dynamics_update_callback, ece_nonlinear_msmt_model, ece_extended_msmt_update_callback, num_controls)
+    for i in range(1, num_windows+1):
+        zk = zs[i]
+        xhat, Phat = cauchyEst.step(zk, None)
+        xtrue = xs[i]
+
+        std00 = 3*np.sqrt(Phat[0,0])
+        std11 = 3*np.sqrt(Phat[1,1])
+        std22 = 3*np.sqrt(Phat[2,2])
+        std33 = 3*np.sqrt(Phat[3,3])
+        std44 = 3*np.sqrt(Phat[4,4])
+        x0, y0 = cauchyEst.get_marginal_1D_pointwise_cpdf(0, -std00, std00, 0.001)
+        x1, y1 = cauchyEst.get_marginal_1D_pointwise_cpdf(1, -std11, std11, 0.001)
+        x2, y2 = cauchyEst.get_marginal_1D_pointwise_cpdf(2, -std22, std22, 0.001)
+        x3, y3 = cauchyEst.get_marginal_1D_pointwise_cpdf(3, -std33, std33, 0.001)
+        x4, y4 = cauchyEst.get_marginal_1D_pointwise_cpdf(4, -std44, std44, 0.001)
+        plt.subplot(511)
+        plt.plot(x0 + xhat[0], y0)
+        plt.scatter(xtrue[0], 0, color='r', marker='x')
+        plt.scatter(xhat[0], 0, color='b', marker='x')
+        plt.subplot(512)
+        plt.plot(x1 + xhat[1], y1)
+        plt.scatter(xtrue[1], 0, color='r', marker='x')
+        plt.scatter(xhat[1], 0, color='b', marker='x')
+        plt.subplot(513)
+        plt.plot(x2 + xhat[2], y2)
+        plt.scatter(xtrue[2], 0, color='r', marker='x')
+        plt.scatter(xhat[2], 0, color='b', marker='x')
+        plt.subplot(514)
+        plt.plot(x3 + xhat[3], y3)
+        plt.scatter(xtrue[3], 0, color='r', marker='x')
+        plt.scatter(xhat[3], 0, color='b', marker='x')
+        plt.subplot(515)
+        plt.plot(x4 + xhat[4], y4)
+        plt.scatter(xtrue[4], 0, color='r', marker='x')
+        plt.scatter(xhat[4], 0, color='b', marker='x')
+        plt.show()
+        foobar = 3
+
+
+
+    #for zk in zs_without_z0:
+    #    cauchyEst.step(zk, None)
+    #cauchyEst.shutdown()
+    #'''
+
+    #ce.plot_simulation_history(cauchyEst.moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
+    foobar = 2
 
 
 if __name__ == '__main__':
@@ -1078,5 +1177,6 @@ if __name__ == '__main__':
     #test_kalman_filter_smoother()
     #test_kf_ce_smoothing()
     #test_leo5_windows()
-    test_innovation()
+    #test_innovation()
     #test_innovation2()
+    test_python_debug_window_manager()

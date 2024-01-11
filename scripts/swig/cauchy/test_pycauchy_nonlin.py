@@ -68,7 +68,8 @@ def simulate_pendulum(x0, steps):
         zk = pend.H @ xk + vk
         vs.append(vk)
         zs.append(zk)
-    return ( np.array(xs), np.array(zs).reshape((steps+1,1)), np.array(ws).reshape((steps,1)), np.array(vs).reshape((steps+1,1)) )
+    
+    return ( np.array(xs), np.array(zs).reshape((steps+1,1)), np.array(ws).reshape((steps,2)), np.array(vs).reshape((steps+1,1)) )
 
 def ekf_f(x, u, other_params):
     return ce.runge_kutta4(pend_ode, x, pend.dt)
@@ -126,7 +127,7 @@ xs_kf, Ps_kf = gf.run_extended_kalman_filter(x0_kf, None, zs[1:], ekf_f, ekf_h, 
 A0 = np.eye(2)
 p0 = np.sqrt(np.diag(P0)) * ce.GAUSSIAN_TO_CAUCHY_NOISE
 b0 = np.zeros(2)
-beta = (np.sqrt(W) * ce.GAUSSIAN_TO_CAUCHY_NOISE).reshape(-1) #/ 8 # tuning
+beta = (np.sqrt(W) * ce.GAUSSIAN_TO_CAUCHY_NOISE).reshape(-1) / 5 #/ 8 # tuning
 gamma = (np.sqrt(V) * ce.GAUSSIAN_TO_CAUCHY_NOISE).reshape(-1) #/ np.sqrt(2) # tuning
 
 

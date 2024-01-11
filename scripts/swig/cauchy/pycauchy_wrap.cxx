@@ -3012,9 +3012,10 @@ SWIG_Python_NonDynamicSetAttr(PyObject *obj, PyObject *name, PyObject *value) {
 #define SWIGTYPE_p_f_p_CauchyDynamicsUpdateContainer_p_double__void swig_types[3]
 #define SWIGTYPE_p_int swig_types[4]
 #define SWIGTYPE_p_p_double swig_types[5]
-#define SWIGTYPE_p_void swig_types[6]
-static swig_type_info *swig_types[8];
-static swig_module_info swig_module = {swig_types, 7, 0, 0, 0, 0};
+#define SWIGTYPE_p_p_int swig_types[6]
+#define SWIGTYPE_p_void swig_types[7]
+static swig_type_info *swig_types[9];
+static swig_module_info swig_module = {swig_types, 8, 0, 0, 0, 0};
 #define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)
 #define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)
 
@@ -3957,7 +3958,7 @@ SWIG_AsCharPtrAndSize(PyObject *obj, char** cptr, size_t* psize, int *alloc)
         void (*f_dyn_update_callback)(CauchyDynamicsUpdateContainer*),
         void (*f_nonlinear_msmt_model)(CauchyDynamicsUpdateContainer*, double*),
         void (*f_extended_msmt_update_callback)(CauchyDynamicsUpdateContainer*),
-        int cmcc,  
+        int cmcc,
         double dt, int init_step, bool debug_print);
 
     void* pycauchy_initialize_ltv(
@@ -3975,7 +3976,6 @@ SWIG_AsCharPtrAndSize(PyObject *obj, char** cptr, size_t* psize, int *alloc)
         double dt,
         int init_step,  
         bool debug_print);
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -4210,43 +4210,71 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_ltiv(PyObject *SWIGUNUSEDPARM(se
   int arg3 ;
   double *arg4 = (double *) 0 ;
   int arg5 ;
-  bool arg6 ;
-  double *arg7 = (double *) 0 ;
+  double **arg6 = (double **) 0 ;
+  int *arg7 = (int *) 0 ;
   double **arg8 = (double **) 0 ;
   int *arg9 = (int *) 0 ;
   double **arg10 = (double **) 0 ;
   int *arg11 = (int *) 0 ;
-  double *arg12 = (double *) 0 ;
-  double *arg13 = (double *) 0 ;
-  double *arg14 = (double *) 0 ;
+  double **arg12 = (double **) 0 ;
+  int *arg13 = (int *) 0 ;
+  double **arg14 = (double **) 0 ;
   int *arg15 = (int *) 0 ;
+  double **arg16 = (double **) 0 ;
+  int *arg17 = (int *) 0 ;
+  double **arg18 = (double **) 0 ;
+  int *arg19 = (int *) 0 ;
+  double **arg20 = (double **) 0 ;
+  int *arg21 = (int *) 0 ;
+  double **arg22 = (double **) 0 ;
+  int *arg23 = (int *) 0 ;
+  double **arg24 = (double **) 0 ;
+  int *arg25 = (int *) 0 ;
+  double **arg26 = (double **) 0 ;
+  int *arg27 = (int *) 0 ;
+  double **arg28 = (double **) 0 ;
+  int *arg29 = (int *) 0 ;
+  int **arg30 = (int **) 0 ;
+  int *arg31 = (int *) 0 ;
   int res1 ;
   PyArrayObject *array2 = NULL ;
   int is_new_object2 = 0 ;
   PyArrayObject *array4 = NULL ;
   int is_new_object4 = 0 ;
-  bool val6 ;
-  int ecode6 = 0 ;
-  double temp7 ;
-  int res7 = SWIG_TMPOBJ ;
+  double *data_temp6 = NULL ;
+  int dim_temp6 ;
   double *data_temp8 = NULL ;
   int dim_temp8 ;
   double *data_temp10 = NULL ;
   int dim_temp10 ;
-  double temp12 ;
-  int res12 = SWIG_TMPOBJ ;
-  double temp13 ;
-  int res13 = SWIG_TMPOBJ ;
-  double temp14 ;
-  int res14 = SWIG_TMPOBJ ;
-  int temp15 ;
-  int res15 = SWIG_TMPOBJ ;
+  double *data_temp12 = NULL ;
+  int dim_temp12 ;
+  double *data_temp14 = NULL ;
+  int dim_temp14 ;
+  double *data_temp16 = NULL ;
+  int dim_temp16 ;
+  double *data_temp18 = NULL ;
+  int dim_temp18 ;
+  double *data_temp20 = NULL ;
+  int dim_temp20 ;
+  double *data_temp22 = NULL ;
+  int dim_temp22 ;
+  double *data_temp24 = NULL ;
+  int dim_temp24 ;
+  double *data_temp26 = NULL ;
+  int dim_temp26 ;
+  double *data_temp28 = NULL ;
+  int dim_temp28 ;
+  int *data_temp30 = NULL ;
+  int dim_temp30 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   PyObject * obj2 = 0 ;
-  PyObject * obj3 = 0 ;
   
-  arg7 = &temp7;
+  {
+    arg6 = &data_temp6;
+    arg7 = &dim_temp6;
+  }
   {
     arg8 = &data_temp8;
     arg9 = &dim_temp8;
@@ -4255,11 +4283,47 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_ltiv(PyObject *SWIGUNUSEDPARM(se
     arg10 = &data_temp10;
     arg11 = &dim_temp10;
   }
-  arg12 = &temp12;
-  arg13 = &temp13;
-  arg14 = &temp14;
-  arg15 = &temp15;
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:pycauchy_single_step_ltiv",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  {
+    arg12 = &data_temp12;
+    arg13 = &dim_temp12;
+  }
+  {
+    arg14 = &data_temp14;
+    arg15 = &dim_temp14;
+  }
+  {
+    arg16 = &data_temp16;
+    arg17 = &dim_temp16;
+  }
+  {
+    arg18 = &data_temp18;
+    arg19 = &dim_temp18;
+  }
+  {
+    arg20 = &data_temp20;
+    arg21 = &dim_temp20;
+  }
+  {
+    arg22 = &data_temp22;
+    arg23 = &dim_temp22;
+  }
+  {
+    arg24 = &data_temp24;
+    arg25 = &dim_temp24;
+  }
+  {
+    arg26 = &data_temp26;
+    arg27 = &dim_temp26;
+  }
+  {
+    arg28 = &data_temp28;
+    arg29 = &dim_temp28;
+  }
+  {
+    arg30 = &data_temp30;
+    arg31 = &dim_temp30;
+  }
+  if (!PyArg_ParseTuple(args,(char *)"OOO:pycauchy_single_step_ltiv",&obj0,&obj1,&obj2)) SWIG_fail;
   res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
   if (!SWIG_IsOK(res1)) {
     SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_ltiv" "', argument " "1"" of type '" "void *""'"); 
@@ -4288,18 +4352,30 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_ltiv(PyObject *SWIGUNUSEDPARM(se
     arg4 = (double*) array_data(array4);
     arg5 = (int) array_size(array4,0);
   }
-  ecode6 = SWIG_AsVal_bool(obj3, &val6);
-  if (!SWIG_IsOK(ecode6)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "pycauchy_single_step_ltiv" "', argument " "6"" of type '" "bool""'");
-  } 
-  arg6 = static_cast< bool >(val6);
-  pycauchy_single_step_ltiv(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15);
+  pycauchy_single_step_ltiv(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19,arg20,arg21,arg22,arg23,arg24,arg25,arg26,arg27,arg28,arg29,arg30,arg31);
   resultobj = SWIG_Py_Void();
-  if (SWIG_IsTmpObj(res7)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg7)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res7) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg7), SWIGTYPE_p_double, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg7 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg6));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg6), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg6), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
   {
     npy_intp dims[1] = {
@@ -4347,29 +4423,235 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_ltiv(PyObject *SWIGUNUSEDPARM(se
     
     resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
-  if (SWIG_IsTmpObj(res12)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg12)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res12) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg12), SWIGTYPE_p_double, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg13 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg12));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg12), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg12), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
-  if (SWIG_IsTmpObj(res13)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg13)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res13) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg13), SWIGTYPE_p_double, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg15 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg14));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg14), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg14), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
-  if (SWIG_IsTmpObj(res14)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg14)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res14) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg14), SWIGTYPE_p_double, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg17 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg16));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg16), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg16), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
-  if (SWIG_IsTmpObj(res15)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_int((*arg15)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res15) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg15), SWIGTYPE_p_int, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg19 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg18));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg18), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg18), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg21 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg20));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg20), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg20), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg23 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg22));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg22), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg22), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg25 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg24));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg24), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg24), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg27 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg26));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg26), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg26), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg29 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg28));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg28), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg28), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg31 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_INT, (void*)(*arg30));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg30), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg30), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
   {
     if (is_new_object2 && array2)
@@ -4409,16 +4691,36 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(
   double *arg4 = (double *) 0 ;
   int arg5 ;
   bool arg6 ;
-  bool arg7 ;
-  double *arg8 = (double *) 0 ;
+  double **arg7 = (double **) 0 ;
+  int *arg8 = (int *) 0 ;
   double **arg9 = (double **) 0 ;
   int *arg10 = (int *) 0 ;
   double **arg11 = (double **) 0 ;
   int *arg12 = (int *) 0 ;
-  double *arg13 = (double *) 0 ;
-  double *arg14 = (double *) 0 ;
-  double *arg15 = (double *) 0 ;
+  double **arg13 = (double **) 0 ;
+  int *arg14 = (int *) 0 ;
+  double **arg15 = (double **) 0 ;
   int *arg16 = (int *) 0 ;
+  double **arg17 = (double **) 0 ;
+  int *arg18 = (int *) 0 ;
+  double **arg19 = (double **) 0 ;
+  int *arg20 = (int *) 0 ;
+  double **arg21 = (double **) 0 ;
+  int *arg22 = (int *) 0 ;
+  double **arg23 = (double **) 0 ;
+  int *arg24 = (int *) 0 ;
+  double **arg25 = (double **) 0 ;
+  int *arg26 = (int *) 0 ;
+  double **arg27 = (double **) 0 ;
+  int *arg28 = (int *) 0 ;
+  double **arg29 = (double **) 0 ;
+  int *arg30 = (int *) 0 ;
+  double **arg31 = (double **) 0 ;
+  int *arg32 = (int *) 0 ;
+  double **arg33 = (double **) 0 ;
+  int *arg34 = (int *) 0 ;
+  int **arg35 = (int **) 0 ;
+  int *arg36 = (int *) 0 ;
   int res1 ;
   PyArrayObject *array2 = NULL ;
   int is_new_object2 = 0 ;
@@ -4426,29 +4728,45 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(
   int is_new_object4 = 0 ;
   bool val6 ;
   int ecode6 = 0 ;
-  bool val7 ;
-  int ecode7 = 0 ;
-  double temp8 ;
-  int res8 = SWIG_TMPOBJ ;
+  double *data_temp7 = NULL ;
+  int dim_temp7 ;
   double *data_temp9 = NULL ;
   int dim_temp9 ;
   double *data_temp11 = NULL ;
   int dim_temp11 ;
-  double temp13 ;
-  int res13 = SWIG_TMPOBJ ;
-  double temp14 ;
-  int res14 = SWIG_TMPOBJ ;
-  double temp15 ;
-  int res15 = SWIG_TMPOBJ ;
-  int temp16 ;
-  int res16 = SWIG_TMPOBJ ;
+  double *data_temp13 = NULL ;
+  int dim_temp13 ;
+  double *data_temp15 = NULL ;
+  int dim_temp15 ;
+  double *data_temp17 = NULL ;
+  int dim_temp17 ;
+  double *data_temp19 = NULL ;
+  int dim_temp19 ;
+  double *data_temp21 = NULL ;
+  int dim_temp21 ;
+  double *data_temp23 = NULL ;
+  int dim_temp23 ;
+  double *data_temp25 = NULL ;
+  int dim_temp25 ;
+  double *data_temp27 = NULL ;
+  int dim_temp27 ;
+  double *data_temp29 = NULL ;
+  int dim_temp29 ;
+  double *data_temp31 = NULL ;
+  int dim_temp31 ;
+  double *data_temp33 = NULL ;
+  int dim_temp33 ;
+  int *data_temp35 = NULL ;
+  int dim_temp35 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   PyObject * obj2 = 0 ;
   PyObject * obj3 = 0 ;
-  PyObject * obj4 = 0 ;
   
-  arg8 = &temp8;
+  {
+    arg7 = &data_temp7;
+    arg8 = &dim_temp7;
+  }
   {
     arg9 = &data_temp9;
     arg10 = &dim_temp9;
@@ -4457,11 +4775,55 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(
     arg11 = &data_temp11;
     arg12 = &dim_temp11;
   }
-  arg13 = &temp13;
-  arg14 = &temp14;
-  arg15 = &temp15;
-  arg16 = &temp16;
-  if (!PyArg_ParseTuple(args,(char *)"OOOOO:pycauchy_single_step_nonlin",&obj0,&obj1,&obj2,&obj3,&obj4)) SWIG_fail;
+  {
+    arg13 = &data_temp13;
+    arg14 = &dim_temp13;
+  }
+  {
+    arg15 = &data_temp15;
+    arg16 = &dim_temp15;
+  }
+  {
+    arg17 = &data_temp17;
+    arg18 = &dim_temp17;
+  }
+  {
+    arg19 = &data_temp19;
+    arg20 = &dim_temp19;
+  }
+  {
+    arg21 = &data_temp21;
+    arg22 = &dim_temp21;
+  }
+  {
+    arg23 = &data_temp23;
+    arg24 = &dim_temp23;
+  }
+  {
+    arg25 = &data_temp25;
+    arg26 = &dim_temp25;
+  }
+  {
+    arg27 = &data_temp27;
+    arg28 = &dim_temp27;
+  }
+  {
+    arg29 = &data_temp29;
+    arg30 = &dim_temp29;
+  }
+  {
+    arg31 = &data_temp31;
+    arg32 = &dim_temp31;
+  }
+  {
+    arg33 = &data_temp33;
+    arg34 = &dim_temp33;
+  }
+  {
+    arg35 = &data_temp35;
+    arg36 = &dim_temp35;
+  }
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:pycauchy_single_step_nonlin",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
   res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
   if (!SWIG_IsOK(res1)) {
     SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_nonlin" "', argument " "1"" of type '" "void *""'"); 
@@ -4495,18 +4857,30 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "pycauchy_single_step_nonlin" "', argument " "6"" of type '" "bool""'");
   } 
   arg6 = static_cast< bool >(val6);
-  ecode7 = SWIG_AsVal_bool(obj4, &val7);
-  if (!SWIG_IsOK(ecode7)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "pycauchy_single_step_nonlin" "', argument " "7"" of type '" "bool""'");
-  } 
-  arg7 = static_cast< bool >(val7);
-  pycauchy_single_step_nonlin(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16);
+  pycauchy_single_step_nonlin(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19,arg20,arg21,arg22,arg23,arg24,arg25,arg26,arg27,arg28,arg29,arg30,arg31,arg32,arg33,arg34,arg35,arg36);
   resultobj = SWIG_Py_Void();
-  if (SWIG_IsTmpObj(res8)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg8)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_double, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg8 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg7));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg7), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg7), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
   {
     npy_intp dims[1] = {
@@ -4554,29 +4928,281 @@ SWIGINTERN PyObject *_wrap_pycauchy_single_step_nonlin(PyObject *SWIGUNUSEDPARM(
     
     resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
-  if (SWIG_IsTmpObj(res13)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg13)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res13) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg13), SWIGTYPE_p_double, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg14 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg13));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg13), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg13), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
-  if (SWIG_IsTmpObj(res14)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg14)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res14) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg14), SWIGTYPE_p_double, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg16 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg15));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg15), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg15), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
-  if (SWIG_IsTmpObj(res15)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_double((*arg15)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res15) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg15), SWIGTYPE_p_double, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg18 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg17));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg17), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg17), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
-  if (SWIG_IsTmpObj(res16)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_int((*arg16)));
-  } else {
-    int new_flags = SWIG_IsNewObj(res16) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg16), SWIGTYPE_p_int, new_flags));
+  {
+    npy_intp dims[1] = {
+      *arg20 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg19));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg19), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg19), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg22 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg21));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg21), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg21), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg24 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg23));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg23), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg23), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg26 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg25));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg25), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg25), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg28 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg27));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg27), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg27), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg30 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg29));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg29), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg29), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg32 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg31));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg31), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg31), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg34 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg33));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg33), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg33), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    npy_intp dims[1] = {
+      *arg36 
+    };
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_INT, (void*)(*arg35));
+    PyArrayObject* array = (PyArrayObject*) obj;
+    
+    if (!array) SWIG_fail;
+    
+#ifdef SWIGPY_USE_CAPSULE
+    PyObject* cap = PyCapsule_New((void*)(*arg35), SWIGPY_CAPSULE_NAME, free_cap);
+#else
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg35), free);
+#endif
+    
+#if NPY_API_VERSION < 0x00000007
+    PyArray_BASE(array) = cap;
+#else
+    PyArray_SetBaseObject(array,cap);
+#endif
+    
+    resultobj = SWIG_Python_AppendOutput(resultobj,obj);
   }
   {
     if (is_new_object2 && array2)
@@ -7189,37 +7815,56 @@ SWIGINTERN PyObject *_wrap_pycauchy_get_reinitialization_statistics(PyObject *SW
   PyObject *resultobj = 0;
   void *arg1 = (void *) 0 ;
   double arg2 ;
-  double **arg3 = (double **) 0 ;
-  int *arg4 = (int *) 0 ;
-  double **arg5 = (double **) 0 ;
-  int *arg6 = (int *) 0 ;
-  double **arg7 = (double **) 0 ;
-  int *arg8 = (int *) 0 ;
+  double *arg3 = (double *) 0 ;
+  int arg4 ;
+  double *arg5 = (double *) 0 ;
+  int arg6 ;
+  double *arg7 = (double *) 0 ;
+  int arg8 ;
+  double arg9 ;
+  double **arg10 = (double **) 0 ;
+  int *arg11 = (int *) 0 ;
+  double **arg12 = (double **) 0 ;
+  int *arg13 = (int *) 0 ;
+  double **arg14 = (double **) 0 ;
+  int *arg15 = (int *) 0 ;
   int res1 ;
   double val2 ;
   int ecode2 = 0 ;
-  double *data_temp3 = NULL ;
-  int dim_temp3 ;
-  double *data_temp5 = NULL ;
-  int dim_temp5 ;
-  double *data_temp7 = NULL ;
-  int dim_temp7 ;
+  PyArrayObject *array3 = NULL ;
+  int is_new_object3 = 0 ;
+  PyArrayObject *array5 = NULL ;
+  int is_new_object5 = 0 ;
+  PyArrayObject *array7 = NULL ;
+  int is_new_object7 = 0 ;
+  double val9 ;
+  int ecode9 = 0 ;
+  double *data_temp10 = NULL ;
+  int dim_temp10 ;
+  double *data_temp12 = NULL ;
+  int dim_temp12 ;
+  double *data_temp14 = NULL ;
+  int dim_temp14 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  PyObject * obj4 = 0 ;
+  PyObject * obj5 = 0 ;
   
   {
-    arg3 = &data_temp3;
-    arg4 = &dim_temp3;
+    arg10 = &data_temp10;
+    arg11 = &dim_temp10;
   }
   {
-    arg5 = &data_temp5;
-    arg6 = &dim_temp5;
+    arg12 = &data_temp12;
+    arg13 = &dim_temp12;
   }
   {
-    arg7 = &data_temp7;
-    arg8 = &dim_temp7;
+    arg14 = &data_temp14;
+    arg15 = &dim_temp14;
   }
-  if (!PyArg_ParseTuple(args,(char *)"OO:pycauchy_get_reinitialization_statistics",&obj0,&obj1)) SWIG_fail;
+  if (!PyArg_ParseTuple(args,(char *)"OOOOOO:pycauchy_get_reinitialization_statistics",&obj0,&obj1,&obj2,&obj3,&obj4,&obj5)) SWIG_fail;
   res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
   if (!SWIG_IsOK(res1)) {
     SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_get_reinitialization_statistics" "', argument " "1"" of type '" "void *""'"); 
@@ -7229,21 +7874,62 @@ SWIGINTERN PyObject *_wrap_pycauchy_get_reinitialization_statistics(PyObject *SW
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "pycauchy_get_reinitialization_statistics" "', argument " "2"" of type '" "double""'");
   } 
   arg2 = static_cast< double >(val2);
-  pycauchy_get_reinitialization_statistics(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8);
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array3 = obj_to_array_contiguous_allow_conversion(obj2,
+      NPY_DOUBLE,
+      &is_new_object3);
+    if (!array3 || !require_dimensions(array3, 1) ||
+      !require_size(array3, size, 1)) SWIG_fail;
+    arg3 = (double*) array_data(array3);
+    arg4 = (int) array_size(array3,0);
+  }
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array5 = obj_to_array_contiguous_allow_conversion(obj3,
+      NPY_DOUBLE,
+      &is_new_object5);
+    if (!array5 || !require_dimensions(array5, 1) ||
+      !require_size(array5, size, 1)) SWIG_fail;
+    arg5 = (double*) array_data(array5);
+    arg6 = (int) array_size(array5,0);
+  }
+  {
+    npy_intp size[1] = {
+      -1 
+    };
+    array7 = obj_to_array_contiguous_allow_conversion(obj4,
+      NPY_DOUBLE,
+      &is_new_object7);
+    if (!array7 || !require_dimensions(array7, 1) ||
+      !require_size(array7, size, 1)) SWIG_fail;
+    arg7 = (double*) array_data(array7);
+    arg8 = (int) array_size(array7,0);
+  }
+  ecode9 = SWIG_AsVal_double(obj5, &val9);
+  if (!SWIG_IsOK(ecode9)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "pycauchy_get_reinitialization_statistics" "', argument " "9"" of type '" "double""'");
+  } 
+  arg9 = static_cast< double >(val9);
+  pycauchy_get_reinitialization_statistics(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13,arg14,arg15);
   resultobj = SWIG_Py_Void();
   {
     npy_intp dims[1] = {
-      *arg4 
+      *arg11 
     };
-    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg3));
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg10));
     PyArrayObject* array = (PyArrayObject*) obj;
     
     if (!array) SWIG_fail;
     
 #ifdef SWIGPY_USE_CAPSULE
-    PyObject* cap = PyCapsule_New((void*)(*arg3), SWIGPY_CAPSULE_NAME, free_cap);
+    PyObject* cap = PyCapsule_New((void*)(*arg10), SWIGPY_CAPSULE_NAME, free_cap);
 #else
-    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg3), free);
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg10), free);
 #endif
     
 #if NPY_API_VERSION < 0x00000007
@@ -7256,17 +7942,17 @@ SWIGINTERN PyObject *_wrap_pycauchy_get_reinitialization_statistics(PyObject *SW
   }
   {
     npy_intp dims[1] = {
-      *arg6 
+      *arg13 
     };
-    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg5));
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg12));
     PyArrayObject* array = (PyArrayObject*) obj;
     
     if (!array) SWIG_fail;
     
 #ifdef SWIGPY_USE_CAPSULE
-    PyObject* cap = PyCapsule_New((void*)(*arg5), SWIGPY_CAPSULE_NAME, free_cap);
+    PyObject* cap = PyCapsule_New((void*)(*arg12), SWIGPY_CAPSULE_NAME, free_cap);
 #else
-    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg5), free);
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg12), free);
 #endif
     
 #if NPY_API_VERSION < 0x00000007
@@ -7279,17 +7965,17 @@ SWIGINTERN PyObject *_wrap_pycauchy_get_reinitialization_statistics(PyObject *SW
   }
   {
     npy_intp dims[1] = {
-      *arg8 
+      *arg15 
     };
-    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg7));
+    PyObject* obj = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, (void*)(*arg14));
     PyArrayObject* array = (PyArrayObject*) obj;
     
     if (!array) SWIG_fail;
     
 #ifdef SWIGPY_USE_CAPSULE
-    PyObject* cap = PyCapsule_New((void*)(*arg7), SWIGPY_CAPSULE_NAME, free_cap);
+    PyObject* cap = PyCapsule_New((void*)(*arg14), SWIGPY_CAPSULE_NAME, free_cap);
 #else
-    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg7), free);
+    PyObject* cap = PyCObject_FromVoidPtr((void*)(*arg14), free);
 #endif
     
 #if NPY_API_VERSION < 0x00000007
@@ -7299,9 +7985,45 @@ SWIGINTERN PyObject *_wrap_pycauchy_get_reinitialization_statistics(PyObject *SW
 #endif
     
     resultobj = SWIG_Python_AppendOutput(resultobj,obj);
+  }
+  {
+    if (is_new_object3 && array3)
+    {
+      Py_DECREF(array3); 
+    }
+  }
+  {
+    if (is_new_object5 && array5)
+    {
+      Py_DECREF(array5); 
+    }
+  }
+  {
+    if (is_new_object7 && array7)
+    {
+      Py_DECREF(array7); 
+    }
   }
   return resultobj;
 fail:
+  {
+    if (is_new_object3 && array3)
+    {
+      Py_DECREF(array3); 
+    }
+  }
+  {
+    if (is_new_object5 && array5)
+    {
+      Py_DECREF(array5); 
+    }
+  }
+  {
+    if (is_new_object7 && array7)
+    {
+      Py_DECREF(array7); 
+    }
+  }
   return NULL;
 }
 
@@ -7591,6 +8313,7 @@ static swig_type_info _swigt__p_f_p_CauchyDynamicsUpdateContainer__void = {"_p_f
 static swig_type_info _swigt__p_f_p_CauchyDynamicsUpdateContainer_p_double__void = {"_p_f_p_CauchyDynamicsUpdateContainer_p_double__void", "void (*)(CauchyDynamicsUpdateContainer *,double *)", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_int = {"_p_int", "int *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_p_double = {"_p_p_double", "double **", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_p_int = {"_p_p_int", "int **", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_void = {"_p_void", "void *", 0, 0, (void*)0, 0};
 
 static swig_type_info *swig_type_initial[] = {
@@ -7600,6 +8323,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_f_p_CauchyDynamicsUpdateContainer_p_double__void,
   &_swigt__p_int,
   &_swigt__p_p_double,
+  &_swigt__p_p_int,
   &_swigt__p_void,
 };
 
@@ -7609,6 +8333,7 @@ static swig_cast_info _swigc__p_f_p_CauchyDynamicsUpdateContainer__void[] = {  {
 static swig_cast_info _swigc__p_f_p_CauchyDynamicsUpdateContainer_p_double__void[] = {  {&_swigt__p_f_p_CauchyDynamicsUpdateContainer_p_double__void, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_int[] = {  {&_swigt__p_int, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_p_double[] = {  {&_swigt__p_p_double, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_p_int[] = {  {&_swigt__p_p_int, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_void[] = {  {&_swigt__p_void, 0, 0, 0},{0, 0, 0, 0}};
 
 static swig_cast_info *swig_cast_initial[] = {
@@ -7618,6 +8343,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_f_p_CauchyDynamicsUpdateContainer_p_double__void,
   _swigc__p_int,
   _swigc__p_p_double,
+  _swigc__p_p_int,
   _swigc__p_void,
 };
 

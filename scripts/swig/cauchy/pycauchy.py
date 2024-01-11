@@ -103,12 +103,12 @@ def pycauchy_step(msmts, controls):
     return _pycauchy.pycauchy_step(msmts, controls)
 pycauchy_step = _pycauchy.pycauchy_step
 
-def pycauchy_single_step_ltiv(_pcdh, msmts, controls, full_info):
-    return _pycauchy.pycauchy_single_step_ltiv(_pcdh, msmts, controls, full_info)
+def pycauchy_single_step_ltiv(_pcdh, msmts, controls):
+    return _pycauchy.pycauchy_single_step_ltiv(_pcdh, msmts, controls)
 pycauchy_single_step_ltiv = _pycauchy.pycauchy_single_step_ltiv
 
-def pycauchy_single_step_nonlin(_pcdh, msmts, controls, with_propagate, full_info):
-    return _pycauchy.pycauchy_single_step_nonlin(_pcdh, msmts, controls, with_propagate, full_info)
+def pycauchy_single_step_nonlin(_pcdh, msmts, controls, with_propagate):
+    return _pycauchy.pycauchy_single_step_nonlin(_pcdh, msmts, controls, with_propagate)
 pycauchy_single_step_nonlin = _pycauchy.pycauchy_single_step_nonlin
 
 def pycauchy_initialize_lti_window_manager(num_windows, num_sim_steps, A0, p0, b0, Phi, Gamma, B, beta, H, gamma, debug_print, log_seq, log_full, log_dir, dt, init_step, win_var_boost):
@@ -155,12 +155,12 @@ def pycauchy_get_1D_pointwise_cpdf(_pcdh, gridx_low, gridx_high, gridx_resolutio
     return _pycauchy.pycauchy_get_1D_pointwise_cpdf(_pcdh, gridx_low, gridx_high, gridx_resolution, log_dir)
 pycauchy_get_1D_pointwise_cpdf = _pycauchy.pycauchy_get_1D_pointwise_cpdf
 
-def pycauchy_get_reinitialization_statistics(_pcdh, z):
-    return _pycauchy.pycauchy_get_reinitialization_statistics(_pcdh, z)
+def pycauchy_get_reinitialization_statistics(_pcdh, z, xhat, Phat, H, gamma):
+    return _pycauchy.pycauchy_get_reinitialization_statistics(_pcdh, z, xhat, Phat, H, gamma)
 pycauchy_get_reinitialization_statistics = _pycauchy.pycauchy_get_reinitialization_statistics
 
-def pycauchy_speyers_window_init(x1_hat, Var, H, gamma, z):
-    return _pycauchy.pycauchy_speyers_window_init(x1_hat, Var, H, gamma, z)
+def pycauchy_speyers_window_init(xhat, Phat, H, gamma, z):
+    return _pycauchy.pycauchy_speyers_window_init(xhat, Phat, H, gamma, z)
 pycauchy_speyers_window_init = _pycauchy.pycauchy_speyers_window_init
 
 def pycauchy_set_tr_search_idxs_ordering(ordering):
