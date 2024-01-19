@@ -581,6 +581,52 @@ class PyCauchyEstimator():
                 assert(_controls.size == self.cmcc)
         return _msmts, _controls
     
+    def _call_step(self, _msmts, _controls, full_info):
+        # Estimator returns all info for all p measurements
+        # the prefix '_' to variable names is used to indicate this was returned by the step function
+        # for mode LTI, the dynamics are unchanging and are not returned
+        if self.mode == "lti":
+            _, _, _, _, _, _, \
+            self._fz, self._x, self._P, \
+            self._cerr_fz, self._cerr_x, self._cerr_P, self._err_code = pycauchy.pycauchy_single_step_ltiv(self.py_handle, _msmts, _controls)
+        elif self.mode == "ltv":
+            self._Phi, self._Gamma, self._B, self._H, self._beta, self._gamma, \
+            self._fz, self._x, self._P, \
+            self._cerr_fz, self._cerr_x, self._cerr_P, self._err_code = pycauchy.pycauchy_single_step_ltiv(self.py_handle, _msmts, _controls)
+        else:
+            self._Phi, self._Gamma, self._B, self._H, self._beta, self._gamma, \
+            self._fz, self._x, self._P, self._xbar, self._zbar, \
+            self._cerr_fz, self._cerr_x, self._cerr_P, self._err_code = pycauchy.pycauchy_single_step_nonlin(self.py_handle, _msmts, _controls, self.step_count != 0)
+
+        if full_info:
+            xs = []
+            Ps = []
+            for i in range(self.p):
+                xs.append( self._x[i*self.n:(i+1)*self.n].copy() )
+                Ps.append( self._P[i*self.n*self.n:(i+1)*self.n*self.n].copy().reshape((self.n, self.n)) )
+        else:
+            xs = self._x[-(self.p-1)*self.n:].copy()
+            Ps = self._P[-(self.p-1)*self.n*self.n:].copy().reshape((self.n,self.n))
+
+        fz = self._fz[-1]
+        x = self._x[-(self.p-1)*self.n:].copy()
+        P = self._P[-(self.p-1)*self.n*self.n:].copy()
+        cerr_fz = self._cerr_fz[-1]
+        cerr_x = self._cerr_x[-1]
+        cerr_P = self._cerr_P[-1]
+        err_code = self._err_code[-1]
+
+        self.moment_info["fz"].append(fz)
+        self.moment_info["x"].append(x)
+        self.moment_info["P"].append(P.reshape((self.n, self.n)))
+        self.moment_info["cerr_x"].append(cerr_x)
+        self.moment_info["cerr_P"].append(cerr_P)
+        self.moment_info["cerr_fz"].append(cerr_fz)
+        self.moment_info["err_code"].append(err_code)
+
+        self.step_count += 1
+        return xs, Ps
+    
     def initialize_lti(self, A0, p0, b0, Phi, B, Gamma, beta, H, gamma, init_step=0, dt=0):
         if self.mode != "lti":
             print("Attempting to call initialize_lti method when mode was set to {} is not allowed! You must call initialize_{} ... or reset the mode altogether!".format(self.mode, self.mode))
@@ -679,7 +725,7 @@ class PyCauchyEstimator():
 
     # full_info=True returns list of moments for each measurement processed
     # full_info=False returns moments after processing all measurements
-    def step(self, msmts, controls, full_info=False):
+    def step(self, msmts, controls = None, full_info=False):
         full_info = bool(full_info)
 
         if(self.is_initialized == False):
@@ -693,63 +739,80 @@ class PyCauchyEstimator():
         _msmts, _controls = self._msmts_controls_checker(msmts, controls)
         self._msmts = _msmts.copy()
         self._controls = _controls.copy()
+        return self._call_step(_msmts, _controls, full_info)
+
+    # NOT FINISHED -- Should be used as a way to either
+    # 1.) Step only time propagation routine
+    # 2.) Step only measurement update routine
+    # 3.) Step measurements asynchronously as they are recieved
+    # Applies controls (time propagates) only if its the first measurement of the time-step
+    def step_asynchronous(self, msmts, controls = None):
+        '''
+        # If its the first measurement at the current time step
+        if( (self.step_count % self.p) == 0 ):
+            self._msmts = np.array([], dtype = np.float64)
+            # check to see whether a control should be given
+            if self.cmcc > 0:
+                # if a control should be provided
+                assert(controls is not None)
+                # check to make sure the control vector size is correct
+                _controls = np.array([controls]).copy().reshape(-1)
+                # check to make sure the control vector size is correct
+                assert(_controls.size == self.cmcc)
+            else:
+                assert(controls is None)
+                _controls = np.array([], dtype=np.float64)
+        # If its not the first measurement at the current time step
+        else:
+            if self.cmcc > 0:
+                if controls is not None:
+                    print("Warning step_single_msmt: This is not the first msmt update at the current step! Your controls will not be applied!")
+            else:
+                if controls is not None:
+                    print("Error step_single_msmt: Cannot apply a control vector if you specify cmcc=", self.cmcc)
+                    assert(controls is None)
+            _controls = np.array([], dtype=np.float64)
+        _msmt = np.array([msmt]).copy().reshape(-1)
+        assert(_msmt.size == 1)
+        '''
+        print("WARN step_scalar_msmt: this function has not been fully implemented! Please do so! Exiting!")
+        exit(1)
+
+    def get_last_mean_cov(self):
+        return self.moment_info["x"][-1], self.moment_info["P"][-1]
+
+    # find reinitialization parameters for the msmt_idx-th measurement just computed
+    # if msmt_idx not specified, uses the last measurement
+    def get_reinitialization_statistics(self, msmt_idx = -1):
+        if( (self.step_count == 0) or (self.is_initialized == False) ):
+            print("[Error get_reinitialization_statistics]: Cannot find reinitialization stats of an estimator not initialized, or that has not processed at least one measurement! Please correct!")
+            return None, None, None
+        if( (msmt_idx >= self.p) or (msmt_idx < -self.p) ):
+            print("[Error get_reinitialization_statistics]: Cannot find reinitialization stats for msmt_idx={}. The index is out of range -{} <= msmt_idx < {}...(max index is p-1={})! Please correct!".format(msmt_idx, -self.p, self.p-1, self.p-1))
+            return None, None, None
+
+        msmt_idx = int(msmt_idx)
+        if(msmt_idx < 0):
+            msmt_idx += self.p
         
-        # Estimator returns all info for all p measurements
-        # the prefix '_' to variable names is used to indicate this was returned by the step function
-        # for mode LTI, the dynamics are unchanging and are not returned
-
-        if self.mode == "lti":
-            _, _, _, _, _, _, \
-            self._fz, self._x, self._P, \
-            self._cerr_fz, self._cerr_x, self._cerr_P, self._err_code = pycauchy.pycauchy_single_step_ltiv(self.py_handle, _msmts, _controls)
-        elif self.mode == "ltv":
-            self._Phi, self._Gamma, self._B, self._H, self._beta, self._gamma, \
-            self._fz, self._x, self._P, \
-            self._cerr_fz, self._cerr_x, self._cerr_P, self._err_code = pycauchy.pycauchy_single_step_ltiv(self.py_handle, _msmts, _controls)
+        reinit_msmt = self._msmts[msmt_idx]
+        reinit_xhat = self._x[msmt_idx*self.n : (msmt_idx+1)*self.n].copy()
+        reinit_Phat = self._P[msmt_idx*self.n*self.n : (msmt_idx+1)*self.n*self.n].copy()
+        reinit_H = self._H[msmt_idx*self.n : (msmt_idx+1)*self.n].copy()
+        reinit_gamma = self._gamma[msmt_idx]
+        if self.mode != "nonlin":
+            A0, p0, b0 = pycauchy.pycauchy_get_reinitialization_statistics(self.py_handle, reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma)
+            A0 = A0.reshape( (self.n, self.n) )
+            return A0, p0, b0
         else:
-            self._Phi, self._Gamma, self._B, self._H, self._beta, self._gamma, \
-            self._fz, self._x, self._P, self._xbar, self._zbar, \
-            self._cerr_fz, self._cerr_x, self._cerr_P, self._err_code = pycauchy.pycauchy_single_step_nonlin(self.py_handle, _msmts, _controls, self.step_count != 0)
-
-        if full_info:
-            xs = []
-            Ps = []
-            for i in range(self.p):
-                xs.append( self._x[i*self.n:(i+1)*self.n].copy() )
-                Ps.append( self._P[i*self.n*self.n:(i+1)*self.n*self.n].copy().reshape((self.n, self.n)) )
-        else:
-            xs = self._x[-(self.p-1)*self.n:].copy()
-            Ps = self._P[-(self.p-1)*self.n*self.n:].copy().reshape((self.n,self.n))
-
-        fz = self._fz[-1]
-        x = self._x[-(self.p-1)*self.n:].copy()
-        P = self._P[-(self.p-1)*self.n*self.n:].copy()
-        cerr_fz = self._cerr_fz[-1]
-        cerr_x = self._cerr_x[-1]
-        cerr_P = self._cerr_P[-1]
-        err_code = self._err_code[-1]
-
-        self.moment_info["fz"].append(fz)
-        self.moment_info["x"].append(x)
-        self.moment_info["P"].append(P.reshape((self.n, self.n)))
-        self.moment_info["cerr_x"].append(cerr_x)
-        self.moment_info["cerr_P"].append(cerr_P)
-        self.moment_info["cerr_fz"].append(cerr_fz)
-        self.moment_info["err_code"].append(err_code)
-
-        self.step_count += 1
-        return xs, Ps
-
-    # Shuts down sliding window manager
-    def shutdown(self):
-        if(self.is_initialized == False):
-            print("Cannot shutdown Cauchy Estimator before it has been initialized!")
-            return
-        pycauchy.pycauchy_single_step_shutdown(self.py_handle)
-        self.py_handle = None
-        print("Cauchy estimator backend C data structure has been shutdown!")
-        self.is_initialized = False
-
+            reinit_xbar = self._xbar[msmt_idx*self.n:(msmt_idx+1)*self.n].copy()
+            reinit_zbar = self._zbar[msmt_idx]
+            dx = reinit_xhat - reinit_xbar
+            dz = reinit_msmt - reinit_zbar
+            A0, p0, b0 = pycauchy.pycauchy_get_reinitialization_statistics(self.py_handle, dz, dx, reinit_Phat, reinit_H, reinit_gamma)
+            A0 = A0.reshape( (self.n, self.n) )
+            return A0, p0, b0, reinit_xbar
+    
     # provide optional arguments A0, p0, b0, xbar if you'd like these to change upon reset
     def reset(self, A0 = None, p0 = None, b0 = None, xbar = None):
         if(self.is_initialized == False):
@@ -771,12 +834,75 @@ class PyCauchyEstimator():
         self._b0 = b0.copy().reshape(-1) if b0 is not None else np.array([], dtype=np.float64)
         self._xbar = xbar.copy().reshape(-1) if xbar is not None else np.array([], dtype=np.float64)
         pycauchy.pycauchy_single_step_reset(self.py_handle, self._A0, self._p0, self._b0, self._xbar)
-        
+
+    # Used to process a single measurement after reinitializing estimator
+    # Resets this estimator about the msmt_idx-th measurement the other estimator has just processed
+    def reset_about_estimator(self, other_estimator, msmt_idx = -1):
+        if self.is_initialized == False:
+            print("[Error reset_about_estimator:] This estimator is not initialized! Must initialize the estimator before using this function!")
+        if other_estimator.is_initialized == False:
+            print("[Error reset_about_estimator:] Other estimator is not initialized! Must initialize the other estimator (and step it) before using this function!")
+        if other_estimator.step_count == 0:
+            print("[Error reset_about_estimator:] Other estimator has step_count == 0 (step_count must be > 0). The inputted estimator must be stepped before using this function!")
+            assert(False)
+        if id(self) == id(other_estimator):
+            print("[Error reset_about_estimator:] Other estimator cannot be this estimator itself!")
+            assert(False)
+        if(self.p != other_estimator.p):
+            print("[Error reset_about_estimator:] Both estimators must process the same number of measurements! this={}, other={}".format(self.p, other_estimator.p))
+            assert(False)
+        if(self.mode != other_estimator.mode):
+            print("[Error reset_about_estimator:] Both estimators must have same mode! this={}, other={}".format(self.mode, other_estimator.mode))
+            assert(False)
+        if( (msmt_idx >= self.p) or (msmt_idx < -self.p) ):
+            print("[Error reset_about_estimator:] Specified msmt_idx={}. The index is out of range -{} <= msmt_idx < {}...(max index is p-1={})! Please correct!".format(msmt_idx, -self.p, self.p-1, self.p-1))
+            assert(False)
+        msmt_idx = int(msmt_idx)
+        if(msmt_idx < 0):
+            msmt_idx += self.p
+        _msmts = other_estimator._msmts[msmt_idx:].copy()
+        self._msmts = _msmts.copy()
+        if self.mode != "nonlin":
+            A0, p0, b0 = other_estimator.get_reinitialization_statistics(msmt_idx)
+            self.reset(A0, p0, b0)
+        else:
+            A0, p0, b0, xbar = other_estimator.get_reinitialization_statistics(msmt_idx)
+            self.reset(A0, p0, b0, xbar)
+        xs, Ps = self._call_step(_msmts, np.array([], dtype=np.float64), False)
+        pycauchy.pycauchy_single_step_set_master_step(self.py_handle, self.p)
+        return xs, Ps
+    
+    def reset_with_last_measurement(self, z_scalar, A0, p0, b0, xbar):
+        _z_scalar = np.array(z_scalar).copy().reshape(-1)
+        if self.mode != "nonlin":
+            self.reset(A0, p0, b0)
+        else:
+            self.reset(A0, p0, b0, xbar)
+        xs, Ps = self._call_step(_z_scalar, np.array([], dtype=np.float64), False)
+        pycauchy.pycauchy_single_step_set_master_step(self.py_handle, self.p)
+        return xs, Ps
+
+    def set_window_number(self, win_num):
+        win_num = int(win_num)
+        pycauchy.pycauchy_single_step_set_window_number(self.py_handle, win_num)
+    
+    # Shuts down estimator
+    def shutdown(self):
+        if(self.is_initialized == False):
+            print("Cannot shutdown Cauchy Estimator before it has been initialized!")
+            return
+        pycauchy.pycauchy_single_step_shutdown(self.py_handle)
+        self.py_handle = None
+        print("Cauchy estimator backend C data structure has been shutdown!")
+        self.is_initialized = False
+     
     def get_marginal_2D_pointwise_cpdf(self, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir = None):
         if(self.is_initialized == False):
             print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
             return None,None,None
-        
+        if(self.step_count < 1):
+            print("Cannot evaluate Cauchy Estimator Marginal 2D CPDF before it has been stepped!")
+            return None,None,None
         _marg_idx1 = int(marg_idx1)
         _marg_idx2 = int(marg_idx2)
         _gridx_low = float(gridx_low)
@@ -813,13 +939,19 @@ class PyCauchyEstimator():
         if(self.n != 2):
             print("Cannot evaluate Cauchy Estimator 2D CPDF for a {}-state system!".format(self.n))
             return None,None,None
+        if(self.step_count < 1):
+            print("Cannot evaluate Cauchy Estimator 2D CPDF before it has been stepped!")
+            return None,None,None
         return self.get_marginal_2D_pointwise_cpdf(0, 1, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir)
     
     def get_marginal_1D_pointwise_cpdf(self, marg_idx, gridx_low, gridx_high, gridx_resolution, log_dir = None):
         if(self.is_initialized == False):
             print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
             return None,None
-        
+        if(self.step_count < 1):
+            print("Cannot evaluate Cauchy Estimator 1D Marginal CPDF before it has been stepped!")
+            return None,None
+
         _marg_idx = int(marg_idx)
         _gridx_low = float(gridx_low)
         _gridx_high = float(gridx_high)
@@ -845,47 +977,15 @@ class PyCauchyEstimator():
     def get_1D_pointwise_cpdf(self, gridx_low, gridx_high, gridx_resolution, log_dir = None):
         if(self.is_initialized == False):
             print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
-            return None,None,None
+            return None,None
         if(self.n != 1):
             print("Cannot evaluate Cauchy Estimator 1D CPDF for a {}-state system!".format(self.n))
-            return None,None,None
+            return None,None
+        if(self.step_count < 1):
+            print("Cannot evaluate Cauchy Estimator 1D CPDF before it has been stepped!")
+            return None,None
         return self.get_marginal_1D_pointwise_cpdf(0, gridx_low, gridx_high, gridx_resolution, log_dir)
-
-    # find reinitialization parameters for the msmt_idx-th measurement just computed
-    # if msmt_idx not specified, uses the last measurement
-    def get_reinitialization_statistics(self, msmt_idx = -1):
-        if( (self.step_count == 0) or (self.is_initialized == False) ):
-            print("[Error get_reinitialization_statistics]: Cannot find reinitialization stats of an estimator not initialized, or that has not processed at least one measurement! Please correct!")
-            return None, None, None
-        if( (msmt_idx >= self.p) or (msmt_idx < -self.p) ):
-            print("[Error get_reinitialization_statistics]: Cannot find reinitialization stats for msmt_idx={}. The index is out of range -{} <= msmt_idx < {}...(max index is p-1={})! Please correct!".format(msmt_idx, -self.p, self.p-1, self.p-1))
-            return None, None, None
-
-        msmt_idx = int(msmt_idx)
-        if(msmt_idx < 0):
-            msmt_idx += self.p
-        
-        reinit_msmt = self._msmts[msmt_idx]
-        reinit_xhat = self._x[msmt_idx*self.n : (msmt_idx+1)*self.n].copy()
-        reinit_Phat = self._P[msmt_idx*self.n*self.n : (msmt_idx+1)*self.n*self.n].copy()
-        reinit_H = self._H[msmt_idx*self.n : (msmt_idx+1)*self.n].copy()
-        reinit_gamma = self._gamma[msmt_idx]
-        if self.mode != "nonlin":
-            A0, p0, b0 = pycauchy.pycauchy_get_reinitialization_statistics(self.py_handle, reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma)
-            A0 = A0.reshape( (self.n, self.n) )
-            return A0, p0, b0
-        else:
-            reinit_xbar = self._xbar[msmt_idx*self.n:(msmt_idx+1)*self.n].copy()
-            reinit_zbar = self._zbar[msmt_idx]
-            dx = reinit_xhat - reinit_xbar
-            dz = reinit_msmt - reinit_zbar
-            A0, p0, b0 = pycauchy.pycauchy_get_reinitialization_statistics(self.py_handle, dz, dx, reinit_Phat, reinit_H, reinit_gamma)
-            A0 = A0.reshape( (self.n, self.n) )
-            return A0, p0, b0, reinit_xbar
-    
-    def get_last_mean_cov(self):
-        return self.moment_info["x"][-1], self.moment_info["P"][-1]
-        
+ 
     def plot_2D_pointwise_cpdf(self, X, Y, Z, state_labels = (1,2)):
         GRID_HEIGHT = 8
         GRID_WIDTH = 2

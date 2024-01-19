@@ -133,7 +133,7 @@ gamma = (np.sqrt(V) * ce.GAUSSIAN_TO_CAUCHY_NOISE).reshape(-1) #/ np.sqrt(2) # t
 
 #for i in range(6):
 #print("Testing windows of {}!".format(3+i))
-
+ce.set_tr_search_idxs_ordering([1,0])
 num_windows = 8 #3 + i
 num_controls = 0
 cauchyEst = ce.PySlidingWindowManager("nonlin", num_windows, steps+1)

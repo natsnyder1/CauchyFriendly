@@ -473,19 +473,19 @@ void pycauchy_single_step_ltiv(
 {
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
     CauchyDynamicsUpdateContainer* duc = pcdh->duc;
-    assert(duc->p == size_msmts);
+    assert(duc->p >= size_msmts); // size_msmts can be smaller, used for reinitialization return values
     duc->u = controls;
     // Defining return sizes
     int p = duc->p;
     int n = duc->n;
     int cmcc = duc->cmcc;
     int pncc = duc->pncc;
-    int num_moments = p;
+    int num_moments = size_msmts;
     bool is_lti = pcdh->f_dyn_update_callback == NULL;
     bool is_ltv = pcdh->f_dyn_update_callback != NULL;
 
     single_step_dynamics_allocate(is_lti,
-        n, pncc, cmcc, p,
+        n, pncc, cmcc, size_msmts,
         out_Phi, size_out_Phi,
         out_Gamma, size_out_Gamma, 
         out_B, size_out_B,
@@ -494,7 +494,7 @@ void pycauchy_single_step_ltiv(
         out_gamma, size_out_gamma);
     
     single_step_moment_info_allocate(
-        n, p,
+        n, num_moments,
         out_fz, size_out_fz,
         out_xhat, size_out_xhat,
         out_Phat, size_out_Phat, 
@@ -503,6 +503,7 @@ void pycauchy_single_step_ltiv(
         out_cerr_Phat, size_out_cerr_Phat,
         out_err_code, size_out_err_code);
 
+    int msmt_start_idx = p - size_msmts; // ADDED
     // Update dynamics if linear time varying, before the call to step
     if(is_ltv)
     {
@@ -512,14 +513,19 @@ void pycauchy_single_step_ltiv(
         memcpy(*out_Phi, duc->Phi, n * n * sizeof(double));
         memcpy(*out_Gamma, duc->Gamma, n * pncc * sizeof(double));
         memcpy(*out_B, duc->B, n * cmcc * sizeof(double));
-        memcpy(*out_H, duc->H, p* n * sizeof(double));
+        memcpy(*out_H, duc->H + msmt_start_idx*n, size_msmts * n * sizeof(double));
         memcpy(*out_beta, duc->beta, pncc * sizeof(double));
-        memcpy(*out_gamma, duc->gamma, p * sizeof(double));
+        memcpy(*out_gamma, duc->gamma + msmt_start_idx, size_msmts * sizeof(double));
     }
 
-    for(int i = 0; i < p; i++)
+    // Overloading this so it can be used for speyer reinitialization as well
+    // when size_msmts == duc->p, behavior is normal
+    // when size_msmts < duc->p, only processes size_msmts, of indices [p-size_msmts, p)
+    //for(int i = 0; i < p; i++)
+    for(int i = 0; i < size_msmts; i++)
     {
-        pcdh->cauchyEst->step(msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], duc->B, duc->u);
+        int idx = msmt_start_idx + i; // ADDED
+        pcdh->cauchyEst->step(msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + idx*n, duc->gamma[idx], duc->B, duc->u);
         // Store moment info after i-th measurement update
         (*out_fz)[i] = creal(pcdh->cauchyEst->fz);
         convert_complex_array_to_real(pcdh->cauchyEst->conditional_mean, *out_xhat + i*n, n);
@@ -555,16 +561,17 @@ void pycauchy_single_step_nonlin(
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
     CauchyEstimator* cauchyEst = pcdh->cauchyEst;
     CauchyDynamicsUpdateContainer* duc = pcdh->duc;
+    assert(duc->p >= size_msmts); // size_msmts can be smaller, used for reinitialization return values
     int n = duc->n;
     int pncc = duc->pncc;
     int cmcc = duc->cmcc;
     int p = duc->p;
-    int num_moments = p;
+    int num_moments = size_msmts;
     duc->u = controls;
     double zbar[p];
     
     single_step_dynamics_allocate(false,
-        n, pncc, cmcc, p,
+        n, pncc, cmcc, size_msmts,
         out_Phi, size_out_Phi,
         out_Gamma, size_out_Gamma, 
         out_B, size_out_B,
@@ -583,8 +590,8 @@ void pycauchy_single_step_nonlin(
         out_err_code, size_out_err_code);
     *size_out_xbar = num_moments * n;
     *out_xbar = (double*) malloc( num_moments * n * sizeof(double) );
-    *size_out_zbar = p;
-    *out_zbar = (double*) malloc( p * sizeof(double) ); 
+    *size_out_zbar = num_moments;
+    *out_zbar = (double*) malloc( num_moments * sizeof(double) ); 
 
     // propagate system forwards (i.e, create \bar{x}_{k+1})
     // update the Phi, Gamma, H matrices for the differential system
@@ -594,27 +601,32 @@ void pycauchy_single_step_nonlin(
         duc->is_xbar_set_for_ece = false;
         pcdh->f_dyn_update_callback(duc);
         assert(duc->is_xbar_set_for_ece == true);
-        // Store Updated Dynamics
+        // Store Updated Dynamics (nonlinear info regarding time prop of k|k-1)
         memcpy(*out_Phi, duc->Phi, n * n * sizeof(double));
         memcpy(*out_B, duc->B, n * cmcc * sizeof(double));
         memcpy(*out_Gamma, duc->Gamma, n * pncc * sizeof(double));
         memcpy(*out_beta, duc->beta, pncc * sizeof(double));
     }
-
-    for(int i = 0; i < p; i++)
+    int msmt_start_idx = p - size_msmts; // ADDED
+    // Overloading this so it can be used for speyer reinitialization as well
+    // when size_msmts == duc->p, behavior is normal
+    // when size_msmts < duc->p, only processes size_msmts, of indices [p-size_msmts, p)
+    //for(int i = 0; i < p; i++)
+    for(int i = 0; i < size_msmts; i++)
     {
+        int idx = msmt_start_idx + i; // ADDED
         // Run state variation estimator
         pcdh->f_nonlinear_msmt_model(duc, zbar); // duc->x == x_bar on i==0 and x_hat on i>0
         pcdh->f_extended_msmt_update_callback(duc);
-
+        
         // Store nonlinear info regarding k|k-1
         memcpy(*out_xbar + i*n, duc->x, n*sizeof(double));
-        (*out_zbar)[i] = zbar[i];
-        double dz = msmts[i] - zbar[i];
-        memcpy(*out_H + i*n, duc->H + i*n, n*sizeof(double));
-        (*out_gamma)[i] = duc->gamma[i];
+        (*out_zbar)[i] = zbar[idx];
+        double dz = msmts[i] - zbar[idx];
+        memcpy(*out_H + i*n, duc->H + idx*n, n*sizeof(double));
+        (*out_gamma)[i] = duc->gamma[idx];
 
-        cauchyEst->step(dz, duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], NULL, NULL);
+        cauchyEst->step(dz, duc->Phi, duc->Gamma, duc->beta, duc->H + idx*n, duc->gamma[idx], NULL, NULL);
         // Shifts bs in CF by -\delta{x_k}. Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar). Then sets (duc->x) x_bar = creal(conditional_mean)
         cauchyEst->finalize_extended_moments(duc->x);
 
@@ -645,6 +657,31 @@ void pycauchy_single_step_shutdown(void* _pcdh)
     delete pcdh;
 }
 
+void pycauchy_single_step_set_master_step(void* _pcdh, int step)
+{
+    PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
+    if(pcdh->cauchyEst == NULL)
+    {
+        printf(RED "[ERROR pycauchy_single_step_set_master_step:] pcdh->cauchyEst == NULL! Debug here! Exiting!\n");
+        exit(1);
+    }
+    else
+        pcdh->cauchyEst->master_step = step;
+}
+
+void pycauchy_single_step_set_window_number(void* _pcdh, int win_num)
+{
+    PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
+    if(pcdh->cauchyEst == NULL)
+    {
+        printf(RED "[ERROR pycauchy_single_step_set_window_number:] pcdh->cauchyEst == NULL! Debug here! Exiting!\n");
+        exit(1);
+    }
+    else
+        pcdh->cauchyEst->win_num = win_num;
+}
+
+
 void pycauchy_single_step_reset(
     void* _pcdh, 
     double* A0, int size_A0, 
@@ -662,7 +699,10 @@ void pycauchy_single_step_reset(
         memcpy(pcdh->cauchyEst->b0_init, b0, n*sizeof(double));
     if(size_xbar > 0)
         memcpy(pcdh->duc->x, xbar, n*sizeof(double));
-    pcdh->cauchyEst->reset();
+    if(pcdh->cauchyEst->master_step != 0)
+        pcdh->cauchyEst->reset();
+    else
+        setup_first_term(&(pcdh->cauchyEst->childterms_workspace), pcdh->cauchyEst->terms_dp[n], A0, p0, b0, n);
 }
 
 // Construct marginal 2D cpdf 

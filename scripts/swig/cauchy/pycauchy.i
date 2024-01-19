@@ -18,9 +18,6 @@
 import_array();
 %}
 
-// Python Wrapper to tear down the C-side Sliding Window Manager
-void pycauchy_shutdown();
-void pycauchy_single_step_shutdown(void *_pcdh);
 
 // Input array naming convention
 %apply (double* IN_ARRAY1, int DIM1) {(double* msmts, int size_msmts)};
@@ -315,7 +312,6 @@ void* pycauchy_initialize_lti(
     int init_step,  
     bool debug_print);
 
-//void pycauchy_single_step_shutdown(void* _pcdh); // this was not placed in here but still is okay
 
 void pycauchy_single_step_reset(
     void* _pcdh, 
@@ -323,6 +319,12 @@ void pycauchy_single_step_reset(
     double* p0, int size_p0, 
     double* b0, int size_b0, 
     double* xbar, int size_xbar);
+
+void pycauchy_single_step_set_master_step(void* _pcdh, int step);
+// Python Wrapper to tear down the C-side Sliding Window Manager
+void pycauchy_shutdown();
+void pycauchy_single_step_shutdown(void *_pcdh);
+void pycauchy_single_step_set_window_number(void* _pcdh, int win_num);
 
 // CPDF Wrappers
 

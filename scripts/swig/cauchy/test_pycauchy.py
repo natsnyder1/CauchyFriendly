@@ -70,6 +70,7 @@ def test_2state_lti_single_window():
     (xs, zs, ws, vs) = ce.simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H, gamma, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
 
     # Run Cauchy Estimator
+    ce.set_tr_search_idxs_ordering([1,0])
     cauchyEst = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
     cauchyEst.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma, 0, 0)
     z0 = zs[0]
@@ -232,8 +233,8 @@ def test_3state_lti_window_manager():
 
     # Simulate system states and measurements
     x0_truth = p0 * np.random.randn(ndim)
-    (xs, zs, ws, vs) = ce.simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H, gamma, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
-    #(xs, zs, ws, vs) = ce.simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, V, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
+    #(xs, zs, ws, vs) = ce.simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H, gamma, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
+    (xs, zs, ws, vs) = ce.simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, V, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
 
     # Run Cauchy Estimator
     num_windows = 8
@@ -416,6 +417,39 @@ def test_3state_marginal_cpdfs():
         plt.close()
         
 
+# Runs the 3-state dummy problem and looks at their marginals
+def test_3state_reset():
+    ndim = 3
+    Phi = np.array([ [1.4, -0.6, -1.0], 
+                     [-0.2,  1.0,  0.5],  
+                     [0.6, -0.6, -0.2]] )
+    Gamma = np.array([.1, 0.3, -0.2])
+    H = np.array([1.0, 0.5, 0.2])
+    beta = np.array([0.1]) # Cauchy process noise scaling parameter(s)
+    gamma = np.array([0.2]) # Cauchy measurement noise scaling parameter(s)
+    A0 = np.eye(ndim) # Unit directions of the initial state uncertainty
+    p0 = np.array([0.10, 0.08, 0.05]) # Initial state uncertainty cauchy scaling parameter(s)
+    b0 = np.zeros(ndim) # Initial median of system state
+
+    zs = [0.022172011200334241, -0.11943271347277583]
+    num_steps = len(zs)
+    
+    # Testing Single Cauchy Estimator Instance
+    cauchyEst = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
+    cauchyEst.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
+
+    cauchyEst.step(zs[0])
+    cauchyEst.step(zs[1])
+
+    cauchyEst2 = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
+    cauchyEst2.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
+    # Automatic
+    cauchyEst2.reset_about_estimator(cauchyEst)
+    # Manual
+    #A0,p0,b0 = cauchyEst.get_reinitialization_statistics()
+    #cauchyEst2.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
+    #cauchyEst2.step(zs[1])
+    foobar = 2
 
 
 if __name__ == "__main__":
@@ -425,4 +459,5 @@ if __name__ == "__main__":
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
     #test_3state_lti_window_manager()
-    test_3state_marginal_cpdfs()
+    #test_3state_marginal_cpdfs()
+    test_3state_reset()

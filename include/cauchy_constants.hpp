@@ -16,7 +16,7 @@ const double COALIGN_TP_EPS = 1e-8;
 // MU Settings
 const double MU_EPS = 1e-10;
 const double COALIGN_MU_EPS = COALIGN_TP_EPS;
-const bool SKIP_LAST_STEP = false;
+const bool SKIP_LAST_STEP = true; // SHOULD BE SET TO TRUE UNLESS OTHERWISE NEEDED
 const bool WITH_MSMT_UPDATE_ORTHOG_WARNING = false;
 
 // Shared TP and MU Coalignment Settings
@@ -68,7 +68,7 @@ const int MIN_TERMS_PER_THREAD_GTABLE = 1000;
 const double THRESHOLD_FZ_IMAG_TO_REAL = 1e-3;
 const double HARD_LIMIT_IMAGINARY_MEAN = 0.001; //0.1
 const double THRESHOLD_MEAN_IMAG_TO_REAL = 1e-1;
-const double HARD_LIMIT_IMAGINARY_COVARIANCE = 0.001; // 0.75
+const double HARD_LIMIT_IMAGINARY_COVARIANCE = 0.1; // 0.75
 const double THRESHOLD_COVARIANCE_IMAG_TO_REAL = 0.75;
 
 // Numeric Covariance Error Flag Bits

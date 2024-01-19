@@ -91,14 +91,6 @@ except AttributeError:
 
 
 
-def pycauchy_shutdown():
-    return _pycauchy.pycauchy_shutdown()
-pycauchy_shutdown = _pycauchy.pycauchy_shutdown
-
-def pycauchy_single_step_shutdown(_pcdh):
-    return _pycauchy.pycauchy_single_step_shutdown(_pcdh)
-pycauchy_single_step_shutdown = _pycauchy.pycauchy_single_step_shutdown
-
 def pycauchy_step(msmts, controls):
     return _pycauchy.pycauchy_step(msmts, controls)
 pycauchy_step = _pycauchy.pycauchy_step
@@ -138,6 +130,22 @@ pycauchy_initialize_lti = _pycauchy.pycauchy_initialize_lti
 def pycauchy_single_step_reset(_pcdh, A0, p0, b0, xbar):
     return _pycauchy.pycauchy_single_step_reset(_pcdh, A0, p0, b0, xbar)
 pycauchy_single_step_reset = _pycauchy.pycauchy_single_step_reset
+
+def pycauchy_single_step_set_master_step(_pcdh, step):
+    return _pycauchy.pycauchy_single_step_set_master_step(_pcdh, step)
+pycauchy_single_step_set_master_step = _pycauchy.pycauchy_single_step_set_master_step
+
+def pycauchy_shutdown():
+    return _pycauchy.pycauchy_shutdown()
+pycauchy_shutdown = _pycauchy.pycauchy_shutdown
+
+def pycauchy_single_step_shutdown(_pcdh):
+    return _pycauchy.pycauchy_single_step_shutdown(_pcdh)
+pycauchy_single_step_shutdown = _pycauchy.pycauchy_single_step_shutdown
+
+def pycauchy_single_step_set_window_number(_pcdh, win_num):
+    return _pycauchy.pycauchy_single_step_set_window_number(_pcdh, win_num)
+pycauchy_single_step_set_window_number = _pycauchy.pycauchy_single_step_set_window_number
 
 def pycauchy_get_marginal_2D_pointwise_cpdf(_pcdh, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir):
     return _pycauchy.pycauchy_get_marginal_2D_pointwise_cpdf(_pcdh, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir)

@@ -3980,37 +3980,6 @@ SWIG_AsCharPtrAndSize(PyObject *obj, char** cptr, size_t* psize, int *alloc)
 #ifdef __cplusplus
 extern "C" {
 #endif
-SWIGINTERN PyObject *_wrap_pycauchy_shutdown(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
-  PyObject *resultobj = 0;
-  
-  if (!PyArg_ParseTuple(args,(char *)":pycauchy_shutdown")) SWIG_fail;
-  pycauchy_shutdown();
-  resultobj = SWIG_Py_Void();
-  return resultobj;
-fail:
-  return NULL;
-}
-
-
-SWIGINTERN PyObject *_wrap_pycauchy_single_step_shutdown(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
-  PyObject *resultobj = 0;
-  void *arg1 = (void *) 0 ;
-  int res1 ;
-  PyObject * obj0 = 0 ;
-  
-  if (!PyArg_ParseTuple(args,(char *)"O:pycauchy_single_step_shutdown",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
-  if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_shutdown" "', argument " "1"" of type '" "void *""'"); 
-  }
-  pycauchy_single_step_shutdown(arg1);
-  resultobj = SWIG_Py_Void();
-  return resultobj;
-fail:
-  return NULL;
-}
-
-
 SWIGINTERN PyObject *_wrap_pycauchy_step(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   double *arg1 = (double *) 0 ;
@@ -7314,6 +7283,93 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_pycauchy_single_step_set_master_step(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  void *arg1 = (void *) 0 ;
+  int arg2 ;
+  int res1 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OO:pycauchy_single_step_set_master_step",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_set_master_step" "', argument " "1"" of type '" "void *""'"); 
+  }
+  ecode2 = SWIG_AsVal_int(obj1, &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "pycauchy_single_step_set_master_step" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  pycauchy_single_step_set_master_step(arg1,arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_pycauchy_shutdown(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  
+  if (!PyArg_ParseTuple(args,(char *)":pycauchy_shutdown")) SWIG_fail;
+  pycauchy_shutdown();
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_pycauchy_single_step_shutdown(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  void *arg1 = (void *) 0 ;
+  int res1 ;
+  PyObject * obj0 = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)"O:pycauchy_single_step_shutdown",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_shutdown" "', argument " "1"" of type '" "void *""'"); 
+  }
+  pycauchy_single_step_shutdown(arg1);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_pycauchy_single_step_set_window_number(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  void *arg1 = (void *) 0 ;
+  int arg2 ;
+  int res1 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OO:pycauchy_single_step_set_window_number",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_set_window_number" "', argument " "1"" of type '" "void *""'"); 
+  }
+  ecode2 = SWIG_AsVal_int(obj1, &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "pycauchy_single_step_set_window_number" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = static_cast< int >(val2);
+  pycauchy_single_step_set_window_number(arg1,arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_pycauchy_get_marginal_2D_pointwise_cpdf(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   void *arg1 = (void *) 0 ;
@@ -8282,8 +8338,6 @@ fail:
 
 static PyMethodDef SwigMethods[] = {
 	 { (char *)"SWIG_PyInstanceMethod_New", (PyCFunction)SWIG_PyInstanceMethod_New, METH_O, NULL},
-	 { (char *)"pycauchy_shutdown", _wrap_pycauchy_shutdown, METH_VARARGS, NULL},
-	 { (char *)"pycauchy_single_step_shutdown", _wrap_pycauchy_single_step_shutdown, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_step", _wrap_pycauchy_step, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_single_step_ltiv", _wrap_pycauchy_single_step_ltiv, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_single_step_nonlin", _wrap_pycauchy_single_step_nonlin, METH_VARARGS, NULL},
@@ -8294,6 +8348,10 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"pycauchy_initialize_ltv", _wrap_pycauchy_initialize_ltv, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_initialize_lti", _wrap_pycauchy_initialize_lti, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_single_step_reset", _wrap_pycauchy_single_step_reset, METH_VARARGS, NULL},
+	 { (char *)"pycauchy_single_step_set_master_step", _wrap_pycauchy_single_step_set_master_step, METH_VARARGS, NULL},
+	 { (char *)"pycauchy_shutdown", _wrap_pycauchy_shutdown, METH_VARARGS, NULL},
+	 { (char *)"pycauchy_single_step_shutdown", _wrap_pycauchy_single_step_shutdown, METH_VARARGS, NULL},
+	 { (char *)"pycauchy_single_step_set_window_number", _wrap_pycauchy_single_step_set_window_number, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_get_marginal_2D_pointwise_cpdf", _wrap_pycauchy_get_marginal_2D_pointwise_cpdf, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_get_2D_pointwise_cpdf", _wrap_pycauchy_get_2D_pointwise_cpdf, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_get_marginal_1D_pointwise_cpdf", _wrap_pycauchy_get_marginal_1D_pointwise_cpdf, METH_VARARGS, NULL},
