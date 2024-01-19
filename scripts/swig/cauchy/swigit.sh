@@ -8,6 +8,8 @@ PYTHON_INC_PATH="-I/usr/local/include/python3.7m/"
 SWIG_FILE=${FILE_NAME}.i
 INCLUDE_FILE=${FILE_NAME}.hpp
 LIB_LAPACK="-llapacke -llapack -lblas -lm -lpthread"
+# For cluster
+#LIB_LAPACK= -Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl
 
 
 rm _${FILE_NAME}.so
