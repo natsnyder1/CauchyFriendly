@@ -1344,7 +1344,7 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
                 plt.plot(T[:plot_len], -scale*np.sqrt(kf_cond_covars[:plot_len,i,i]), 'm--')
 
     if with_sim:
-        line_types = ['-', '--', '-.', ':', '-']
+        line_types = ['-', '--', '-.', ':', '-', '--']
         fig = plt.figure(3)
         fig.suptitle("Msmts (m), Msmt Noise (g), Proc Noise (b)")
         m = 3 #proc_noises.shape[1] + msmt_noises.shape[1] + msmts.shape[1]

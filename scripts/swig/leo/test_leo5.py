@@ -34,78 +34,81 @@ def lookup_air_density(r_sat):
 
 
 class leo_satellite_5state():
-    # Size of simulation dynamics
-    n = 5
-    num_satellites = 2 # number of sattelites to talk to (measurements)
-    p = num_satellites
-    cmcc = 1
-    # Orbital distances
-    r_earth = 6378.1e3 # spherical approximation of earths radius (meters)
-    r_sat = 550e3 # orbit distance of satellite above earths surface (meters)
-    
-    # Satellite parameter specifics
-    M = 5.9722e24 # Mass of earth (kg)
-    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
-    mu = M*G  #Nm^2/kg^2
-    m = 5000.0 # kg
-    rho = lookup_air_density(r_sat) # kg/m^3
-    C_D = 2.0 #drag coefficient
-    A = 64.0 #m^2
-    tau = 21600.0 # 1/(m*sec)
-    # Parameters for runge kutta ODE integrator
-    dt = 60.0 #time step in sec
-    sub_steps_per_dt = 60 # so sub intervals are dt / sub_steps_dt 
-    # Initial conditions
-    r0 = r_earth + r_sat # orbit distance from center of earth
-    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
-    x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
-    omega0 = v0/r0 # rad/sec (angular rate of orbit)
-    orbital_period = 2.0*np.pi / omega0 #Period of orbit in seconds
-    time_steps_per_period = (int)(orbital_period / dt + 0.50) # number of dt's until 1 revolution is made
-    num_revolutions = 10
-    num_simulation_steps = num_revolutions * time_steps_per_period
-    # Satellite parameters for measurement update
-    satellite_positions = np.array([ [-7e6, -7e6], [7e6, 7e6] ])
-    dt_R = 0.0 # bias time of sattelite clocks, for now its zero
-    b = np.zeros(2)
-    std_dev_gps = 2.0 # uncertainty in GPS measurement (meters)
-    V = np.array([ [pow(std_dev_gps,2), 0], [0, pow(std_dev_gps,2)] ])
-    cholV = np.linalg.cholesky(V)
-    # Conversion Parameters 
-    SAS_alpha = 1.3
-    CAUCHY_TO_GAUSS = 1.3898
-    GAUSS_TO_CAUCHY = 1.0 / CAUCHY_TO_GAUSS
-    beta_drag = 0.0013
-    beta_gauss = (beta_drag * CAUCHY_TO_GAUSS) / (tau * (1.0 - np.exp(-dt/tau)))
-    beta_cauchy = beta_gauss * GAUSS_TO_CAUCHY
-    # Satellite parameters for process noise
-    q = 8e-15; # Process noise ncertainty in the process position and velocity
-    W = np.zeros(25)
-    W[0] = pow(dt,3)/3*q
-    W[6] = pow(dt,3)/3*q
-    W[2] = pow(dt,2)/2*q
-    W[8] = pow(dt,2)/2*q
-    W[10] = pow(dt,2)/2*q
-    W[16] = pow(dt,2)/2*q
-    W[12] = dt*q
-    W[18] = dt*q
-    W[24] = pow( beta_drag * CAUCHY_TO_GAUSS, 2)
-    W = W.reshape((5,5))
-    cholW = np.linalg.cholesky(W)
-    Wd = np.array([[beta_gauss**2]])
-    # Initial uncertainty in position
-    alpha_density_cauchy = 0.0039 # Cauchy uncertainty parameter of initial density coefficient (given by Carpenter)
-    alpha_density_gauss = alpha_density_cauchy * CAUCHY_TO_GAUSS # Cauchy uncertainty parameter of initial density coefficient (given by Carpenter)
-    alpha_pv_gauss = 0.01 # Initial Gaussian standard deviation in position and velocity of satellite
-    alpha_pv_cauchy = alpha_pv_gauss * GAUSS_TO_CAUCHY # Initial converted uncertainty parameter in position and velocity of satellite converted for Cauchy Estimator
-    P0 = np.zeros(25)
-    P0[0] = pow(alpha_pv_gauss,2); P0[6] = pow(alpha_pv_gauss,2)
-    P0[12] = pow(alpha_pv_gauss,2); P0[18] = pow(alpha_pv_gauss,2)
-    P0[24] = pow(alpha_density_gauss,2)
-    P0 = P0.reshape((5,5))
-    cholP0 = np.linalg.cholesky(P0)
-    # For Kalman Schmidt Recursion
-    last_kf_est = x0[2:4].copy()
+
+    def __init__(self, leo5_alt = 200e3, leo5_A = 64.0, leo5_gps_std_dev = 2.0):
+        # Size of simulation dynamics
+        self.n = 5
+        self.num_satellites = 2 # number of sattelites to talk to (measurements)
+        self.p = self.num_satellites
+        self.pncc = 1
+        self.cmcc = 0
+        # Orbital distances
+        self.r_earth = 6378.1e3 # spherical approximation of earths radius (meters)
+        self.r_sat = leo5_alt #550e3 # orbit distance of satellite above earths surface (meters)
+        
+        # Satellite parameter specifics
+        self.M = 5.9722e24 # Mass of earth (kg)
+        self.G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
+        self.mu = self.M*self.G  #Nm^2/kg^2
+        self.m = 5000.0 # kg
+        self.rho = lookup_air_density(self.r_sat) # kg/m^3
+        self.C_D = 2.0 #drag coefficient
+        self.A = leo5_A #m^2
+        self.tau = 21600.0 # 1/(m*sec)
+        # Parameters for runge kutta ODE integrator
+        self.dt = 60.0 #time step in sec
+        self.sub_steps_per_dt = 60 # so sub intervals are dt / sub_steps_dt 
+        # Initial conditions
+        self.r0 = self.r_earth + self.r_sat # orbit distance from center of earth
+        self.v0 = np.sqrt(self.mu/self.r0) # speed of the satellite in orbit for distance r0
+        self.x0 = np.array([self.r0/np.sqrt(2), self.r0/np.sqrt(2), self.v0/np.sqrt(2), -self.v0/np.sqrt(2), 0.0])
+        self.omega0 = self.v0/self.r0 # rad/sec (angular rate of orbit)
+        self.orbital_period = 2.0*np.pi / self.omega0 #Period of orbit in seconds
+        self.time_steps_per_period = (int)(self.orbital_period / self.dt + 0.50) # number of dt's until 1 revolution is made
+        self.num_revolutions = 10
+        self.num_simulation_steps = self.num_revolutions * self.time_steps_per_period
+        # Satellite parameters for measurement update
+        self.satellite_positions = np.array([ [-7e6, -7e6], [7e6, 7e6] ])
+        self.dt_R = 0.0 # bias time of sattelite clocks, for now its zero
+        self.b = np.zeros(2)
+        self.std_dev_gps = leo5_gps_std_dev# 2.0 # uncertainty in GPS measurement (meters)
+        self.V = np.array([ [pow(self.std_dev_gps,2), 0], [0, pow(self.std_dev_gps,2)] ])
+        self.cholV = np.linalg.cholesky(self.V)
+        # Conversion Parameters 
+        self.SAS_alpha = 1.3
+        self.CAUCHY_TO_GAUSS = 1.3898
+        self.GAUSS_TO_CAUCHY = 1.0 / self.CAUCHY_TO_GAUSS
+        self.beta_drag = 0.0013
+        self.beta_gauss = (self.beta_drag * self.CAUCHY_TO_GAUSS) / (self.tau * (1.0 - np.exp(-self.dt/self.tau)))
+        self.beta_cauchy = self.beta_gauss * self.GAUSS_TO_CAUCHY
+        # Satellite parameters for process noise
+        self.q = 8e-15; # Process noise ncertainty in the process position and velocity
+        self.W = np.zeros(25)
+        self.W[0] = pow(self.dt,3)/3*self.q
+        self.W[6] = pow(self.dt,3)/3*self.q
+        self.W[2] = pow(self.dt,2)/2*self.q
+        self.W[8] = pow(self.dt,2)/2*self.q
+        self.W[10] = pow(self.dt,2)/2*self.q
+        self.W[16] = pow(self.dt,2)/2*self.q
+        self.W[12] = self.dt*self.q
+        self.W[18] = self.dt*self.q
+        self.W[24] = pow( self.beta_drag * self.CAUCHY_TO_GAUSS, 2)
+        self.W = self.W.reshape((5,5))
+        self.cholW = np.linalg.cholesky(self.W)
+        self.Wd = np.array([[self.beta_gauss**2]])
+        # Initial uncertainty in position
+        self.alpha_density_cauchy = 0.0039 # Cauchy uncertainty parameter of initial density coefficient (given by Carpenter)
+        self.alpha_density_gauss = self.alpha_density_cauchy * self.CAUCHY_TO_GAUSS # Cauchy uncertainty parameter of initial density coefficient (given by Carpenter)
+        self.alpha_pv_gauss = 0.01 # Initial Gaussian standard deviation in position and velocity of satellite
+        self.alpha_pv_cauchy = self.alpha_pv_gauss * self.GAUSS_TO_CAUCHY # Initial converted uncertainty parameter in position and velocity of satellite converted for Cauchy Estimator
+        self.P0 = np.zeros(25)
+        self.P0[0] = pow(self.alpha_pv_gauss,2); self.P0[6] = pow(self.alpha_pv_gauss,2)
+        self.P0[12] = pow(self.alpha_pv_gauss,2); self.P0[18] = pow(self.alpha_pv_gauss,2)
+        self.P0[24] = pow(self.alpha_density_gauss,2)
+        self.P0 = self.P0.reshape((5,5))
+        self.cholP0 = np.linalg.cholesky(self.P0)
+        # For Kalman Schmidt Recursion
+        self.last_kf_est = self.x0[2:4].copy()
     
 leo = leo_satellite_5state()
 
@@ -1067,6 +1070,53 @@ def test_innovation2():
     print("max_diff is", max_diff)
 
 # Sliding Window Debugger
+def test_single_sliding_window():
+    global leo
+    # 2124125479 -- no huge jumps
+    seed = 2124125479 #int(np.random.rand() * (2**32 -1)) #3872826552#
+    print("Seeding with seed: ", seed)
+    np.random.seed(seed)
+
+    # Leo Satelite Parameters
+    leo5_alt = 550e3 # meters
+    leo5_A = 14 # meters^2
+    leo5_gps_std_dev = 7.5 # meters
+    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_gps_std_dev)
+
+    # Cauchy and Kalman Tunables
+    num_window_steps = 8
+    prop_steps = num_window_steps # Number of time steps to run sim
+    gamma_scale = 1 # scaling gamma up by .... (1 is normal)
+    beta_scale = 1 # scaling beta down by ... (1 is normal)
+
+    xs, zs, ws, vs = simulate_leo5_state(prop_steps, with_sas_density=True, with_added_jumps=False)
+    zs_without_z0 = zs[1:,:]
+
+    # Run Cauchy Estimator
+    #'''
+    beta = np.array([leo.beta_cauchy])
+    gamma = np.array([leo.std_dev_gps * leo.GAUSS_TO_CAUCHY, leo.std_dev_gps * leo.GAUSS_TO_CAUCHY])
+    beta /= beta_scale
+    gamma /= gamma_scale
+
+    # Create Phi.T as A0, start at propagated x0
+    # Initialize Initial Hyperplanes
+    Phi, _ = leo_5state_transition_model_jacobians(leo.x0)
+    xbar = leo_5state_transition_model(leo.x0)
+    A0 = Phi.T.copy() # np.linalg.eig(Ps_kf[35])[1].T #Phi.T.copy()
+    p0 = np.repeat(leo.alpha_pv_cauchy, 5)
+    p0[4] = leo.alpha_density_cauchy
+    b0 = np.zeros(5)
+    num_controls = 0
+
+    ce.set_tr_search_idxs_ordering([3,2,4,1,0])
+    debug_print = True
+    cauchyEst = ce.PyCauchyEstimator("nonlin", num_window_steps, debug_print) 
+    cauchyEst.initialize_nonlin(xbar, A0, p0, b0, beta, gamma, ece_dynamics_update_callback, ece_nonlinear_msmt_model, ece_extended_msmt_update_callback, num_controls)
+    
+    np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
+    for i in range(num_window_steps):
+        xhat, Phat = cauchyEst.step(zs_without_z0[i], None)
 
 # choose window with last estimate's covariance defined
 def best_window_est(cauchyEsts, window_counts):
@@ -1100,25 +1150,53 @@ def test_python_debug_window_manager():
     print("Seeding with seed: ", seed)
     np.random.seed(seed)
 
-    WITH_LOG = False
-    prop_steps = 100
-    ekf_scale = 10000
-    use_speyer_restart = False
+    # Leo Satelite Parameters
+    leo5_alt = 550e3 # meters
+    leo5_A = 64 # meters^2
+    leo5_gps_std_dev = 2 # meters
+    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_gps_std_dev)
+
+    # Cauchy and Kalman Tunables
+    WITH_LOG = True
+    prop_steps = 100 # Number of time steps to run sim
+    num_windows = 8 # Number of Cauchy Windows
+    ekf_scale = 10000 # Scaling factor for EKF atmospheric density
+    gamma_scale = 1 # scaling gamma up by .... (1 is normal)
+    beta_scale = 1 # scaling beta down by ... (1 is normal)
+    use_speyer_restart = True
     speyer_restart_idx = 1
-    with_jumps = True
+    with_jumps = False
 
     alt = str(int(leo.r_sat/1000)) + "km_"
     win_init_prob = "wip_"  if use_speyer_restart else "nwip_"
     ekf_scaled = "ekfs" + str(ekf_scale)
+    beta_scaled = "_bs" + str(beta_scale)
+    gamma_scaled = "_gs" + str(gamma_scale)
     added_jumps = "wj_" if with_jumps else "nj_"
-    log_dir = file_dir + "/pylog/debug5/" + alt + added_jumps + win_init_prob + ekf_scaled
 
+    # Directory name
+    if (leo.A == 64) and (leo.std_dev_gps == 2):
+        dir_base_name = "leo5/debug"
+    elif (leo.A == 14) and (leo.std_dev_gps == 7.5):
+        dir_base_name = "leo5/fermi"
+    else:
+        if(WITH_LOG):
+            print("Please setup directory for new parameters leo.A={} and leo.std_dev_gps={}".format(leo.A, leo.std_dev_gps) )
+            exit(1)
+    # Forming log directory
+    if (beta_scale == 1) and (gamma_scale == 1):
+        log_dir = file_dir + "/pylog/" + dir_base_name  + str(num_windows) + "/" + alt + added_jumps + win_init_prob + ekf_scaled
+    else:
+        log_dir = file_dir + "/pylog/" + dir_base_name + str(num_windows) + "_ce_scaled" + "/" + alt + added_jumps + win_init_prob + ekf_scaled + beta_scaled + gamma_scaled
+
+    # Possibly only plot logged simulation results and exit
     plot_debug = True
     if plot_debug:
         ce_moments = ce.load_cauchy_log_folder(log_dir, False)
         xs_kf, Ps_kf = ce.load_kalman_log_folder(log_dir)
         xs, zs, ws, vs = ce.load_sim_truth_log_folder(log_dir)
-        ce.plot_simulation_history(ce_moments, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
+        scale = 1
+        ce.plot_simulation_history(ce_moments, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True, scale=scale)
         foobar=2
         exit(1)
 
@@ -1147,12 +1225,8 @@ def test_python_debug_window_manager():
     #'''
     beta = np.array([leo.beta_cauchy])
     gamma = np.array([leo.std_dev_gps * leo.GAUSS_TO_CAUCHY, leo.std_dev_gps * leo.GAUSS_TO_CAUCHY])
-    #gamma *= 2
-    #beta /= 100
-    #beta_scale = 50
-    #beta = np.array([leo.beta_cauchy / beta_scale])
-    #gamma_scale = 5
-    #gamma = gamma_scale*np.array([leo.std_dev_gps * leo.GAUSS_TO_CAUCHY, leo.std_dev_gps * leo.GAUSS_TO_CAUCHY])
+    beta /= beta_scale
+    gamma *= gamma_scale
 
     # Create Phi.T as A0, start at propagated x0
     # Initialize Initial Hyperplanes
@@ -1164,7 +1238,6 @@ def test_python_debug_window_manager():
     b0 = np.zeros(5)
     num_controls = 0
 
-    num_windows = 6
     total_steps = prop_steps
     ce.set_tr_search_idxs_ordering([3,2,4,1,0])
     debug_print = False
@@ -1202,7 +1275,7 @@ def test_python_debug_window_manager():
         xhat, Phat = cauchyEsts[best_idx].get_last_mean_cov()
         ce_xhats.append(xhat.copy())
         ce_Phats.append(Phat.copy())
-        print("Best Window Index For Reinit is: ", best_idx)
+        print("Best Window Index For Reinit is: Window ", best_idx+1)
         # Reinitialize empty estimator
         if(use_speyer_restart):
             # using speyer's start method
@@ -1289,7 +1362,6 @@ def test_python_debug_window_manager():
     ce.plot_simulation_history(moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
     foobar = 2
 
-
 if __name__ == '__main__':
     #test_leo5()
     #test_kalman_schmidt_recursion_cascade()
@@ -1299,4 +1371,5 @@ if __name__ == '__main__':
     #test_leo5_windows()
     #test_innovation()
     #test_innovation2()
+    #test_single_sliding_window()
     test_python_debug_window_manager()

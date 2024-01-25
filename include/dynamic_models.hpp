@@ -99,6 +99,27 @@ struct CauchyDynamicsUpdateContainer
 
 };
 
+// A base class that is used to construct simulations which use feedback control
+class DynamicSimulation
+{
+    public:
+    virtual int step_simulation(double* xk_est, double* u_feedback, KalmanDynamicsUpdateContainer* duc, double* xk1_true, double* w, double* zk1, double* v)
+    {
+        printf("Please fill in the virtual function to run your simulation!\n");
+        return 0;
+    }
+    virtual int step_simulation(double* xk_est, double* u_feedback, CauchyDynamicsUpdateContainer* duc, double* xk1_true, double* w, double* zk1, double* v)
+    {
+        printf("Please fill in the virtual function to run your simulation!\n");
+        return 0;
+    }
+    virtual int reset_simulation(void)
+    {
+        return 0;
+    }
+};
+
+
 struct SAS_noise_container
 {
     double alpha; // exponential decay parameter of the SAS pdf

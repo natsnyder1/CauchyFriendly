@@ -190,7 +190,6 @@ void pycauchy_step(
     int* out_swm_win_idx, 
     int* out_swm_err_code)
 {
-    controls = (size_controls == 0) ? NULL : controls;
     swm->step(msmts, controls);
     // Now take the data back to python
     int data_idx = swm->msmt_count-1;
@@ -383,7 +382,7 @@ void* pycauchy_initialize_nonlin(
     memcpy(duc->gamma, gamma, size_gamma * sizeof(double) );
     duc->dt = dt;
     duc->step = init_step;
-    pcdh->cauchyEst = new CauchyEstimator(A0, p0, b0, num_steps, n, cmcc, pncc, p, debug_print);
+    pcdh->cauchyEst = new CauchyEstimator(A0, p0, b0, num_steps, n, 0, pncc, p, debug_print);
     pcdh->f_dyn_update_callback = f_dyn_update_callback;
     pcdh->f_nonlinear_msmt_model = f_nonlinear_msmt_model;
     pcdh->f_extended_msmt_update_callback = f_extended_msmt_update_callback;

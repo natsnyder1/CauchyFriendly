@@ -511,7 +511,7 @@ int child_window_loop(CauchyWindow cw,
     const int n = duc->n;
     const int p = duc->p;
     const int pncc = duc->pncc;
-    const int cmcc = duc->cmcc;
+    const int cmcc = duc->cmcc; 
     double z_bar[p]; // extended helper: computes \bar{z}_{k+1} = h(\bar{x}_{k+1})
     double x_bar[n]; // extended helper: needs to be sent to the empty window, if we are the full window
 
@@ -521,7 +521,8 @@ int child_window_loop(CauchyWindow cw,
     print_window_settings(&cw);
     
     // Setup the Estimator 
-    CauchyEstimator cauchyEst(A0, p0, b0, num_windows, n, cmcc, pncc, p, false);
+    int _cmcc = is_extended ? 0 : cmcc; // do not allow controls for the nonlinear problems in the stochastic part, user must update in deterministic part
+    CauchyEstimator cauchyEst(A0, p0, b0, num_windows, n, _cmcc, pncc, p, false); 
     cauchyEst.set_win_num(cw.window_number);
 
     WindowMessage win_msg;
@@ -620,8 +621,10 @@ int child_window_loop(CauchyWindow cw,
                         (*nonlinear_msmt_model)(duc, z_bar); // duc->x == x_bar on i==0 and x_hat on i>0
                         msmt_msg.msmts[i] -= z_bar[i];
                         extended_msmt_update_callback(duc);
+                        window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], NULL, NULL);
                     }
-                    window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], duc->B, duc->u);
+                    else
+                        window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], duc->B, duc->u);
                     // Shifts bs in CF by -\delta{x_k}. Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar). Then sets (duc->x) x_bar = creal(conditional_mean)
                     if(is_extended)
                         cauchyEst.finalize_extended_moments(duc->x); 
@@ -739,8 +742,10 @@ int child_window_loop(CauchyWindow cw,
                     (*nonlinear_msmt_model)(duc, z_bar); // duc->x == x_bar on i==0 and x_hat on i>0
                     msmt_msg.msmts[i] -= z_bar[i];
                     extended_msmt_update_callback(duc);
+                    window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], NULL, NULL);
                 }
-                window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], duc->B, duc->u);
+                else
+                    window_numeric_errors = cauchyEst.step(msmt_msg.msmts[i], duc->Phi, duc->Gamma, duc->beta, duc->H + i*n, duc->gamma[i], duc->B, duc->u);
                 // Shifts bs in CF by -\delta{x_k}. Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar). Then sets (duc->x) x_bar = creal(conditional_mean)
                 if(is_extended)
                     cauchyEst.finalize_extended_moments(duc->x);
@@ -1102,10 +1107,10 @@ struct SlidingWindowManager
 
             // Launch window manager
             msmt_count = 0;
-            sleep(1);
+            //sleep(1);
             printf("Parent has pid: %d\n", (int) getpid() );
             printf("Start your engines, racers...\n"); 
-            sleep(1);
+            //sleep(1);
             // add tmr here
             win_tmr.tic();
         }

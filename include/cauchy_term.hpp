@@ -376,7 +376,10 @@ struct CauchyTerm
         matvecmul(Phi, work, b, d, d, false); // Phi @ b == b @ Phi.T
 
         // Shift b_{k+1|k} by B @ u if a control was provided
-        if(cmcc > 0)
+        // In the nonlinear case, cmcc may be > 0, 
+        // however, the sliding window manager / python do not allow controls 
+        // controls must be updated in the deterministic part for nonlinear problems
+        if( cmcc > 0)
         {
             matvecmul(B, u, work, d, cmcc);
             add_vecs(b, work, d, 1);

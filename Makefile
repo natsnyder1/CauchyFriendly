@@ -28,6 +28,9 @@ bin/window_manager : src/window_manager.cpp
 bin/leo_satellite_5state : src/leo_satellite_5state.cpp
 	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
 
+bin/homing_missile : src/homing_missile.cpp
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)
+
 bin/leo_satellite_7state : src/leo_satellite_7state.cpp
 	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
 
@@ -39,6 +42,7 @@ bin/leo_satellite_7state_gps : src/leo_satellite_7state_gps.cpp
 
 cauchy : bin/cauchy_estimator
 window : bin/window_manager
+home : bin/homing_missile
 leo5 : bin/leo_satellite_5state
 leo5_gps : bin/leo_satellite_5state_gps
 leo7 : bin/leo_satellite_7state
@@ -48,4 +52,4 @@ all :
 	cauchy window
 
 clean : 
-	rm -f bin/cauchy_estimator bin/window_manager bin/leo_satellite_5state bin/leo_satellite_7state bin/leo_satellite_5state_gps bin/leo_satellite_7state_gps
+	rm -f bin/cauchy_estimator bin/window_manager bin/homing_missile bin/leo_satellite_5state bin/leo_satellite_7state bin/leo_satellite_5state_gps bin/leo_satellite_7state_gps
