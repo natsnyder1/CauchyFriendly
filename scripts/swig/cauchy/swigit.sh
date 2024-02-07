@@ -9,6 +9,7 @@ SWIG_FILE=${FILE_NAME}.i
 INCLUDE_FILE=${FILE_NAME}.hpp
 LIB_LAPACK="-llapacke -llapack -lblas -lm -lpthread"
 # For cluster
+#PYTHON_INC_PATH="-I/home/natsnyder1/.local/lib/python3.8/site-packages/numpy/core/include"
 #LIB_LAPACK= -Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl
 
 
