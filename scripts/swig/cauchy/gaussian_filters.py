@@ -44,13 +44,6 @@ def get_simulated_states_ctime(x0, Phi, Gam, controls, dt = .025):
         x = prop_state_ctime(x, Phi, Gam, u, dt)
         xs.append(x.reshape(-1))
     return np.array(xs)
-    #plt.figure()
-    #plt.subplot(211)
-    #times = np.array([i for i in range(xs.shape[0])]) * dt
-    #plt.plot(times, xs[:,0])
-    #plt.subplot(212)
-    #plt.plot(times, xs[:,1])
-    #plt.show()
 
 # Get proposal particles
 def proposal_particle_sample(states, W):

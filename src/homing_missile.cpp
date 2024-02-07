@@ -354,11 +354,111 @@ int count_subdirs_with_prefix(char* path, char* prefix)
     return count;
 }
 
+void test_single_window()
+{
+    // Cauchy estimator CMD LINE PREAMBLE
+    int NUM_WINDOWS = 9;
+    double SCALE_BETA = 5.0; // 1.0 seems to be pretty good until the end // 5 (may...) be winner // 25 pretty good // 50 pretty drifty
+    double RADAR_SAS_PARAM = 1.3;
+    // PRINT OUT SETTINGS 
+    printf("Running 3-State Test with Settings:\n");
+    printf("Number of windows: %d\n", NUM_WINDOWS);
+    printf("BETA SCALE: %lf\n", SCALE_BETA);
+    printf("RADAR_SAS_PARAM: %lf\n", RADAR_SAS_PARAM);
+
+    const int n = 3; 
+    const int p = 1;
+    const int cmcc = 1;
+    const int pncc = 1;
+    const int sim_num_steps = 99;
+    const int total_steps = sim_num_steps+1;
+    BallisticMissileConstants bsc(RADAR_SAS_PARAM);
+    
+    // Arrays for dynamics
+    double Phi[n*n], Gamma[n*pncc], B[n*cmcc], H[p*n]; double u_feedback[cmcc];
+    const double sigma_w0 = sqrt( (2.0/bsc.tau*bsc.E_at2) / bsc.dt );// std dev of equivalent gaussian process noise
+    const double sigma_v0 = sqrt( (bsc.R1 + bsc.R2 / pow(bsc.t_f, 2)) / bsc.dt);// std dev of equivalent gaussian msmt noise
+
+    ///*
+    // Arrays For Cauchy Estimator 
+    // Initializing the Cauchy Estimator's noises and covariances for the Telegraph Simulation
+    int ftr_ordering[3] = {1, 2, 0};
+    set_tr_search_idxs_ordering(ftr_ordering, n);
+    double xhat_ce[n];
+    double x_ce[n];
+    double beta[pncc] = {sigma_w0 * GAUSS_TO_CAUCHY_NOISE / SCALE_BETA};
+    double gamma[p]; 
+    double A0[n*n];
+    double p0[n] = { sqrt(bsc.E_yt2) * GAUSS_TO_CAUCHY_NOISE, sqrt(bsc.E_vt2) * GAUSS_TO_CAUCHY_NOISE, sqrt(bsc.E_at2) * GAUSS_TO_CAUCHY_NOISE }; 
+    double b0[n] = {0.0, 0.0, 0.0};
+    CauchyDynamicsUpdateContainer duc;
+        duc.n = n; duc.cmcc = cmcc; 
+        duc.p = p; duc.pncc = pncc;
+        duc.dt = bsc.dt; duc.step = 1; // step starts at 1 since we assume initial time propogation in the parameters
+        duc.Phi = Phi; duc.B = B; duc.Gamma = Gamma; 
+        duc.H = H; duc.beta = beta; duc.gamma = gamma;
+        duc.x = x_ce;
+        duc.u = u_feedback; 
+        duc.other_stuff = &bsc;
+    assert_correct_cauchy_dynamics_update_container_setup(&duc);
+    //*/
+
+    // Create the DynamicSimulation class object
+    HomingSimulation hs(total_steps, &bsc);
+    // Create temporary work spaces
+    double z[p];
+
+    // Seed Trials
+    unsigned int seed = 1658778374; //time(NULL); //
+    printf("Seeding with %u \n", seed);
+    srand ( seed ); //seed // 1658964656 -- no crazy cov error since msmts stay about zero //1658778374 -- a very nice example of EKF vs EMCE // another good example 1658966894
+
+    // Reset the dynamic simulation counters and generate realizations
+    hs.reset_counters();
+    hs.simulate_telegraph_process_noise_and_measurement_noise();
+    memset(u_feedback, 0, cmcc * sizeof(double));
+
+    ///*
+    // Reset the Cauchy Estimator
+    memset(x_ce, 0, n * sizeof(double));
+    memset(xhat_ce, 0, n * sizeof(double));
+    init_nonlinear_missile_dynamics(x_ce, Phi, B, Gamma, H, bsc.tau, bsc.Vc, bsc.t_f, bsc.dt, n);
+    memcpy(A0, Phi, n*n*sizeof(double));
+    reflect_array(A0, n, n); // eye(n) @ Phi.T
+    gamma[0] = sigma_v0 * _RADAR_TO_CAUCHY_NOISE;
+    duc.step = 1; // we start in the time propagation phase
+    
+    int foo_steps = NUM_WINDOWS;
+    bool print_basic_info = true;
+    CauchyEstimator cauchyEst(A0, p0, b0, foo_steps, n, 0, pncc, p, print_basic_info);
+    for(int i = 0; i < foo_steps; i++)
+    {
+        hs.step_simulation(xhat_ce, u_feedback, &duc, NULL, NULL, z, NULL);
+        if(i > 0)
+            ballistic_missile_nonlinear_radar_full_update_callback(&duc);
+        for(int j = 0; j < p; j++)
+        {
+            double zbar[p];
+            ballistic_missile_ece_msmt_model(&duc, zbar);
+            ballistic_missile_nonlinear_radar_msmt_update_callback(&duc);
+            double msmt = z[j] - zbar[j];
+            printf("Processing measurement z=%.4lf, which is #%d/%d at step %d/%d\n", msmt, j+1, p, i+1, foo_steps);
+            cauchyEst.step(msmt, Phi, Gamma, beta, H + j*n, gamma[j], NULL, NULL); 
+            cauchyEst.finalize_extended_moments(duc.x);
+
+            printf("True State is:\n");
+            print_mat(hs.cauchy_true_relative_state_history + (i+1)*n, 1, n);
+            printf("Cauchy Conditional Mean is:\n");
+            print_mat(duc.x, 1, 3);
+        }
+    }
+}
+
 void test_homing_missile(int argc, char** argv)
 {
     char default_log_dir[40] = "../log/homing_missile/default";
     // Cauchy estimator CMD LINE PREAMBLE
-    int NUM_WINDOWS = 7;
+    int NUM_WINDOWS = 8;
     char* BASE_LOG_DIR;
     double SCALE_BETA = 5.0; // 1.0 seems to be pretty good until the end // 5 (may...) be winner // 25 pretty good // 50 pretty drifty
     double RADAR_SAS_PARAM = 1.3;
@@ -617,6 +717,7 @@ void test_homing_missile(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+    //test_single_window();
     test_homing_missile(argc, argv);
     return 0;
 }

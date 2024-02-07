@@ -32,9 +32,9 @@ const uint8_t kByteEmpty = 0xff;
 const uint32_t kEmpty = 0xffffffff;
 const bool WITH_TERM_APPROXIMATION = true;
 const double TERM_APPROXIMATION_EPS = 1e-16;
-const bool WITH_WARNINGS = true; // Used to flag when something may be fishy
+const bool WITH_WARNINGS = false; // Used to flag when something may be fishy
 const bool WITH_GB_TABLE_REALLOC = true;
-const bool EXIT_ON_FAILURE = true;
+const bool EXIT_ON_FAILURE = false;
 bool INTEGRABLE_FLAG = true;
 
 // Differential Cell Enumeration Settings
@@ -42,8 +42,8 @@ const int DCE_STORAGE_MULT = 4;
 const bool FAST_TP_DCE = false; // If true, we only perturb Gamma, and use moshe's new method to do so.
 const bool STABLE_SOLVE = true; // setting to false increases speed but uses a very weak condition number approximation
 const double GAMMA_PERTURB_EPS = 1; // Must be positive
-const double PLU_EPS = 1e-15;
-const double COND_EPS = 1e12;
+const double PLU_EPS = 1e-15; // LEO: 1e-15
+const double COND_EPS = 1e12; // LEO: 1e15
 
 // Fast term reduction settings
 const double REDUCTION_EPS = 1e-8; // 1e-8
@@ -68,7 +68,7 @@ const int MIN_TERMS_PER_THREAD_GTABLE = 1000;
 const double THRESHOLD_FZ_IMAG_TO_REAL = 1e-3;
 const double HARD_LIMIT_IMAGINARY_MEAN = 0.001; //0.1
 const double THRESHOLD_MEAN_IMAG_TO_REAL = 1e-1;
-const double HARD_LIMIT_IMAGINARY_COVARIANCE = 0.1; // 0.75
+const double HARD_LIMIT_IMAGINARY_COVARIANCE = 2000; // 0.75
 const double THRESHOLD_COVARIANCE_IMAG_TO_REAL = 0.75;
 
 // Numeric Covariance Error Flag Bits

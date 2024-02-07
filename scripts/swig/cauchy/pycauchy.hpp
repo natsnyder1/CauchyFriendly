@@ -680,6 +680,12 @@ void pycauchy_single_step_set_window_number(void* _pcdh, int win_num)
         pcdh->cauchyEst->win_num = win_num;
 }
 
+void* pycauchy_single_step_get_duc(void* _pcdh)
+{
+    PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
+    return (void*)(pcdh->duc);
+}
+
 
 void pycauchy_single_step_reset(
     void* _pcdh, 

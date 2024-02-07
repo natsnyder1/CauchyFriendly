@@ -204,6 +204,42 @@ struct CauchyTerm
         // If this is not the first estimation step, update the parent B using sign_AH 
         if(!first_update)
         {
+            // NEW WAY -- MAY FIX ERROR, BUT NEEDS SOME TESTING
+            int enc_sgn_AH = 0;
+            int mask_last_bit = (1<<(m-1));
+            for(int l = 0; l < m; l++)
+                if(sign_AH[l] == -1)
+                    enc_sgn_AH |= (1 << l);
+            
+            enc_lhp = enc_sgn_AH;
+            if(phc < m)
+                enc_lhp &= ~mask_last_bit;
+            if(HALF_STORAGE)
+            {
+                int mask_rev = (1<<m) - 1;
+                if( enc_sgn_AH & mask_last_bit )
+                    enc_sgn_AH ^= mask_rev;
+            }
+
+            for(int i = 0; i < num_integrable_terms; i++)
+            {
+                child_terms[i].enc_lhp = enc_lhp;
+                child_terms[i].is_new_child = true;
+                // These are brought in as input to the make new child btable function
+                child_terms[i].enc_B = enc_B;
+                child_terms[i].cells_gtable = cells_gtable;
+            }
+            // Update the parents B^{k|k-1} to B_mu^{k|k-1}
+            if(!DENSE_STORAGE)
+            {
+                if(!last_update)
+                    for(int i = 0; i < cells_gtable; i++)
+                        enc_B[i] ^= enc_sgn_AH;
+            }
+
+
+            // OLD WAY -- I THINK THERE IS AN ERROR
+            /*
             enc_lhp = 0;
             for(int l = 0; l < phc; l++)
                 if(sign_AH[l] == -1)
@@ -256,6 +292,7 @@ struct CauchyTerm
                 }
                 
             }
+            */
         }
         return num_integrable_terms; // new children + old child
     }

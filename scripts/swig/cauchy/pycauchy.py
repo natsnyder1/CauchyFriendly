@@ -135,6 +135,10 @@ def pycauchy_single_step_set_master_step(_pcdh, step):
     return _pycauchy.pycauchy_single_step_set_master_step(_pcdh, step)
 pycauchy_single_step_set_master_step = _pycauchy.pycauchy_single_step_set_master_step
 
+def pycauchy_single_step_get_duc(_pcdh):
+    return _pycauchy.pycauchy_single_step_get_duc(_pcdh)
+pycauchy_single_step_get_duc = _pycauchy.pycauchy_single_step_get_duc
+
 def pycauchy_shutdown():
     return _pycauchy.pycauchy_shutdown()
 pycauchy_shutdown = _pycauchy.pycauchy_shutdown

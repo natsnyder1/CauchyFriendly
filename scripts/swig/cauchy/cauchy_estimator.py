@@ -605,12 +605,12 @@ class PyCauchyEstimator():
                 xs.append( self._x[i*self.n:(i+1)*self.n].copy() )
                 Ps.append( self._P[i*self.n*self.n:(i+1)*self.n*self.n].copy().reshape((self.n, self.n)) )
         else:
-            xs = self._x[-(self.p-1)*self.n:].copy()
-            Ps = self._P[-(self.p-1)*self.n*self.n:].copy().reshape((self.n,self.n))
+            xs = self._x[-self.n:].copy()
+            Ps = self._P[-self.n*self.n:].copy().reshape((self.n,self.n))
 
         fz = self._fz[-1]
-        x = self._x[-(self.p-1)*self.n:].copy()
-        P = self._P[-(self.p-1)*self.n*self.n:].copy()
+        x = self._x[-self.n:].copy()
+        P = self._P[-self.n*self.n:].copy()
         cerr_fz = self._cerr_fz[-1]
         cerr_x = self._cerr_x[-1]
         cerr_P = self._cerr_P[-1]
@@ -896,6 +896,13 @@ class PyCauchyEstimator():
         print("Cauchy estimator backend C data structure has been shutdown!")
         self.is_initialized = False
      
+    def get_pyduc(self):
+        self._c_pyduc_voidp = pycauchy.pycauchy_single_step_get_duc(self.py_handle)
+        self.c_pyduc_type = ct.POINTER(C_CauchyDynamicsUpdateContainer)
+        self.c_pyduc = ct.cast(int(self._c_pyduc_voidp), self.c_pyduc_type)
+        self.pyduc = Py_CauchyDynamicsUpdateContainer(self.c_pyduc)
+        return self.pyduc
+
     def get_marginal_2D_pointwise_cpdf(self, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir = None):
         if(self.is_initialized == False):
             print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
@@ -1344,7 +1351,7 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
                 plt.plot(T[:plot_len], -scale*np.sqrt(kf_cond_covars[:plot_len,i,i]), 'm--')
 
     if with_sim:
-        line_types = ['-', '--', '-.', ':', '-', '--']
+        line_types = ['-', '--', '-.', ':', '-', '--', '-.', ':']
         fig = plt.figure(3)
         fig.suptitle("Msmts (m), Msmt Noise (g), Proc Noise (b)")
         m = 3 #proc_noises.shape[1] + msmt_noises.shape[1] + msmts.shape[1]
@@ -1408,17 +1415,23 @@ def runge_kutta4(f, x, dt):
     return x_new
 
 # returns Central Difference Gradient of vector f, the matrix Jacobian, 4th Order expansion
-def cd4_gvf(x, f):
+def cd4_gvf(x, f, other_params=None):
     # numerical gradient 
     n = x.size
-    m = f(x).size
+    if other_params is None:
+        m = f(x).size
+    else:
+        m = f(x, *other_params).size
     ep = 1e-5
     G = np.zeros((m,n))
     zr = np.zeros(n)
     for i in range(n):
         ei = zr.copy()
         ei[i] = 1.0
-        G[:,i] = (-1.0 * f(x + 2.0*ep*ei) + 8.0*f(x + ep*ei) - 8.0 * f(x - ep*ei) + f(x - 2.0*ep*ei) ) / (12.0*ep) 
+        if other_params is None:
+            G[:,i] = (-1.0 * f(x + 2.0*ep*ei) + 8.0*f(x + ep*ei) - 8.0 * f(x - ep*ei) + f(x - 2.0*ep*ei) ) / (12.0*ep) 
+        else:
+            G[:,i] = (-1.0 * f(x + 2.0*ep*ei, *other_params) + 8.0*f(x + ep*ei, *other_params) - 8.0 * f(x - ep*ei, *other_params) + f(x - 2.0*ep*ei, *other_params) ) / (12.0*ep) 
     return G
 
 # input: jacobian of nonliinear dynamics matrix f(x,u) w.r.t x, continous time control matrix G, power spectral density Q of ctime process, change in time dt (time of step k to k+1), order of taylor approximation
@@ -1450,9 +1463,28 @@ def discretize_nl_sys(JacA, G, Q, dt, order):
             Q_k += tmp_i @ Q @ tmp_j.T * Tk_coef
     return Phi_k, Gam_k, Q_k
 
+def discretize_nl_sys_proccess_noise(JacA, G, Q, dt, order):
+    assert(JacA.ndim == 2)
+    assert(G.ndim == 2)
+    assert(Q.ndim == 2)
+    assert(dt > 0)
+    assert(order > 0)
+
+    n = JacA.shape[0]
+    Q_k = np.zeros((n,n))
+    # Form Discrete Time Noise Matrix Qk
+    for i in range(order+1):
+        for j in range(order+1):
+            tmp_i = np.linalg.matrix_power(JacA, i) / math.factorial(i) @ G
+            tmp_j = np.linalg.matrix_power(JacA, j) / math.factorial(j) @ G
+            Tk_coef = dt**(i+j+1) / (i+j+1)
+            Q_k += tmp_i @ Q @ tmp_j.T * Tk_coef
+    return Q_k
+
+
 # input: Continous time dynamics A, continous time PSD of full system state, dt 
 # Q should be positive semidefinite
-def discretize_ctime_process_noise(A, Q, dt, order):
+def discretize_ctime_process_noise_lyap(A, Q, dt, order):
     assert(A.shape == Q.shape)
     import scipy.linalg as la 
     # P is the solution to the continous time lyapunov equation 

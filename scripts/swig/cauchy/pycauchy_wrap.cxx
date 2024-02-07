@@ -7311,6 +7311,26 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_pycauchy_single_step_get_duc(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  void *arg1 = (void *) 0 ;
+  int res1 ;
+  PyObject * obj0 = 0 ;
+  void *result = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)"O:pycauchy_single_step_get_duc",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0,SWIG_as_voidptrptr(&arg1), 0, 0);
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "pycauchy_single_step_get_duc" "', argument " "1"" of type '" "void *""'"); 
+  }
+  result = (void *)pycauchy_single_step_get_duc(arg1);
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_void, 0 |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_pycauchy_shutdown(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   
@@ -8349,6 +8369,7 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"pycauchy_initialize_lti", _wrap_pycauchy_initialize_lti, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_single_step_reset", _wrap_pycauchy_single_step_reset, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_single_step_set_master_step", _wrap_pycauchy_single_step_set_master_step, METH_VARARGS, NULL},
+	 { (char *)"pycauchy_single_step_get_duc", _wrap_pycauchy_single_step_get_duc, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_shutdown", _wrap_pycauchy_shutdown, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_single_step_shutdown", _wrap_pycauchy_single_step_shutdown, METH_VARARGS, NULL},
 	 { (char *)"pycauchy_single_step_set_window_number", _wrap_pycauchy_single_step_set_window_number, METH_VARARGS, NULL},

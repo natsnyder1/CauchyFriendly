@@ -321,6 +321,8 @@ void pycauchy_single_step_reset(
     double* xbar, int size_xbar);
 
 void pycauchy_single_step_set_master_step(void* _pcdh, int step);
+void* pycauchy_single_step_get_duc(void* _pcdh);
+
 // Python Wrapper to tear down the C-side Sliding Window Manager
 void pycauchy_shutdown();
 void pycauchy_single_step_shutdown(void *_pcdh);

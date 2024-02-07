@@ -695,8 +695,10 @@ struct CauchyEstimator
                     }
                     int m_precoalign = parent->m; // HPs pre-MU Coalign
                     // Run Measurement Update Routines
+                    sort_encoded_B(parent->enc_B, parent->cells_gtable);
                     CauchyTerm* children = skip_post_mu ? new_child_terms : new_child_terms + Nt_new;
                     int num_children = parent->msmt_update(children, msmt, H, gamma, false, skip_post_mu, &childterms_workspace);
+                    sort_encoded_B(parent->enc_B, parent->cells_gtable);
                     Nt_new += num_children;
                     // Cache moment results here -- evaluate g / yei
                     cache_moments(parent, children, num_children);

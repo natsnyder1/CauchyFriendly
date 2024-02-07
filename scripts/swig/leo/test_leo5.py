@@ -6,6 +6,8 @@ file_dir = os.path.dirname(os.path.abspath(__file__))
 import cauchy_estimator as ce
 import gaussian_filters as gf
 import math
+import time
+import pickle
 
 def lookup_air_density(r_sat):
     if(r_sat == 550e3):
@@ -35,7 +37,7 @@ def lookup_air_density(r_sat):
 
 class leo_satellite_5state():
 
-    def __init__(self, leo5_alt = 200e3, leo5_A = 64.0, leo5_gps_std_dev = 2.0):
+    def __init__(self, leo5_alt = 200e3, leo5_A = 64.0, leo5_gps_std_dev = 2.0, leo5_dt = 60.0):
         # Size of simulation dynamics
         self.n = 5
         self.num_satellites = 2 # number of sattelites to talk to (measurements)
@@ -56,8 +58,8 @@ class leo_satellite_5state():
         self.A = leo5_A #m^2
         self.tau = 21600.0 # 1/(m*sec)
         # Parameters for runge kutta ODE integrator
-        self.dt = 60.0 #time step in sec
-        self.sub_steps_per_dt = 60 # so sub intervals are dt / sub_steps_dt 
+        self.dt = leo5_dt #time step in sec
+        self.sub_steps_per_dt = int(leo5_dt) # so sub intervals are 1 second
         # Initial conditions
         self.r0 = self.r_earth + self.r_sat # orbit distance from center of earth
         self.v0 = np.sqrt(self.mu/self.r0) # speed of the satellite in orbit for distance r0
@@ -111,6 +113,7 @@ class leo_satellite_5state():
         self.last_kf_est = self.x0[2:4].copy()
     
 leo = leo_satellite_5state()
+INITIAL_H = False
 
 def leo5_ode(x):
     global leo 
@@ -212,13 +215,28 @@ def ece_dynamics_update_callback(c_duc):
 def ece_nonlinear_msmt_model(c_duc, c_zbar):
     pyduc = ce.Py_CauchyDynamicsUpdateContainer(c_duc)
     xbar = pyduc.cget_x() # xbar
-    zbar = leo_5state_measurement_model(xbar)
+    global INITIAL_H
+    if(INITIAL_H):
+        zbar = np.array([0, xbar[0] + xbar[1]])
+    else:
+        zbar = leo_5state_measurement_model(xbar)
     pyduc.cset_zbar(c_zbar, zbar)
 
 def ece_extended_msmt_update_callback(c_duc):
     pyduc = ce.Py_CauchyDynamicsUpdateContainer(c_duc)
     xbar = pyduc.cget_x() # xbar
-    H = leo_5state_measurement_model_jacobian(xbar)
+    global INITIAL_H
+    if INITIAL_H:
+        H = np.zeros((2,5))
+        H[0,0] = 0
+        H[1,0] = 1
+        H[1,1] = 1
+        global leo 
+        gam = leo.std_dev_gps * leo.GAUSS_TO_CAUCHY
+        gamma = np.array([gam, 2*gam])
+        pyduc.cset_gamma(gamma)
+    else:
+        H = leo_5state_measurement_model_jacobian(xbar)
     pyduc.cset_H(H)
 
 H_scale = 1e-8
@@ -252,12 +270,12 @@ def simulate_leo5_state(sim_steps, with_sas_density = True, with_added_jumps = T
         if with_sas_density:
             wk[4] = ce.random_symmetric_alpha_stable(leo.SAS_alpha, leo.beta_drag, 0)
         if with_added_jumps:
-            if i == 20:
+            if i == 30:
                 wk[4] = 7.5
-            if i == 70:
+            if i == 100:
                 wk[4] = -2.0
-            if i == 200:
-                wk[4] = -2.75
+            if i == 160:
+                wk[4] = -1.0
         xk = leo_5state_transition_model(xk) + wk
         vk = np.random.multivariate_normal(two_zeros, leo.V)
         zk = leo_5state_measurement_model(xk) + vk
@@ -1121,6 +1139,7 @@ def test_single_sliding_window():
 # choose window with last estimate's covariance defined
 def best_window_est(cauchyEsts, window_counts):
     W = len(cauchyEsts)
+    okays = np.zeros(W, dtype=np.bool8)
     idxs = []
     for i in range(W):
         if(window_counts[i] > 0):
@@ -1129,11 +1148,41 @@ def best_window_est(cauchyEsts, window_counts):
                 pass
             else:
                 idxs.append((i, window_counts[i]))
+                okays[i] = True
     if(len(idxs) == 0):
         print("No window is available without an error code!")
         exit(1)
     sorted_idxs = list(reversed(sorted(idxs, key = lambda x : x[1])))
-    return sorted_idxs[0][0]
+    return sorted_idxs[0][0], okays
+
+def weighted_average_win_est(win_moms, win_counts, usable_wins):
+        num_windows = len(win_moms)
+        win_avg_mean = np.zeros(5)
+        win_avg_cov = np.zeros((5,5))
+        win_norm_fac = 0.0
+        for i in range(num_windows):
+            win_count = win_counts[i]
+            if win_counts[i] > 1:
+                win_okay = usable_wins[i]
+                if win_okay:
+                    norm_fac = win_count / num_windows
+                    win_norm_fac += norm_fac
+                    win_avg_mean += win_moms[i][-1][0] * norm_fac
+                    win_avg_cov += win_moms[i][-1][1] * norm_fac
+        win_avg_mean /= win_norm_fac
+        win_avg_cov /= win_norm_fac
+        return win_avg_mean, win_avg_cov
+
+def edit_means(cauchyEsts, window_counts, state_idx, low, high):
+    W = len(cauchyEsts)
+    for i in range(W):
+        if window_counts[i] > 1:
+            xhat, _ = cauchyEsts[i].get_last_mean_cov()
+            if (xhat[state_idx] < low) or (xhat[state_idx] > high):
+                xhat[state_idx] = np.clip(xhat[state_idx], low, high)
+                pyduc = cauchyEsts[i].get_pyduc()
+                pyduc.cset_x(xhat)
+                print("Window", i+1, "underwent mean editing!")
 
 def corr(P):
     N = P.shape[0]
@@ -1143,67 +1192,157 @@ def corr(P):
             C[i,j] = P[i,j]/(P[i,i]**0.5 * P[j,j]**0.5)
     return C
 
+def plot_all_windows(win_moms, xs_true, e_hats_kf, one_sigs_kf, best_idx, idx_min):
+    W = len(win_moms)
+    Ts_kf = np.arange(e_hats_kf.shape[0])
+    for win_idx in range(W):
+        if len(win_moms[win_idx]) > 1: #k > win_idx:
+            x_hats = np.array([ win_moms[win_idx][i][0] for i in range(len(win_moms[win_idx])) ])
+            P_hats = np.array([ win_moms[win_idx][i][1] for i in range(len(win_moms[win_idx])) ])
+            T_cur = win_idx + x_hats.shape[0] + 1
+            one_sigs = np.array([np.sqrt(np.diag(P_hat)) for P_hat in P_hats])
+            e_hats = np.array([xt - xh for xt,xh in zip(xs_true[win_idx+1:T_cur], x_hats)])
+            
+            plt.figure()
+            plt.subplot(511)
+            plt.title("Win Err" + str(win_idx) + " PosX/PosY/VelX/VelY")
+            plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,0], 'b')
+            plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,0], 'r')
+            plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,0], 'r')
+            plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 0], 'g')
+            plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 0], 'm')
+            plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 0], 'm')
+            # Plot a black star indicating this window reinitialized the other
+            if win_idx == best_idx:
+                plt.scatter(Ts_kf[T_cur-1], one_sigs[-1,0], color='k', marker='*')
+                plt.scatter(Ts_kf[T_cur-1], -one_sigs[-1,0], color='k', marker='*')
+            if win_idx == idx_min:
+                plt.scatter(Ts_kf[T_cur-1], one_sigs[-1,0], color='k', marker='o')
+                plt.scatter(Ts_kf[T_cur-1], -one_sigs[-1,0], color='k', marker='o')
+            plt.subplot(512)
+            plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,1], 'b')
+            plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,1], 'r')
+            plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,1], 'r')
+            plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 1], 'g')
+            plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 1], 'm')
+            plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 1], 'm')
+            plt.subplot(513)
+            plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,2], 'b')
+            plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,2], 'r')
+            plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,2], 'r')
+            plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 2], 'g')
+            plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 2], 'm')
+            plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 2], 'm')
+            plt.subplot(514)
+            plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,3], 'b')
+            plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,3], 'r')
+            plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,3], 'r')
+            plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 3], 'g')
+            plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 3], 'm')
+            plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 3], 'm')
+            plt.subplot(515)
+            plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,4], 'b')
+            plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,4], 'r')
+            plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,4], 'r')
+            plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 4], 'g')
+            plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 4], 'm')
+            plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 4], 'm')
+    plt.show()
+    plt.close('all')
+
 def test_python_debug_window_manager():
     global leo
-    # 2124125479 -- no huge jumps
-    seed = 2124125479 #int(np.random.rand() * (2**32 -1)) #3872826552#
+    seed = 2124125479 #int(np.random.rand() * (2**32 -1))
     print("Seeding with seed: ", seed)
     np.random.seed(seed)
 
     # Leo Satelite Parameters
     leo5_alt = 550e3 # meters
-    leo5_A = 64 # meters^2
-    leo5_gps_std_dev = 2 # meters
-    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_gps_std_dev)
+    leo5_A = 14 # meters^2
+    leo5_gps_std_dev = 7.5 # meters
+    leo5_dt = 60 # sec
+    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_gps_std_dev, leo5_dt)
+
+    # Log or Load Setting
+    LOAD_RESULTS_AND_EXIT = True
+    WITH_LOG = False
+    assert(not (LOAD_RESULTS_AND_EXIT and WITH_LOG))
 
     # Cauchy and Kalman Tunables
-    WITH_LOG = True
-    prop_steps = 100 # Number of time steps to run sim
-    num_windows = 8 # Number of Cauchy Windows
+    WITH_PLOT_ALL_WINDOWS = True
+    WITH_SAS_DENSITY = True
+    WITH_ADDED_DENSITY_JUMPS = True
+    WITH_PLOT_MARG_DENSITY = False
+    reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
+    reinit_method = reinit_methods[4]
+    prop_steps = 300 # Number of time steps to run sim
+    num_windows = 6 # Number of Cauchy Windows
     ekf_scale = 10000 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
-    use_speyer_restart = True
-    speyer_restart_idx = 1
-    with_jumps = False
+    time_tag = False
 
-    alt = str(int(leo.r_sat/1000)) + "km_"
-    win_init_prob = "wip_"  if use_speyer_restart else "nwip_"
-    ekf_scaled = "ekfs" + str(ekf_scale)
+    alt_and_std = str(int(leo.r_sat/1000)) + "km" + "_A" + str(int(10*leo.A)) + "_std" + str(int(10*leo.std_dev_gps)) + "_dt" + str(int(leo5_dt))
+    ekf_scaled = "_ekfs" + str(ekf_scale)
     beta_scaled = "_bs" + str(beta_scale)
     gamma_scaled = "_gs" + str(gamma_scale)
-    added_jumps = "wj_" if with_jumps else "nj_"
+    density_type = "_sas" if WITH_SAS_DENSITY else "_gauss"
+    added_jumps = "_wj" if WITH_ADDED_DENSITY_JUMPS else "_nj"
+    #time_id = str(time.time()) if time_tag else "" ### ADD SEEDING LOAD/LOG LOGIC!!
 
-    # Directory name
-    if (leo.A == 64) and (leo.std_dev_gps == 2):
-        dir_base_name = "leo5/debug"
-    elif (leo.A == 14) and (leo.std_dev_gps == 7.5):
-        dir_base_name = "leo5/fermi"
-    else:
-        if(WITH_LOG):
-            print("Please setup directory for new parameters leo.A={} and leo.std_dev_gps={}".format(leo.A, leo.std_dev_gps) )
-            exit(1)
-    # Forming log directory
-    if (beta_scale == 1) and (gamma_scale == 1):
-        log_dir = file_dir + "/pylog/" + dir_base_name  + str(num_windows) + "/" + alt + added_jumps + win_init_prob + ekf_scaled
-    else:
-        log_dir = file_dir + "/pylog/" + dir_base_name + str(num_windows) + "_ce_scaled" + "/" + alt + added_jumps + win_init_prob + ekf_scaled + beta_scaled + gamma_scaled
-
+    # Log Files
+    if WITH_LOG:
+        log_dir = file_dir + "/pylog/leo5/"
+        if( not os.path.isdir(log_dir)):
+            os.mkdir(log_dir)
+        log_dir += alt_and_std + "/"
+        if( not os.path.isdir(log_dir)):
+            os.mkdir(log_dir)
+        log_dir += reinit_method + "/"
+        if( not os.path.isdir(log_dir)):
+            os.mkdir(log_dir)
+        log_dir += "w" + str(num_windows) + density_type + added_jumps + ekf_scaled + beta_scaled + gamma_scaled + "/"
+        if( not os.path.isdir(log_dir)):
+            os.mkdir(log_dir)
+        with open(log_dir + "seed.txt", "w") as handle:
+            handle.write( "Seeded with: " + str(seed) )
+    # Load Files
+    if LOAD_RESULTS_AND_EXIT:
+        log_dir = file_dir + "/pylog/leo5/"
+        log_dir += alt_and_std + "/"
+        log_dir += reinit_method + "/"
+        log_dir += "w" + str(num_windows) + density_type + added_jumps + ekf_scaled + beta_scaled + gamma_scaled + "/"
+    
     # Possibly only plot logged simulation results and exit
-    plot_debug = True
-    if plot_debug:
+    if LOAD_RESULTS_AND_EXIT:
+        scale = 1
         ce_moments = ce.load_cauchy_log_folder(log_dir, False)
         xs_kf, Ps_kf = ce.load_kalman_log_folder(log_dir)
         xs, zs, ws, vs = ce.load_sim_truth_log_folder(log_dir)
-        scale = 1
+        weighted_ce_hist_path = log_dir + "weighted_ce.pickle"
+        found_pickle = False
+        if os.path.isfile(weighted_ce_hist_path):
+            with open(weighted_ce_hist_path, "rb") as handle:
+                found_pickle = True
+                avg_ce_xhats, avg_ce_Phats, win_moms = pickle.load(handle)
+                foo = np.zeros(avg_ce_xhats.shape[0])
+                avgd_moment_info = {"x": avg_ce_xhats, "P": avg_ce_Phats, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+                print("All Window Cauchy Estimator History:")
+                one_sigs_kf = np.array([ np.sqrt( np.diag(P_kf)) for P_kf in Ps_kf ])
+                e_hats_kf = np.array([xt - xh for xt,xh in zip(xs,xs_kf) ])
+                plot_all_windows(win_moms, xs, e_hats_kf, one_sigs_kf, 0, 1)
+        print("Full Window History:")
         ce.plot_simulation_history(ce_moments, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True, scale=scale)
+        if found_pickle:
+            print("Weighted Cauchy Estimator History:")
+            ce.plot_simulation_history(avgd_moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True, scale=scale)
         foobar=2
         exit(1)
 
     # Get Ground Truth and Measurements
     #zs = np.genfromtxt(file_dir + "/../../../log/leo5/dense/w5/msmts.txt", delimiter= ' ')
     #zs = zs[1:,:]
-    xs, zs, ws, vs = simulate_leo5_state(prop_steps, with_sas_density=True, with_added_jumps=with_jumps)
+    xs, zs, ws, vs = simulate_leo5_state(prop_steps, with_sas_density=WITH_SAS_DENSITY, with_added_jumps=WITH_ADDED_DENSITY_JUMPS)
     zs_without_z0 = zs[1:,:]
     if WITH_LOG:
         ce.log_sim_truth(log_dir, xs, zs, ws, vs)
@@ -1212,14 +1351,22 @@ def test_python_debug_window_manager():
     #'''
     W_kf = leo.W.copy()
     V_kf = leo.V.copy()
+    # EKF NO SCALING
+    #W_kf[0:4,0:4] *= 1000
+    _xs_kf, _Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs_without_z0, ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
+    # EKF WITH SCALING
     W_kf[4,4] *= ekf_scale
     xs_kf, Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs_without_z0, ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
-    #xs_kf, Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs_without_z0, ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
     if WITH_LOG:
         ce.log_kalman(log_dir, xs_kf, Ps_kf)
-    ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
+    #ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
     #exit(1)
     #'''
+
+    # Compute 1-sigma bounds for KF for Window Plot Compares  
+    if WITH_PLOT_ALL_WINDOWS:
+        one_sigs_kf = np.array([ np.sqrt( np.diag(P_kf)) for P_kf in Ps_kf ])
+        e_hats_kf = np.array([xt - xh for xt,xh in zip(xs,xs_kf) ])
 
     # Run Cauchy Estimator
     #'''
@@ -1248,15 +1395,18 @@ def test_python_debug_window_manager():
     for i in range(num_windows):
         cauchyEsts[i].initialize_nonlin(xbar, A0, p0, b0, beta, gamma, ece_dynamics_update_callback, ece_nonlinear_msmt_model, ece_extended_msmt_update_callback, num_controls)
         cauchyEsts[i].set_window_number(i)
-    xhat, Phat = cauchyEsts[0].step(zs_without_z0[0], None)
+    win_moms = { i : [] for i in range(num_windows) }
+    win_moms[0].append( cauchyEsts[0].step(zs_without_z0[0], None, False) )
     win_counts[0] = 1
     N = zs_without_z0.shape[0]
 
-    ce_xhats = [xhat.copy()]
-    ce_Phats = [Phat.copy()]
+    ce_xhats = [win_moms[0][-1][0].copy()]
+    ce_Phats = [win_moms[0][-1][1].copy()]
+
+    avg_ce_xhats = [win_moms[0][-1][0].copy()]
+    avg_ce_Phats = [win_moms[0][-1][1].copy()]
     
     np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
-    
     #win_marginals = { i : [] for i in range(num_windows) }
     for k in range(1, N):
         print("---- Step {}/{} -----".format(k+2, N+1))
@@ -1267,85 +1417,118 @@ def test_python_debug_window_manager():
         # Step all windows that are not uninitialized
         for win_idx, win_count in zip(win_idxs, win_counts):
             if(win_count > 0):
-                win_xhat, win_Phat = cauchyEsts[win_idx].step(zk, None)
-                print("  Window {} is on step {}/{} and has mean:\n  {}".format(win_idx+1, win_count+1, num_windows, np.around(win_xhat,4)) )
+                print("  Window {} is on step {}/{}".format(win_idx+1, win_count+1, num_windows) )
+                win_moms[win_idx].append( cauchyEsts[win_idx].step(zk, None, False) )
+                print("    x_k|k:   ", win_moms[win_idx][-1][0] )
+                print("    e_k|k:   ", xs[k+1] - win_moms[win_idx][-1][0] )
                 win_counts[win_idx] += 1
         
-        best_idx = best_window_est(cauchyEsts, win_counts)
+        best_idx, usable_wins = best_window_est(cauchyEsts, win_counts)
         xhat, Phat = cauchyEsts[best_idx].get_last_mean_cov()
         ce_xhats.append(xhat.copy())
         ce_Phats.append(Phat.copy())
         print("Best Window Index For Reinit is: Window ", best_idx+1)
+        
+        # Mean edit for safety of values
+        #if leo5_alt > 300e3:
+        #edit_means(cauchyEsts, win_counts, 4, -.05, 0.05)
+        #else:
+        edit_means(cauchyEsts, win_counts, 4, -.85, 10)
+        
+
+        # Compute Weighted Average Window Estimate
+        avg_xhat, avg_Phat = weighted_average_win_est(win_moms, win_counts, usable_wins)
+        avg_ce_xhats.append(avg_xhat)
+        avg_ce_Phats.append(avg_Phat)
+
         # Reinitialize empty estimator
-        if(use_speyer_restart):
+        if(reinit_method == "speyer"):
             # using speyer's start method
+            speyer_restart_idx = 1
             xreset, Preset = cauchyEsts[idx_min].reset_about_estimator(cauchyEsts[best_idx], msmt_idx = speyer_restart_idx)
             print("  Window {} is on step {}/{} and has mean:\n  {}".format(idx_min+1, win_counts[idx_min]+1, num_windows, np.around(xreset,4)) )
-        else:
-            # Possibly reinitialize about start params
-            #PKF_K = _Ps_kf[k+1]
-            #EVECS_KF_T = np.linalg.eig(_Ps_kf[k+1])[1].T
-            #STD_KF = np.sqrt(np.diag(PKF_K)) * ce.GAUSSIAN_TO_CAUCHY_NOISE
-            #cauchyEsts[idx_min].reset(EVECS_KF_T, STD_KF, b0, xhat)
-            #cauchyEsts[idx_min].step(zk)
-            #scalar_msmt_idx = 1
-            #cauchyEsts[idx_min].step_scalar_msmt(zk[scalar_msmt_idx], scalar_msmt_idx, True)
-            
+        elif(reinit_method == "init_cond"):
             _A0 = cauchyEsts[best_idx]._Phi.copy().reshape((5,5)).T # np.eye(5)
             _p0 = p0.copy() #np.sqrt(np.diag(Ps_kf[k+1]))
-            cauchyEsts[idx_min].reset_with_last_measurement(zk[1], _A0, _p0, b0, xhat)
+            win_moms[idx_min].append( cauchyEsts[idx_min].reset_with_last_measurement(zk[1], _A0, _p0, b0, xhat) )
+        elif("H2" in reinit_method):
+            # Both H channels concatenated
+            _H = np.array([1.0, 1.0, 0, 0, 0])
+            _gamma = 2 * gamma[0]
+            _xbar = cauchyEsts[best_idx]._xbar[5:]
+            _dz = zk[0] + zk[1] - _xbar[0] - _xbar[1]
+            _dx = xhat - _xbar
+            
+            # Covariance Selection
+            if("KF" in reinit_method):
+                _P = _Ps_kf[k+1].copy() # KF COVAR DOUBLES LOOKS GOOD
+            else:
+                _P = Phat.copy() # CAUCHY COVAR LOOKS GOOD
 
-            # Modify restart slightly
-            #_A0, _p0, _b0, _xbar = cauchyEsts[idx_max].get_reinitialization_statistics()
-            ##_p0[[0,2]] = _p0[[1,3]]*8
-            #cauchyEsts[idx_min].reset_with_single_measurement(zk[1], _A0, _p0, _b0, _xbar)
-
-        print("Correlation of Cauchy")
-        print( np.around(corr(Phat),4) )
-        print("Covariance of Cauchy")
-        print( np.around(Phat,4) )
-        print("Correlation of EKF")
-        print( np.around(corr(Ps_kf[k+1]),4) )
-        print("Covariance of EKF")
-        print( np.around(Ps_kf[k+1],4) )
-        print("Phi of Cauchy is ")
-        print(cauchyEsts[idx_max]._Phi.reshape((5,5)))
-
+            if("Boost" in reinit_method):
+                # Boost
+                _pos_scale = np.ones(4)
+                _P_kf = _Ps_kf[k+1].copy()
+                _P_cauchy = Phat
+                for i in range(4):
+                    if( (_P_kf[i,i] / _P_cauchy[i,i]) > 1):
+                        _pos_scale[i] = (_P_kf[i,i] / _P_cauchy[i,i]) * 1.3898
+                        _P[i,i] *= _pos_scale[i]
+                if "Boost2" in reinit_method:
+                    _P *= 2
+            # Reset
+            _A0, _p0, _b0 = ce.speyers_window_init(_dx, _P, _H, _gamma, _dz)
+            global INITIAL_H
+            INITIAL_H = True
+            win_moms[idx_min].append( cauchyEsts[idx_min].reset_with_last_measurement(zk[0] + zk[1], _A0, _p0, _b0, _xbar) )
+            pyduc = cauchyEsts[idx_min].get_pyduc()
+            pyduc.cset_gamma(gamma)
+            INITIAL_H = False
+            foobar=2
+        else:
+            print("Reinitialization Scheme ", reinit_method, "Not Implemented! Please Add! Exiting!")
+            exit(1)
+        # Increment Initialized Estimator Count
         win_counts[idx_min] += 1
 
+        # Now plot all windows 
+        if WITH_PLOT_ALL_WINDOWS and (k==(N-1)):
+            plot_all_windows(win_moms, xs, e_hats_kf, one_sigs_kf, best_idx, idx_min)
+
         # Density Marginals
-        if False: #k > 35:
-            plt.figure(figsize = (8,12))
-            print("  Window Counts at Step {} are:\n  {}\n  Marginal 1D CPDFs of Atmospheric Density are:".format(k+2, win_counts) )
-            print("---------------------------------------------------")
-            y_avg = np.zeros(10001)
-            weight_avg = 0.0
-            x_true = xs[k+1]
-            top = min(k+1, num_windows)
-            for win_idx in range(top):
-                win_xhat, _ = cauchyEsts[win_idx].get_last_mean_cov()
-                wgl = -1 - win_xhat[4]
-                wgh = 9 - win_xhat[4]
-                wx, wy = cauchyEsts[win_idx].get_marginal_1D_pointwise_cpdf(4, wgl, wgh, 0.001)
-                plt.subplot(top, 1, win_idx+1)
-                plt.plot(win_xhat[4] + wx, wy, 'b')
-                plt.scatter(x_true[4], 0, color='r', marker = 'x')
-                plt.scatter(win_xhat[4], 0, color='b', marker = 'x')
-                plt.ylabel("Win"+str(win_idx+1))
-                if win_idx == 0:
-                    plt.title("Densities at Step {}/{}".format(k+2,N+1))
-                weight_avg += (win_counts[win_idx] / num_windows)
-                y_avg += wy[:10001] * (win_counts[win_idx] / num_windows)
-            plt.xlabel("Change in Atms. Density State")
-            print("---------------------------------------------------")
-            y_avg /= weight_avg
-            weights = y_avg / np.sum(y_avg)
-            plt.figure()
-            plt.plot(win_xhat[4] + wx, y_avg)
-            plt.scatter(x_true[4], 0, color='r', marker = 'x')
-            plt.scatter(np.sum(weights * (win_xhat[4] + wx) ), 0, color='b', marker = 'x')
-            plt.show()
-            foobar = 2
+        if WITH_PLOT_MARG_DENSITY:
+            if k > 18:
+                plt.figure(figsize = (8,12))
+                print("  Window Counts at Step {} are:\n  {}\n  Marginal 1D CPDFs of Atmospheric Density are:".format(k+2, win_counts) )
+                print("---------------------------------------------------")
+                #y_avg = np.zeros(10001)
+                #weight_avg = 0.0
+                x_true = xs[k+1]
+                top = min(k+1, num_windows)
+                for win_idx in range(top):
+                    win_xhat, _ = cauchyEsts[win_idx].get_last_mean_cov()
+                    wgl = -1 - win_xhat[4]
+                    wgh = 9 - win_xhat[4]
+                    wx, wy = cauchyEsts[win_idx].get_marginal_1D_pointwise_cpdf(4, wgl, wgh, 0.001)
+                    plt.subplot(top, 1, win_idx+1)
+                    plt.plot(win_xhat[4] + wx, wy, 'b')
+                    plt.scatter(x_true[4], 0, color='r', marker = 'x')
+                    plt.scatter(win_xhat[4], 0, color='b', marker = 'x')
+                    plt.ylabel("Win"+str(win_idx+1))
+                    if win_idx == 0:
+                        plt.title("Densities at Step {}/{}".format(k+2,N+1))
+                    #weight_avg += (win_counts[win_idx] / num_windows)
+                    #y_avg += wy[:10001] * (win_counts[win_idx] / num_windows)
+                plt.xlabel("Change in Atms. Density State")
+                print("---------------------------------------------------")
+                #y_avg /= weight_avg
+                #weights = y_avg / np.sum(y_avg)
+                #plt.figure()
+                #plt.plot(win_xhat[4] + wx, y_avg)
+                #plt.scatter(x_true[4], 0, color='r', marker = 'x')
+                #plt.scatter(np.sum(weights * (win_xhat[4] + wx) ), 0, color='b', marker = 'x')
+                plt.show()
+                foobar = 2
 
         # reset full estimator
         if(win_counts[idx_max] == num_windows):
@@ -1354,12 +1537,22 @@ def test_python_debug_window_manager():
             
     ce_xhats = np.array(ce_xhats)
     ce_Phats = np.array(ce_Phats)
+    avg_ce_xhats = np.array(avg_ce_xhats)
+    avg_ce_Phats = np.array(avg_ce_Phats)
+
     foo = np.zeros(ce_xhats.shape[0])
     moment_info = {"x": ce_xhats, "P": ce_Phats, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+    avg_moment_info = {"x": avg_ce_xhats, "P": avg_ce_Phats, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+
     if WITH_LOG:
         ce.log_cauchy(log_dir, moment_info)
-
+        with open(log_dir + "weighted_ce.pickle", "wb") as handle:
+            pickle.dump((avg_ce_xhats, avg_ce_Phats, win_moms), handle)
+    
+    print("Full Window History:")
     ce.plot_simulation_history(moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
+    print("Weighted Cauchy Estimator History:")
+    ce.plot_simulation_history(avg_moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
     foobar = 2
 
 if __name__ == '__main__':

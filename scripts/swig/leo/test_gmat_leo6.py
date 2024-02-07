@@ -19,251 +19,6 @@ if os.path.exists(gmat_startup_file):
    import gmat_py as gmat
    gmat.Setup(gmat_startup_file)
 
-def parse_gmat_data(path):
-    print("Loading Data from path: {}".format(path))
-    f = open(path)
-    lines = f.readlines()
-    print("Header is:\n {}".format(lines[0]) )
-    Nlines = len(lines)
-    cleaned_data = {"UTC_GREG":[], "X":[], "Y":[], "Z":[], "VX" :[], "VY":[], "VZ":[]}
-    for i in range(1,Nlines):
-        l = lines[i]
-        sl = l.split()
-        cleaned_data["UTC_GREG"].append((sl[0],sl[1],sl[2],sl[3]))
-        cleaned_data["X"].append(float(sl[4]))
-        cleaned_data["Y"].append(float(sl[5]))
-        cleaned_data["Z"].append(float(sl[6]))
-        cleaned_data["VX"].append(float(sl[7]))
-        cleaned_data["VY"].append(float(sl[8]))
-        cleaned_data["VZ"].append(float(sl[9]))
-    cleaned_data["X"] = np.array(cleaned_data["X"])
-    cleaned_data["Y"] = np.array(cleaned_data["Y"])
-    cleaned_data["Z"] = np.array(cleaned_data["Z"])
-    cleaned_data["VX"] = np.array(cleaned_data["VX"])
-    cleaned_data["VY"] = np.array(cleaned_data["VY"])
-    cleaned_data["VZ"] = np.array(cleaned_data["VZ"])
-    return cleaned_data
-
-def lookup_air_density(r_sat):
-    if(r_sat == 550e3):
-        return 2.384e-13
-    elif(r_sat == 500e3):
-        return 5.125e-13
-    elif(r_sat == 450e3):
-        return 1.184e-12
-    elif(r_sat == 400e3):
-        return 2.803e-12
-    elif(r_sat == 350e3):
-        return 7.014e-12
-    elif(r_sat == 300e3):
-        return 1.916e-11
-    elif(r_sat == 250e3):
-        return 6.073e-11
-    elif(r_sat == 200e3):
-        return 2.541e-10
-    elif(r_sat == 150e3):
-        return 2.076e-9
-    elif(r_sat == 100e3):
-        return 5.604e-7
-    else:
-        print("Lookup air density function does not have value for {}...please add! Exiting!\n", r_sat)
-        exit(1)
-
-def fermi_sat_prop(r_sat = 550e3):
-    # Constant Parameters
-    r_earth = 6378.1e3
-    M = 5.9722e24 # Mass of earth (kg)
-    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
-    mu = M*G  #Nm^2/kg^2
-    #rho = lookup_air_density(r_sat)
-    r0 = r_earth + r_sat # orbit distance from center of earth
-    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
-    x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
-    x0 /= 1e3
-    dt = 60
-
-    # Havent Figured out how to enter this
-    #SolarSystem.EphemerisSource = 'DE421'
-    #Earth.EopFileName = 'blah/eop_file.txt'
-    #Earth.NutationalUpdateInterval = 0
-
-    # Dont think this is necessary
-    #fogmcd = gmat.Construct("EstimatedParameter", "FogmCd") # Gives Error Message
-    #fogmcd.SetField("Model", "FirstOrderGaussMarkov") # Gives Error Message
-    #fogmcd.SetField("SolveFor","Cd") # Gives Error Message
-    #fogmcd.SetField("SteadyStateValue", 2.1) # Gives Error Message
-    #fogmcd.SetField("SteadyStateSigma", 0.21) # Gives Error Message
-    #fogmcd.SetField("HalfLife", 600) # Gives Error Message
-    
-    sat = gmat.Construct("Spacecraft", "Fermi")
-    sat.SetField("DateFormat", "UTCGregorian") #EpochFormat Form Box
-    sat.SetField("CoordinateSystem", "EarthMJ2000Eq")
-    sat.SetField("DisplayStateType","Cartesian") #StateType Form Box
-    
-    sat.SetField("Epoch", "10 Jul 2023 19:31:54.000") # 19:31:54:000") 
-    sat.SetField("DryMass", 3995.6)
-    sat.SetField("Cd", 2.1)
-    sat.SetField("CdSigma", 0.21)
-    #sat.SetField("AtmosDensityScaleFactor", 1.0) # Gives Error Message
-    #sat.SetField("AtmosDensityScaleFactorSigma", 0.8) # Gives Error Message
-    sat.SetField("Cr", 1.8)
-    sat.SetField("CrSigma", 0.1)
-    sat.SetField("DragArea", 14.18)
-    sat.SetField("SRPArea", 14.18)
-    sat.SetField("Id", '2525')
-    sat.SetField("X", x0[0])
-    sat.SetField("Y", x0[1])
-    sat.SetField("Z", x0[2])
-    sat.SetField("VX", x0[3])
-    sat.SetField("VY", x0[4])
-    sat.SetField("VZ", x0[5])
-
-    #sat.SetField("SolveFors", 'CartesianState, FogmCd, FogmAtmosDensityScaleFactor')
-    fueltank = gmat.Construct("ChemicalTank", "FuelTank")
-    fueltank.SetField("FuelMass", 359.9) #FuelMass = 359.9
-    fueltank.Help()
-    sat.SetField("Tanks", "FuelTank") # ??? does this add the fueltank to satellite?
-    sat.Help()
-    print(sat.GetGeneratingString(0))
-
-    # Not sure if this is necessary
-    #cordSysFermi = gmat.Construct("CoordinateSystem", "FermiVNB")
-    #cordSysFermi.SetField("Origin", "Fermi")
-    #cordSysFermi.SetField("Axes", "ObjectReferenced")
-    #cordSysFermi.SetField("XAxis", "V") # Gives Error Message
-    #cordSysFermi.SetField("YAxis", "N") # Gives Error Message
-    #cordSysFermi.SetField("Primary", "Earth") # Gives Error Message
-    #cordSysFermi.SetField("Secondary", "Fermi") # Gives Error Message
-
-    # Create Force Model 
-    fm = gmat.Construct("ForceModel", "TheForces")
-    fm.SetField("ErrorControl", "None")
-    # A 70x70 EGM96 Gravity Model
-    earthgrav = gmat.Construct("GravityField")
-    earthgrav.SetField("BodyName","Earth")
-    earthgrav.SetField("Degree",70)
-    earthgrav.SetField("Order",70)
-    earthgrav.SetField("PotentialFile","EGM96.cof")
-    earthgrav.SetField("TideModel", "SolidAndPole")
-    # The Point Masses
-    moongrav = gmat.Construct("PointMassForce")
-    moongrav.SetField("BodyName","Luna")
-    sungrav = gmat.Construct("PointMassForce")
-    sungrav.SetField("BodyName","Sun")
-    srp = gmat.Construct("SolarRadiationPressure")
-    #srp.SetField("SRPModel", "Spherical")
-    srp.SetField("Flux", 1370.052)
-    # Drag Model
-    jrdrag = gmat.Construct("DragForce")
-    jrdrag.SetField("AtmosphereModel","JacchiaRoberts")
-    #jrdrag.SetField("HistoricWeatherSource", 'CSSISpaceWeatherFile')
-    #jrdrag.SetField("CSSISpaceWeatherFile", "SpaceWeather-v1.2.txt")
-    # Build and set the atmosphere for the model
-    atmos = gmat.Construct("JacchiaRoberts")
-    jrdrag.SetReference(atmos)
-
-    fm.AddForce(earthgrav)
-    fm.AddForce(moongrav)
-    fm.AddForce(sungrav)
-    fm.AddForce(jrdrag)
-    fm.AddForce(srp)
-    fm.Help()
-    print(fm.GetGeneratingString(0))
-
-    # Build Integrator
-    gator = gmat.Construct("RungeKutta89", "Gator")
-    # Build the propagation container that connect the integrator, force model, and spacecraft together
-    pdprop = gmat.Construct("Propagator","PDProp")  
-    # Create and assign a numerical integrator for use in the propagation
-    pdprop.SetReference(gator)
-    # Set some of the fields for the integration
-    pdprop.SetField("InitialStepSize", dt)
-    pdprop.SetField("Accuracy", 1.0e-13)
-    pdprop.SetField("MinStep", 0.0)
-    pdprop.SetField("MaxStep", dt)
-    pdprop.SetField("MaxStepAttempts", 50)
-
-     # Assign the force model to the propagator
-    pdprop.SetReference(fm)
-    # It also needs to know the object that is propagated
-    pdprop.AddPropObject(sat)
-    # Setup the state vector used for the force, connecting the spacecraft
-    psm = gmat.PropagationStateManager()
-    psm.SetObject(sat)
-    psm.SetProperty("AMatrix")
-    #psm.SetProperty("STM") #increases state size, but gives undefined data for STM
-    psm.BuildState()
-    # Finish the object connection
-    fm.SetPropStateManager(psm)
-    fm.SetState(psm.GetState())
-    # Perform top level initialization
-    gmat.Initialize()
-
-
-    # Finish force model setup:
-    ##  Map the spacecraft state into the model
-    fm.BuildModelFromMap()
-    ##  Load the physical parameters needed for the forces
-    fm.UpdateInitialData()
-
-    # Perform the integation subsysem initialization
-    pdprop.PrepareInternals()
-    # Refresh the integrator reference
-    gator = pdprop.GetPropagator()
-
-    omega0 = v0/r0 # rad/sec (angular rate of orbit)
-    orbital_period = 2.0*np.pi / omega0 #Period of orbit in seconds
-    time_steps_per_period = (int)(orbital_period / dt + 0.50) # number of dt's until 1 revolution is made
-    num_orbits = 20
-    num_mission_steps = num_orbits * time_steps_per_period + 1
-    times = []
-    positions = []
-    velocities = []
-    
-    for i in range(num_mission_steps):
-        gatorstate = np.array(gator.GetState())
-        r = gatorstate[0:3]
-        v = gatorstate[3:6]
-        positions.append(r)
-        velocities.append(v)
-        times.append(dt * i)
-
-        # State / Derivative w.r.t time data 
-        # Now access the state and get the derivative data
-        #pstate = gator.GetState() #sat.GetState().GetState()
-        #fm.GetDerivatives(pstate, dt=dt, order=1) #, dt=dt) #, dt=dt, order=1) #, t, 2, -1)
-        #fdot = fm.GetDerivativeArray()
-        #dx_dt = fdot[0:6]
-        #A = np.array(fdot[6:42]).reshape(6,6)
-        #Phi = np.array(fdot[42:78]).reshape(6,6)
-        #vec = fm.GetDerivativesForSpacecraft(sat) # same result as above (at first step)
-        #print("State Vector: ", pstate)
-        #print("Derivative dx_dt:   ", dx_dt)
-        #print("Jacobian A:   ", jac_A)
-        #print()
-
-        # To Dynamically Change the State of the Spacecraft (i.e, for estimation), can use following:
-        #pert_state = np.random.randn(6)
-        #new_state = gatorstate + pert_state
-        #sat.SetState(*new_state) 
-        #fm.BuildModelFromMap()
-        #fm.UpdateInitialData()
-        #pdprop.PrepareInternals()
-        #gator = pdprop.GetPropagator()
-
-        # Now step the integrator
-        gator.Step(dt)
-
-    positions = np.array(positions) #append(r)
-    velocities = np.array(velocities)
-
-    fig = plt.figure() #figsize=(15,11))
-    ax = fig.gca(projection='3d')
-    plt.title("Leo Trajectory over Time")
-    ax.plot(positions[:,0], positions[:,1], positions[:,2])
-    plt.show()
-    foobar = 2
-
 # Process Noise Model 
 def leo6_process_noise_model(dt):
     q = 8e-21; # Process noise ncertainty in the process position and velocity
@@ -615,328 +370,6 @@ class FermiSatelliteModel():
         self.reset_state(x0, 0)
         return np.array(states), np.array(msmts), np.array(proc_noises), np.array(msmt_noises)
 
-def test_jacchia_roberts_influence():
-    r_sat = 550e3 #km
-    r_earth = 6378.1e3
-    M = 5.9722e24 # Mass of earth (kg)
-    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
-    mu = M*G  #Nm^2/kg^2
-    #rho = lookup_air_density(r_sat)
-    r0 = r_earth + r_sat # orbit distance from center of earth
-    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
-    x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
-    
-    # Convert to kilometers
-    x0 /= 1e3 # kilometers
-    std_gps_noise = 7.5 / 1e3 # kilometers
-    dt = 30 
-    num_orbits = 3
-    # Process Noise Model
-    W = leo6_process_noise_model(dt)
-    # Create Satellite Model 
-    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
-
-    # Test With and Without Jacchia + SRP
-    fermiSat.create_model(with_jacchia=True, with_SRP=True)
-    xs1, zs, ws, vs = fermiSat.simulate(num_orbits, W=None)
-    fermiSat.clear_model()
-    fermiSat.create_model(with_jacchia=False, with_SRP=False)
-    xs2, zs, _, vs = fermiSat.simulate(num_orbits, W=None)
-    diffx = xs2 - xs1
-    T = np.arange(xs1.shape[0]) 
-    plt.plot(T, diffx[:,0])
-    plt.plot(T, diffx[:,1])
-    plt.plot(T, diffx[:,2])
-    plt.show()
-    
-    fermiSat.clear_model()
-    fermiSat.create_model(with_jacchia=False, with_SRP=False)
-    xs1, _, _, _ = fermiSat.simulate(num_orbits, W=None)
-    xs2, _, _, _ = fermiSat.simulate(num_orbits, W=W)
-    diffx = xs2 - xs1
-    T = np.arange(xs1.shape[0]) 
-    plt.plot(T, diffx[:,0])
-    plt.plot(T, diffx[:,1])
-    plt.plot(T, diffx[:,2])
-    plt.show()
-
-    fermiSat.clear_model()
-    fermiSat.create_model(with_jacchia=True, with_SRP=True)
-    xs1, _, _, _ = fermiSat.simulate(num_orbits, W=None)
-    xs2, _, _, _ = fermiSat.simulate(num_orbits, W=W)
-    diffx = xs2 - xs1
-    T = np.arange(xs1.shape[0]) 
-    plt.plot(T, diffx[:,0])
-    plt.plot(T, diffx[:,1])
-    plt.plot(T, diffx[:,2])
-    plt.show()
-
-
-    foobar=2 
-
-def test_reset_influence():
-    r_sat = 550e3 #km
-    r_earth = 6378.1e3
-    M = 5.9722e24 # Mass of earth (kg)
-    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
-    mu = M*G  #Nm^2/kg^2
-    #rho = lookup_air_density(r_sat)
-    r0 = r_earth + r_sat # orbit distance from center of earth
-    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
-    x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
-    
-    # Convert to kilometers
-    x0 /= 1e3 # kilometers
-    std_gps_noise = 7.5 / 1e3 # kilometers
-    dt = 30 
-    num_orbits = 3
-    # Process Noise Model
-    W = leo6_process_noise_model(dt)
-    # Create Satellite Model 
-    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
-    fermiSat.create_model()
-    xs, zs, ws, vs = fermiSat.simulate(1, W=None)
-
-    fermiSat.reset_state(x0, 0)
-    xs2 = [x0]
-    for i in range(1, xs.shape[0]):
-        xk = fermiSat.step()
-        fermiSat.reset_state(xk, i)
-        xs2.append(xk)
-    xs2 = np.array(xs2)
-    diff_x = xs2 - xs 
-    print(diff_x)
-
-def test_solve_for_state_derivatives_influence():
-    r_sat = 550e3 #km
-    r_earth = 6378.1e3
-    M = 5.9722e24 # Mass of earth (kg)
-    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
-    mu = M*G  #Nm^2/kg^2
-    #rho = lookup_air_density(r_sat)
-    r0 = r_earth + r_sat # orbit distance from center of earth
-    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
-    x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0.0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
-    #x0 = np.array([r0/np.sqrt(3), r0/np.sqrt(3), r0/np.sqrt(3), -0.57735027*v0, 0.78867513*v0, -0.21132487*v0])
-
-    # Convert to kilometers
-    x0 /= 1e3 # kilometers
-    std_gps_noise = 7.5 / 1e3 # kilometers
-    dt = 60 
-    num_orbits = 10
-    # Process Noise Model
-    W = leo6_process_noise_model(dt)
-    # Create Satellite Model 
-    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
-    fermiSat.create_model(with_jacchia=True, with_SRP=True)
-    
-    for i in range(20):
-        statek = np.array(fermiSat.gator.GetState())
-        _ = fermiSat.fm.GetDerivatives(list(statek), dt=fermiSat.dt, order=1) #, dt=dt) #, dt=dt, order=1) #, t, 2, -1)
-        fdot_k = np.array(fermiSat.fm.GetDerivativeArray()[0:6])
-        fermiSat.sat.SetField("Cd", 2.105)
-        #fermiSat.reset_state(statek, i)
-        fermiSat.fm.GetDerivatives(list(statek), dt=fermiSat.dt, order=1) #, dt=dt) #, dt=dt, order=1) #, t, 2, -1)
-        fdot_k_cd = np.array(fermiSat.fm.GetDerivativeArray()[0:6])
-        partial_cd = (fdot_k_cd[3:] - fdot_k[3:]) / 0.005
-        fermiSat.sat.SetField("Cd", 2.10)
-        #fermiSat.reset_state(statek, i)
-
-        fuel_weight = 0 # 359.6
-        fdot_k_est = - 0.5*2.1*(14.18)/(3995.6 + fuel_weight)*fermiSat.jrdrag.GetDensity(list(statek), fermiSat.sat.GetEpoch(),1)*np.linalg.norm(1000*statek[3:])*1000*statek[3:]
-        fdot_k_cd_est = - 0.5*2.105*(14.18)/(3995.6 + fuel_weight)*fermiSat.jrdrag.GetDensity(list(statek), fermiSat.sat.GetEpoch(),1)*np.linalg.norm(1000*statek[3:])*1000*statek[3:]
-        partial_cd_est = (fdot_k_cd_est - fdot_k_est) / 0.005 / 1000 #(m -> km)
-
-        fermiSat.sat.SetField("Cr", 1.805)
-        #fermiSat.reset_state(statek, i)
-        fermiSat.fm.GetDerivatives(list(statek), dt=fermiSat.dt, order=1) #, dt=dt) #, dt=dt, order=1) #, t, 2, -1)
-        fdot_k_cr = np.array(fermiSat.fm.GetDerivativeArray()[0:6])
-        partial_cr = (fdot_k_cr[3:] - fdot_k[3:]) / 0.005
-        fermiSat.sat.SetField("Cr", 1.80)
-
-        print("----- Step", i, "----------")
-        print("Partial Cd GMAT:", partial_cd)
-        print("Partial Cd NAT:", partial_cd_est)
-        print("% Cd Differences:", 100*(partial_cd_est - partial_cd)/partial_cd)
-        print("-----")
-        print("Partial Cr GMAT:", partial_cr)
-        print("Partial Cr NAT:", "NA")
-        print("% Cr Differences:", "NA")
-        fermiSat.step()
-
-def test_gmat_ekf6():
-    r_sat = 550e3 #km
-    r_earth = 6378.1e3
-    M = 5.9722e24 # Mass of earth (kg)
-    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
-    mu = M*G  #Nm^2/kg^2
-    #rho = lookup_air_density(r_sat)
-    r0 = r_earth + r_sat # orbit distance from center of earth
-    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
-    x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0.0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
-    #x0 = np.array([r0/np.sqrt(3), r0/np.sqrt(3), r0/np.sqrt(3), -0.57735027*v0, 0.78867513*v0, -0.21132487*v0])
-
-    # Convert to kilometers
-    x0 /= 1e3 # kilometers
-    std_gps_noise = 7.5 / 1e3 # kilometers
-    dt = 60 
-    num_orbits = 10
-    # Process Noise Model
-    W = leo6_process_noise_model(dt)
-    # Create Satellite Model 
-    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
-    fermiSat.create_model(with_jacchia=True, with_SRP=True)
-    xs, zs, ws, vs = fermiSat.simulate(num_orbits, W=W)
-    ws = np.zeros((vs.shape[0]-1, 6))
-    W *= 20
-    V = np.eye(3) * std_gps_noise**2
-    I6 = np.eye(6)
-
-    P_kf = np.eye(6) * (0.001)**2
-    x_kf = np.random.multivariate_normal(xs[0], P_kf)
-    H = np.hstack((np.eye(3), np.zeros((3,3))))
-    fermiSat.reset_state(x_kf, 0) #/1000)
-
-    xs_kf = [x_kf.copy()]
-    Ps_kf = [P_kf.copy()]
-    STM_order = 3
-    N = zs.shape[0]
-    for i in range(1, N):
-        # Time Prop
-        Phi_k = fermiSat.get_transition_matrix(STM_order)
-        P_kf = Phi_k @ P_kf @ Phi_k.T + W
-        x_kf = fermiSat.step() #* 1000
-        # Measurement Update
-        K = P_kf @ H.T @ np.linalg.inv(H @ P_kf @ H.T + V)
-        zbar = H @ x_kf
-        zk = zs[i]
-        r = zk - zbar 
-        print("Norm residual: ", np.linalg.norm(r), " Norm State Diff:", np.linalg.norm(xs[i] - x_kf))
-        x_kf = x_kf + K @ r 
-        fermiSat.reset_state(x_kf, i) #/1000)
-        P_kf = (I6 - K @ H) @ P_kf @ (I6 - K @ H).T + K @ V @ K.T 
-        # Log
-        xs_kf.append(x_kf.copy())
-        Ps_kf.append(P_kf.copy())
-    xs_kf = np.array(xs_kf)
-    Ps_kf = np.array(Ps_kf)
-    # Plot KF Results
-    xs *= 1000
-    zs *= 1000
-    vs *= 1000
-    ws *= 1000
-    xs_kf *= 1000
-    Ps_kf *= 1000**2
-    scale = 1
-    ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf), scale=scale)
-
-    fig = plt.figure() #figsize=(15,11))
-    ax = fig.gca(projection='3d')
-    ax.set_title("Leo Trajectory over Time")
-    ax.plot(xs[:,0], xs[:,1], xs[:,2], color = 'r')
-    ax.plot(xs_kf[:,0], xs_kf[:,1], xs_kf[:,2], color = 'b')
-    plt.show()
-    foobar = 2
-
-def test_gmat_ekf7():
-    r_sat = 550e3 #km
-    r_earth = 6378.1e3
-    M = 5.9722e24 # Mass of earth (kg)
-    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
-    mu = M*G  #Nm^2/kg^2
-    #rho = lookup_air_density(r_sat)
-    r0 = r_earth + r_sat # orbit distance from center of earth
-    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
-    #x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0.0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
-    x0 = np.array([r0/np.sqrt(3), r0/np.sqrt(3), r0/np.sqrt(3), -0.57735027*v0, 0.78867513*v0, -0.21132487*v0])
-
-    # Convert to kilometers
-    x0 /= 1e3 # kilometers
-    std_gps_noise = 7.5 / 1e3 # kilometers
-    dt = 60 
-    num_orbits = 10
-    # Process Noise Model
-    W = leo6_process_noise_model(dt)
-    # Create Satellite Model 
-    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
-    fermiSat.create_model(with_jacchia=True, with_SRP=True)
-    # Set additional solve for states
-    std_Cd = 0.0013
-    tau_Cd = 21600
-    fermiSat.set_solve_for("Cd", "sas", std_Cd, tau_Cd, alpha=1.3)
-    std_Cr = 0.0013
-    tau_Cr = 21600
-    #fermiSat.set_solve_for("Cr", "gauss", std_Cr, tau_Cr)#, alpha=1.3)
-    xs, zs, ws, vs = fermiSat.simulate(num_orbits, W=W)
-
-    n = 6 + len(fermiSat.solve_for_states)
-    Wn = np.zeros((n,n))
-    # Process noise for Position and Velocity
-    Wn[0:6,0:6] = W.copy()
-    Wn[0:6,0:6] *= 1000 # Tunable w/ altitude
-    # Process Noise for changes in Cd
-    if n > 6:
-        Wn[6,6] = (1.3898 * std_Cd)**2
-        Wn[6,6] *= 1000#0 # Tunable w/ altitude
-    # Process Noise for changes in Cr
-    if n > 7:
-        Wn[7,7] = (1.3898 * std_Cr)**2
-        #Wn[7,7] *= 100#0 # Tunable w/ altitude
-
-    V = np.eye(3) * std_gps_noise**2
-    I = np.eye(n)
-    P_kf = np.eye(n) * (0.001)**2
-    x_kf = np.random.multivariate_normal(xs[0], P_kf)
-    H = np.hstack((np.eye(3), np.zeros((3,n-3))))
-    fermiSat.reset_state(x_kf, 0)
-
-    xs_kf = [x_kf.copy()]
-    Ps_kf = [P_kf.copy()]
-    STM_order = 3
-    N = zs.shape[0]
-    for i in range(1, N):
-        # Time Prop
-        Phi_k = fermiSat.get_transition_matrix(STM_order)
-        P_kf = Phi_k @ P_kf @ Phi_k.T + Wn
-        x_kf = fermiSat.step() #* 1000
-        # Measurement Update
-        K = P_kf @ H.T @ np.linalg.inv(H @ P_kf @ H.T + V)
-        zbar = H @ x_kf
-        zk = zs[i]
-        r = zk - zbar 
-        print("Norm residual: ", np.linalg.norm(r), " Norm State Diff:", np.linalg.norm(xs[i] - x_kf))
-        x_kf = x_kf + K @ r 
-        # Make sure changes in Cd/Cr are within bounds
-        x_kf[6:] = np.clip(x_kf[6:], -0.98, np.inf)
-
-        fermiSat.reset_state(x_kf, i) #/1000)
-        P_kf = (I - K @ H) @ P_kf @ (I - K @ H).T + K @ V @ K.T 
-        # Log
-        xs_kf.append(x_kf.copy())
-        Ps_kf.append(P_kf.copy())
-    xs_kf = np.array(xs_kf)
-    Ps_kf = np.array(Ps_kf)
-    # Plot KF Results
-    scale_km_m = 1000
-    xs[:,0:6] *= scale_km_m
-    zs *= scale_km_m
-    vs *= scale_km_m
-    ws[:,0:6] *= scale_km_m
-    xs_kf[:,0:6] *= scale_km_m
-    Ps_kf[:, 0:6,0:6] *= scale_km_m**2
-    #xs[:,6] = 2.1 * (scale_km_m + xs[:,6])
-    #xs_kf[:,6] = 2.1 * (scale_km_m + xs_kf[:,6])
-    scale = 1
-    ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf), scale=scale)
-
-    fig = plt.figure() #figsize=(15,11))
-    ax = fig.gca(projection='3d')
-    plt.title("Leo Trajectory over Time")
-    ax.plot(xs[:,0], xs[:,1], xs[:,2], color = 'r')
-    ax.plot(xs_kf[:,0], xs_kf[:,1], xs_kf[:,2], color = 'b')
-    plt.show()
-    foobar = 2
-
 ### Testing Cauchy ###
 global_leo = None
 INITIAL_H = False
@@ -946,14 +379,15 @@ def ece_dynamics_update_callback(c_duc):
     # Set Phi and Gamma
     x = pyduc.cget_x()
     Jac = global_leo.get_jacobian_matrix()
-    Jac[3:6,6] *= 1000 # km to m
     taylor_order = 3
-    Phi_k = np.eye(7) + Jac * global_leo.dt
+    Phi_k = np.eye(6) + Jac * global_leo.dt
     for i in range(2,taylor_order+1):
         Phi_k += np.linalg.matrix_power(Jac, i) * global_leo.dt**i / math.factorial(i)
-    Gamma_k = np.zeros((7,1))
-    Gamma_c = np.zeros((7,1)) # continous time Gamma 
-    Gamma_c[6,0] = 1.0
+    Gamma_k = np.zeros((6,1))
+    Gamma_c = np.zeros((6,1)) # continous time Gamma 
+    Gamma_c[3,0] = 1.0
+    Gamma_c[4,0] = 1.0
+    Gamma_c[5,0] = 1.0
     for i in range(taylor_order+1):
         Gamma_k += ( np.linalg.matrix_power(Jac, i) * global_leo.dt**(i+1) / math.factorial(i+1) ) @ Gamma_c
 
@@ -980,7 +414,7 @@ def ece_extended_msmt_update_callback(c_duc):
     #xbar = pyduc.cget_x() # xbar
     global INITIAL_H
     if INITIAL_H:
-        H = np.zeros((3,7))
+        H = np.zeros((3,6))
         H[2,0] = 1
         H[2,1] = 1
         H[2,2] = 1
@@ -989,7 +423,7 @@ def ece_extended_msmt_update_callback(c_duc):
         gamma = np.array([gam, gam, 3*gam])
         pyduc.cset_gamma(gamma)
     else:
-        H = np.hstack(( np.eye(3), np.zeros((3,4)) ))
+        H = np.hstack(( np.eye(3), np.zeros((3,3)) ))
     pyduc.cset_H(H)
 
 # choose window with last estimate's covariance defined
@@ -1013,8 +447,8 @@ def best_window_est(cauchyEsts, window_counts):
 
 def weighted_average_win_est(win_moms, win_counts, usable_wins):
         num_windows = len(win_moms)
-        win_avg_mean = np.zeros(7)
-        win_avg_cov = np.zeros((7,7))
+        win_avg_mean = np.zeros(6)
+        win_avg_cov = np.zeros((6,6))
         win_norm_fac = 0.0
         for i in range(num_windows):
             win_count = win_counts[i]
@@ -1049,10 +483,10 @@ def plot_all_windows(win_moms, xs_true, e_hats_kf, one_sigs_kf, best_idx, idx_mi
             P_hats = np.array([ win_moms[win_idx][i][1] for i in range(len(win_moms[win_idx])) ])
             T_cur = win_idx + x_hats.shape[0] + 1
             one_sigs = np.array([np.sqrt(np.diag(P_hat)) for P_hat in P_hats])
-            e_hats = np.array([xt - xh for xt,xh in zip(xs_true[win_idx+1:T_cur], x_hats)])
+            e_hats = np.array([xt[0:6] - xh for xt,xh in zip(xs_true[win_idx+1:T_cur], x_hats)])
             
             plt.figure()
-            plt.subplot(711)
+            plt.subplot(611)
             plt.title("Win Err" + str(win_idx) + " PosX/PosY/VelX/VelY")
             plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,0], 'b')
             plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,0], 'r')
@@ -1067,52 +501,45 @@ def plot_all_windows(win_moms, xs_true, e_hats_kf, one_sigs_kf, best_idx, idx_mi
             if win_idx == idx_min:
                 plt.scatter(Ts_kf[T_cur-1], one_sigs[-1,0], color='k', marker='o')
                 plt.scatter(Ts_kf[T_cur-1], -one_sigs[-1,0], color='k', marker='o')
-            plt.subplot(712)
+            plt.subplot(612)
             plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,1], 'b')
             plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,1], 'r')
             plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,1], 'r')
             plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 1], 'g')
             plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 1], 'm')
             plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 1], 'm')
-            plt.subplot(713)
+            plt.subplot(613)
             plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,2], 'b')
             plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,2], 'r')
             plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,2], 'r')
             plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 2], 'g')
             plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 2], 'm')
             plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 2], 'm')
-            plt.subplot(714)
+            plt.subplot(614)
             plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,3], 'b')
             plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,3], 'r')
             plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,3], 'r')
             plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 3], 'g')
             plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 3], 'm')
             plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 3], 'm')
-            plt.subplot(715)
+            plt.subplot(615)
             plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,4], 'b')
             plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,4], 'r')
             plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,4], 'r')
             plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 4], 'g')
             plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 4], 'm')
             plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 4], 'm')
-            plt.subplot(716)
+            plt.subplot(616)
             plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,5], 'b')
             plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,5], 'r')
             plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,5], 'r')
             plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 5], 'g')
             plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 5], 'm')
             plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 5], 'm')
-            plt.subplot(717)
-            plt.plot(Ts_kf[win_idx+1:T_cur], e_hats[:,6], 'b')
-            plt.plot(Ts_kf[win_idx+1:T_cur], one_sigs[:,6], 'r')
-            plt.plot(Ts_kf[win_idx+1:T_cur], -one_sigs[:,6], 'r')
-            plt.plot(Ts_kf[:T_cur], e_hats_kf[:T_cur, 6], 'g')
-            plt.plot(Ts_kf[:T_cur], one_sigs_kf[:T_cur, 6], 'm')
-            plt.plot(Ts_kf[:T_cur], -one_sigs_kf[:T_cur, 6], 'm')
     plt.show()
     plt.close('all')
 
-def test_gmat_ece7():
+def test_gmat_ece6():
     seed = int(np.random.rand() * (2**32 -1))
     print("Seeding with seed: ", seed)
     np.random.seed(seed)
@@ -1128,12 +555,12 @@ def test_gmat_ece7():
     WITH_ADDED_DENSITY_JUMPS = True
     WITH_PLOT_MARG_DENSITY = False
     reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
-    reinit_method = reinit_methods[1]
+    reinit_method = reinit_methods[4]
     r_sat = 550e3 #km
     std_gps_noise = 7.5 / 1e3 # kilometers
     dt = 60 
-    num_orbits = 2
-    num_windows = 3 # Number of Cauchy Windows
+    num_orbits = 1
+    num_windows = 4 # Number of Cauchy Windows
     ekf_scale = 10000 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
@@ -1149,7 +576,7 @@ def test_gmat_ece7():
 
     # Log Files
     if WITH_LOG:
-        log_dir = file_dir + "/pylog/gmat7/"
+        log_dir = file_dir + "/pylog/gmat6/"
         if( not os.path.isdir(log_dir)):
             os.mkdir(log_dir)
         log_dir += alt_and_std + "/"
@@ -1165,7 +592,7 @@ def test_gmat_ece7():
             handle.write( "Seeded with: " + str(seed) )
     # Load Files
     if LOAD_RESULTS_AND_EXIT:
-        log_dir = file_dir + "/pylog/gmat7/"
+        log_dir = file_dir + "/pylog/gmat6/"
         log_dir += alt_and_std + "/"
         log_dir += reinit_method + "/"
         log_dir += "w" + str(num_windows) + density_type + added_jumps + ekf_scaled + beta_scaled + gamma_scaled + "/"
@@ -1294,7 +721,9 @@ def test_gmat_ece7():
         exit(1)
 
     # Run ECE
-    fermiSat.reset_state(xs[0], 0)
+    fermiSat.clear_model()
+    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
     global global_leo 
     global_leo = fermiSat
 
@@ -1305,22 +734,16 @@ def test_gmat_ece7():
 
     # Create Phi.T as A0, start at propagated x0
     # Initialize Initial Hyperplanes
-    Jac = fermiSat.get_jacobian_matrix()
-    Jac[3:6,6] *= 1000 # km to m
-    taylor_order = 3
-    Phi = np.eye(7) + Jac * global_leo.dt
-    for i in range(2,taylor_order+1):
-        Phi += np.linalg.matrix_power(Jac, i) * global_leo.dt**i / math.factorial(i)
-
-    xbar = xs[1].copy()
+    Phi = fermiSat.get_transition_matrix(3)
+    xbar = xs[1][0:6].copy()
     xbar[0:6] *= 1000
     A0 = Phi.T.copy()
-    p0 = np.repeat(.01, 7) #/ 1e3
-    b0 = np.zeros(7)
+    p0 = np.repeat(.01, 6) #/ 1e3
+    b0 = np.zeros(6)
     num_controls = 0
     zs_without_z0 = zs[1:]
 
-    ce.set_tr_search_idxs_ordering([5,4,6,3,2,1,0])
+    ce.set_tr_search_idxs_ordering([5,4,3,2,1,0])
     debug_print = False
     fermiSat.step()
     win_idxs = np.arange(num_windows)
@@ -1354,13 +777,12 @@ def test_gmat_ece7():
                 print("  Window {} is on step {}/{}".format(win_idx+1, win_count+1, num_windows) )
                 x_reset = win_moms[win_idx][-1][0].copy()
                 x_reset[0:6] /= 1000
-                x_reset[6] = np.clip(x_reset[6], -.85, 10)
                 fermiSat.reset_state(x_reset, k)
                 win_moms[win_idx].append( cauchyEsts[win_idx].step(1000*zk, None, False) )
                 print("    x_k|k:   ", win_moms[win_idx][-1][0] )
                 x_true = xs[k+1].copy()
                 x_true[0:6] *= 1000
-                print("    e_k|k:   ", x_true - win_moms[win_idx][-1][0] )
+                print("    e_k|k:   ", x_true[0:6] - win_moms[win_idx][-1][0] )
                 win_counts[win_idx] += 1
         
         best_idx, usable_wins = best_window_est(cauchyEsts, win_counts)
@@ -1373,8 +795,8 @@ def test_gmat_ece7():
         #if leo5_alt > 300e3:
         #edit_means(cauchyEsts, win_counts, 4, -.05, 0.05)
         #else:
-        edit_means(cauchyEsts, win_counts, 6, -.85, 10)
-        xhat[6] = np.clip(xhat[6], -.85, 10)
+        #edit_means(cauchyEsts, win_counts, 6, -.85, 10)
+        #xhat[6] = np.clip(xhat[6], -.85, 10)
         
 
         # Compute Weighted Average Window Estimate
@@ -1389,14 +811,14 @@ def test_gmat_ece7():
             xreset, Preset = cauchyEsts[idx_min].reset_about_estimator(cauchyEsts[best_idx], msmt_idx = speyer_restart_idx)
             print("  Window {} is on step {}/{} and has mean:\n  {}".format(idx_min+1, win_counts[idx_min]+1, num_windows, np.around(xreset,4)) )
         elif(reinit_method == "init_cond"):
-            _A0 = cauchyEsts[best_idx]._Phi.copy().reshape((7,7)).T # np.eye(5)
-            _p0 = np.repeat(0.01, 7)
+            _A0 = cauchyEsts[best_idx]._Phi.copy().reshape((6,6)).T # np.eye(5)
+            _p0 = np.repeat(0.01, 6)
             win_moms[idx_min].append( cauchyEsts[idx_min].reset_with_last_measurement(1000*zk[2], _A0, _p0, b0, xhat) )
         elif("H2" in reinit_method):
             # Both H channels concatenated
-            _H = np.array([1.0, 1.0, 1.0, 0, 0, 0, 0])
+            _H = np.array([1.0, 1.0, 1.0, 0, 0, 0])
             _gamma = 3 * gamma[0]
-            _xbar = cauchyEsts[best_idx]._xbar[14:]
+            _xbar = cauchyEsts[best_idx]._xbar[12:]
             _dz = 1000*(zk[0] + zk[1] + zk[2]) - _xbar[0] - _xbar[1] - _xbar[2]
             _dx = xhat - _xbar
             
@@ -1417,7 +839,7 @@ def test_gmat_ece7():
                         _P[i,i] *= _pos_scale[i]
                 if "Boost2" in reinit_method:
                     _P *= 2
-                    _P += np.eye(7) * 0.000001
+                    _P += np.eye(6) * 0.001
                     assert( np.all( np.linalg.eig(_P)[0] > 0 ) )
             # Reset
             _A0, _p0, _b0 = ce.speyers_window_init(_dx, _P, _H, _gamma, _dz)
@@ -1535,12 +957,5 @@ def test_gmat_ece7():
 
 
 if __name__ == "__main__":
-    #tut1_simulating_an_orbit()
-    #fermi_sat_prop()
-    #test_jacchia_roberts_influence()
-    #test_reset_influence()
-    #test_solve_for_state_derivatives_influence()
-    #test_gmat_ekf6()
-    #test_gmat_ekf7()
-    test_gmat_ece7()
+    test_gmat_ece6()
     
