@@ -1259,9 +1259,9 @@ def test_python_debug_window_manager():
 
     # Leo Satelite Parameters
     leo5_alt = 200e3 # kmeters
-    leo5_A = 1.4 # meters^2
-    leo5_m = 200 # kg
-    leo5_gps_std_dev = 7.5 # meters
+    leo5_A = 64 # meters^2
+    leo5_m = 5000 # kg
+    leo5_gps_std_dev = 2.0 # meters
     leo5_dt = 60 # sec
     leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_m, leo5_gps_std_dev, leo5_dt)
 
@@ -1273,13 +1273,13 @@ def test_python_debug_window_manager():
     # Cauchy and Kalman Tunables
     WITH_PLOT_ALL_WINDOWS = True
     WITH_SAS_DENSITY = True
-    WITH_ADDED_DENSITY_JUMPS = True
+    WITH_ADDED_DENSITY_JUMPS = False
     WITH_PLOT_MARG_DENSITY = False
     reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
     reinit_method = reinit_methods[4]
-    prop_steps = 600 # Number of time steps to run sim
+    prop_steps = 300 # Number of time steps to run sim
     num_windows = 8 # Number of Cauchy Windows
-    ekf_scale = 10000 # Scaling factor for EKF atmospheric density
+    ekf_scale = 1 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
     time_tag = False

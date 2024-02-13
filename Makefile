@@ -50,8 +50,7 @@ leo5_gps : bin/leo_satellite_5state_gps
 leo7 : bin/leo_satellite_7state
 leo7_gps : bin/leo_satellite_7state_gps
 
-all :
-	cauchy window home leo5 leo5_gps leo7 leo7_gps
+all: cauchy window home leo5 leo5_gps leo7 leo7_gps
 
 clean : 
 	rm -f bin/cauchy_estimator bin/window_manager bin/homing_missile bin/leo_satellite_5state bin/leo_satellite_7state bin/leo_satellite_5state_gps bin/leo_satellite_7state_gps

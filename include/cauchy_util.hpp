@@ -345,8 +345,8 @@ struct ForwardFlagArray
 	  }
 	  if(idx_count < num_threads-1)
 	  {
-		printf("[WARN ForwardFlagArray Win Num %d, Step %d/%d:] Too many threads allocated (idx_count < num_threads-1)...\n", win_num, step, total_steps);
-		is_print = true;
+		printf("[ForwardFlagArray Win Num %d, Step %d/%d:] Lowering thread count from %d to %d (Before FTR: %d, Max After FTR: %d)\n", win_num, step, total_steps, num_threads, idx_count+1, F_count, num_terms_after_reduction);
+		//is_print = true;
 		int sum_chunks = 0;
 		int sum_rtpc = 0;
 		if(idx_count == 0)
@@ -384,7 +384,7 @@ struct ForwardFlagArray
 			new_num_threads = idx_count;
 		  }
 		}
-		printf("[WARN ForwardFlagArray: Win Num %d, Step %d/%d] Lowering thread count to %d...\n", win_num, step, total_steps, new_num_threads);
+		//printf("[WARN ForwardFlagArray: Win Num %d, Step %d/%d] Lowering thread count to %d...\n", win_num, step, total_steps, new_num_threads);
 	  }
 	  if(idx_count > num_threads)
 	  {
@@ -395,10 +395,11 @@ struct ForwardFlagArray
 	  {
 		if(end_idxs[idx_count-1] == F_count)
 		{
-		  is_print = true;
-		  printf("[WARN ForwardFlagArray: Win Num %d, Step %d/%d] Too many threads allocated...\n", win_num, step, total_steps);
+		  printf("[ForwardFlagArray Win Num %d, Step %d/%d:] Lowering thread count from %d to %d (Before FTR: %d, Max After FTR: %d)\n", win_num, step, total_steps, num_threads, idx_count+1, F_count, num_terms_after_reduction);
+		  //is_print = true;
+		  //printf("[WARN ForwardFlagArray: Win Num %d, Step %d/%d] Too many threads allocated...\n", win_num, step, total_steps);
 		  new_num_threads = idx_count;
-		  printf("[WARN ForwardFlagArray: Win Num %d, Step %d/%d] Lowering thread count to %d...\n", win_num, step, total_steps, new_num_threads);
+		  //printf("[WARN ForwardFlagArray: Win Num %d, Step %d/%d] Lowering thread count to %d...\n", win_num, step, total_steps, new_num_threads);
 		}
 		else 
 		{
