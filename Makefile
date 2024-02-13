@@ -11,6 +11,8 @@ CFLAGS=""
 #$(INC_LAPACK) $(LIB_LAPACK)
 
 LIB_LAPACK = -llapacke -llapack -lblas -lm -lpthread
+#LIB_LAPACK= -Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl
+
 
 D ?= 0
 ifeq ($(D), 1)
@@ -49,7 +51,7 @@ leo7 : bin/leo_satellite_7state
 leo7_gps : bin/leo_satellite_7state_gps
 
 all :
-	cauchy window
+	cauchy window home leo5 leo5_gps leo7 leo7_gps
 
 clean : 
 	rm -f bin/cauchy_estimator bin/window_manager bin/homing_missile bin/leo_satellite_5state bin/leo_satellite_7state bin/leo_satellite_5state_gps bin/leo_satellite_7state_gps
