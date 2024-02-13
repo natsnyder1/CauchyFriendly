@@ -581,8 +581,14 @@ class FermiSatelliteModel():
                 # If with added density jumps is toggled
                 if with_density_jumps:
                     j = self.solve_for_fields.index("Cd")
-                    if i == 70:
-                        wk[6+j] = 7.5
+                    if i == 1200:
+                        wk[6+j] = 4.5
+                        self.solve_for_states[j] += wk[6+j]
+                        new_nom_val = self.solve_for_nominals[j] * (1 + self.solve_for_states[j])
+                        self.sat.SetField(self.solve_for_fields[j], new_nom_val)
+                        xk[6+j] = self.solve_for_states[j]
+                    if i == 3500:
+                        wk[6+j] = 1.5
                         self.solve_for_states[j] += wk[6+j]
                         new_nom_val = self.solve_for_nominals[j] * (1 + self.solve_for_states[j])
                         self.sat.SetField(self.solve_for_fields[j], new_nom_val)
@@ -937,6 +943,203 @@ def test_gmat_ekf7():
     plt.show()
     foobar = 2
 
+def test_gmat_ekfs7():
+    r_sat = 550e3 #km
+    r_earth = 6378.1e3
+    M = 5.9722e24 # Mass of earth (kg)
+    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
+    mu = M*G  #Nm^2/kg^2
+    #rho = lookup_air_density(r_sat)
+    r0 = r_earth + r_sat # orbit distance from center of earth
+    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
+    #x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0.0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
+    x0 = np.array([r0/np.sqrt(3), r0/np.sqrt(3), r0/np.sqrt(3), -0.57735027*v0, 0.78867513*v0, -0.21132487*v0])
+
+    # Convert to kilometers
+    x0 /= 1e3 # kilometers
+    std_gps_noise = 7.5 / 1e3 # kilometers
+    dt = 60 
+    num_orbits = 50
+    # Process Noise Model
+    W = leo6_process_noise_model(dt)
+    # Create Satellite Model 
+    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    # Set additional solve for states
+    std_Cd = 0.0013
+    tau_Cd = 21600
+    fermiSat.set_solve_for("Cd", "sas", std_Cd, tau_Cd, alpha=1.3)
+    std_Cr = 0.0013
+    tau_Cr = 21600
+    #fermiSat.set_solve_for("Cr", "sas", std_Cr, tau_Cr, alpha=1.1)
+    xs, zs, ws, vs = fermiSat.simulate(num_orbits, W=50*W, with_density_jumps=False)
+    #xs = xs[:,:7]
+    #ws = ws[:,:7]
+    n = 6 + len(fermiSat.solve_for_states)
+    V = np.eye(3) * std_gps_noise**2
+    I = np.eye(n)
+
+    scale_pv = 10000
+    scale_d = 10000
+    scale_pv2 = 500
+    scale_d2 = 250
+
+    Wn = np.zeros((n,n))
+    # Process noise for Position and Velocity
+    Wn[0:6,0:6] = W.copy()
+    Wn[0:6,0:6] *= scale_pv # Tunable w/ altitude
+    # Process Noise for changes in Cd
+    if n > 6:
+        Wn[6,6] = (1.3898 * std_Cd)**2
+        Wn[6,6] *= scale_d#0 # Tunable w/ altitude
+    # Process Noise for changes in Cr
+    if n > 7:
+        Wn[7,7] = (1.3898 * std_Cr)**2
+        Wn[7,7] *= 250#0 # Tunable w/ altitude
+
+    V = np.eye(3) * std_gps_noise**2
+    I = np.eye(n)
+    P_kf = np.eye(n) * (0.001)**2
+    P_kf[6,6] = 2
+    x_kf = np.random.multivariate_normal(xs[0], P_kf)
+    x_kf[6] = 0
+    H = np.hstack((np.eye(3), np.zeros((3,n-3))))
+    fermiSat.reset_state(x_kf, 0)
+
+    xs_kf = [x_kf.copy()]
+    Ps_kf = [P_kf.copy()]
+    Phis_kf = [] 
+    Ms_kf = [P_kf.copy()]
+    STM_order = 3
+    N = zs.shape[0]
+    for i in range(1, N):
+        # Time Prop
+        Phi_k = fermiSat.get_transition_matrix(STM_order)
+        P_kf = Phi_k @ P_kf @ Phi_k.T + Wn
+        # For Smoother
+        Phis_kf.append(Phi_k.copy())
+        Ms_kf.append(P_kf.copy())
+
+        x_kf = fermiSat.step() #* 1000
+        # Measurement Update
+        K = np.linalg.solve(H @ P_kf @ H.T + V, H @ P_kf).T #P_kf @ H.T @ np.linalg.inv(H @ P_kf @ H.T + V)
+        zbar = H @ x_kf
+        zk = zs[i]
+        r = zk - zbar 
+        print("Norm residual: ", np.linalg.norm(r), " Norm State Diff:", np.linalg.norm(xs[i] - x_kf))
+        x_kf = x_kf + K @ r 
+        # Make sure changes in Cd/Cr are within bounds
+        x_kf[6:] = np.clip(x_kf[6:], -0.98, np.inf)
+
+        fermiSat.reset_state(x_kf, i) #/1000)
+        P_kf = (I - K @ H) @ P_kf @ (I - K @ H).T + K @ V @ K.T 
+        # Log
+        xs_kf.append(x_kf.copy())
+        Ps_kf.append(P_kf.copy())
+    xs_kf = np.array(xs_kf)
+    Ps_kf = np.array(Ps_kf)
+    
+    # Get smoother estimates
+    x_smoothed = xs_kf[-1].copy()
+    P_smoothed = Ps_kf[-1].copy()
+    xs_smoothed = [x_smoothed.copy()]
+    Ps_smoothed = [P_smoothed.copy()]
+    for i in reversed(range(N-1)):
+        Phi = Phis_kf[i]
+        x_kf = xs_kf[i]
+        P_kf = Ps_kf[i]
+        M_kf = Ms_kf[i+1]
+
+        #C = P_kf @ Phi.T @ np.linalg.inv(M_kf)
+        C = np.linalg.solve(M_kf, Phi @ P_kf).T
+        fermiSat.reset_state(x_kf, i)
+        x_smoothed = x_kf + C @ (x_smoothed - fermiSat.step() )
+        P_smoothed = P_kf + C @ ( P_smoothed - M_kf ) @ C.T
+        print("Smoothed Diff is: ", x_smoothed - x_kf)
+        xs_smoothed.append(x_smoothed.copy())
+        Ps_smoothed.append(P_smoothed.copy())
+    xs_smoothed.reverse()
+    Ps_smoothed.reverse()
+    xs_smoothed = np.array(xs_smoothed)
+    Ps_smoothed = np.array(Ps_smoothed)
+    foo = np.zeros(xs_kf.shape[0])
+    moment_info = {"x": xs_smoothed, "P": Ps_smoothed, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+    ce.plot_simulation_history(moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), scale=1)
+
+    
+    Wn = np.zeros((n,n))
+    # Process noise for Position and Velocity
+    Wn[0:6,0:6] = W.copy()
+    Wn[0:6,0:6] *= scale_pv2 # Tunable w/ altitude
+    # Process Noise for changes in Cd
+    if n > 6:
+        Wn[6,6] = (1.3898 * std_Cd)**2
+        Wn[6,6] *= scale_d2#0 # Tunable w/ altitude
+    # Process Noise for changes in Cr
+    if n > 7:
+        Wn[7,7] = (1.3898 * std_Cr)**2
+        Wn[7,7] *= 250#0 # Tunable w/ altitude
+    
+    P_kf = np.eye(n) * (0.001)**2
+    P_kf[6,6] = 2
+    x_kf = np.random.multivariate_normal(xs[0], P_kf)
+    x_kf[6] = 0
+    fermiSat.reset_state(x_kf, 0)
+    xs_kf2 = [x_kf.copy()]
+    Ps_kf2 = [P_kf.copy()]
+    STM_order = 3
+    N = zs.shape[0]
+    for i in range(1, N):
+        # Time Prop
+        Phi_k = fermiSat.get_transition_matrix(STM_order)
+        P_kf = Phi_k @ P_kf @ Phi_k.T + Wn
+        x_kf = fermiSat.step() #* 1000
+        # Measurement Update
+        K = P_kf @ H.T @ np.linalg.inv(H @ P_kf @ H.T + V)
+        zbar = H @ x_kf
+        zk = zs[i]
+        r = zk - zbar 
+        print("Norm residual: ", np.linalg.norm(r), " Norm State Diff:", np.linalg.norm(xs[i] - x_kf))
+        x_kf = x_kf + K @ r 
+        # Make sure changes in Cd/Cr are within bounds
+        x_kf[6:] = np.clip(x_kf[6:], -0.98, np.inf)
+
+        fermiSat.reset_state(x_kf, i) #/1000)
+        P_kf = (I - K @ H) @ P_kf @ (I - K @ H).T + K @ V @ K.T 
+        # Log
+        xs_kf2.append(x_kf.copy())
+        Ps_kf2.append(P_kf.copy())
+    xs_kf2 = np.array(xs_kf2)
+    Ps_kf2 = np.array(Ps_kf2)
+
+    # Plot KF Results
+    scale_km_m = 1000
+    zs *= scale_km_m
+    vs *= scale_km_m
+    ws[:,0:6] *= scale_km_m
+    xs[:,0:6] *= scale_km_m
+    xs_kf[:,0:6] *= scale_km_m
+    Ps_kf[:, 0:6,0:6] *= scale_km_m**2
+    xs_kf2[:,0:6] *= scale_km_m
+    Ps_kf2[:, 0:6,0:6] *= scale_km_m**2
+
+    scale = 1
+    plt.figure()
+    plt.title("Robust vs Normal EKF Position Differences (Top)\nNorm Diff (Bottom):")
+    Ts = np.arange(xs_kf.shape[0])
+    plt.subplot(211)
+    plt.plot(Ts, xs_kf[:,0] - xs_kf2[:,0])
+    plt.plot(Ts, xs_kf[:,1] - xs_kf2[:,1])
+    plt.plot(Ts, xs_kf[:,2] - xs_kf2[:,2])
+    plt.subplot(212)
+    plt.plot(Ts, np.linalg.norm(xs_kf[:,0:3] - xs_kf2[:,0:3],axis=1) )
+
+    foo = np.zeros(xs_kf2.shape[0])
+    moment_info = {"x": xs_kf2, "P": Ps_kf2, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+    ce.plot_simulation_history(moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), scale=scale)
+
+    foobar = 2
+
 ### Testing Cauchy ###
 global_leo = None
 INITIAL_H = False
@@ -1119,22 +1322,22 @@ def test_gmat_ece7():
 
     # Log or Load Setting
     LOAD_RESULTS_AND_EXIT = False
-    WITH_LOG = True
+    WITH_LOG = False
     assert(not (LOAD_RESULTS_AND_EXIT and WITH_LOG))
 
     # Cauchy and Kalman Tunables
     WITH_PLOT_ALL_WINDOWS = True
     WITH_SAS_DENSITY = True
-    WITH_ADDED_DENSITY_JUMPS = True
+    WITH_ADDED_DENSITY_JUMPS = False
     WITH_PLOT_MARG_DENSITY = False
     reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
     reinit_method = reinit_methods[1]
     r_sat = 550e3 #km
     std_gps_noise = 7.5 / 1e3 # kilometers
     dt = 60 
-    num_orbits = 2
-    num_windows = 3 # Number of Cauchy Windows
-    ekf_scale = 10000 # Scaling factor for EKF atmospheric density
+    num_orbits = 40
+    num_windows = 4 # Number of Cauchy Windows
+    ekf_scale = 250 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
     time_tag = False
@@ -1285,7 +1488,7 @@ def test_gmat_ece7():
     one_sigs_kf = np.array([ np.sqrt( np.diag(P_kf)* 1000**2) for P_kf in Ps_kf ])
     one_sigs_kf[:,6] /= 1000
     e_hats_kf = np.array([xt - xh for xt,xh in zip(xs,xs_kf) ]) * 1000
-    WITH_PLOT_KF_SEPERATELY = False
+    WITH_PLOT_KF_SEPERATELY = True
     if WITH_PLOT_KF_SEPERATELY:
         xs[:,0:6] *= 1000
         xs_kf[:,0:6] *= 1000
@@ -1533,6 +1736,64 @@ def test_gmat_ece7():
     '''
 
 
+def test_prediction_results():
+    file_path = file_dir + "/pylog/gmat7/kf_smooth/ekf_run.pickle"
+    with open(file_path, "rb") as handle:
+        (xs,zs,ws,vs), (xs_kf,Ps_kf), (xs_smoothed, Ps_smoothed) = pickle.load(handle)
+    
+    r_sat = 550e3 #km
+    r_earth = 6378.1e3
+    M = 5.9722e24 # Mass of earth (kg)
+    G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
+    mu = M*G  #Nm^2/kg^2
+    #rho = lookup_air_density(r_sat)
+    r0 = r_earth + r_sat # orbit distance from center of earth
+    v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
+    #x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0.0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
+    x0 = np.array([r0/np.sqrt(3), r0/np.sqrt(3), r0/np.sqrt(3), -0.57735027*v0, 0.78867513*v0, -0.21132487*v0])
+
+    # Convert to kilometers
+    x0 /= 1e3 # kilometers
+    std_gps_noise = 7.5 / 1e3 # kilometers
+    dt = 60 
+
+    start = 1070
+    end = 2200
+    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    # Set additional solve for states
+    std_Cd = 0.0013
+    tau_Cd = 21600
+    fermiSat.set_solve_for("Cd", "sas", std_Cd, tau_Cd, alpha=1.3)
+
+    # Reset state:
+    x_kf_start = xs_kf[start]
+    P_kf_start = Ps_kf[start]
+    P_kf = P_kf_start.copy()
+    P_kf[6,6] *= 1000
+    fermiSat.reset_state(x_kf_start, start)
+    for i in range(start, end):
+        Phi = fermiSat.get_transition_matrix(3)
+        P_kf = Phi @ P_kf @ Phi.T
+        x_kf = fermiSat.step()
+
+    #print("Start State of kf   at index {} is:\n  {}".format(start, x_kf_start))
+    #print("End State predicted at index {} is:\n  {}".format(end, x_kf))
+    #print("End State smoother  at index {} is:\n  {}".format(start, xs_smoothed[end]))
+    #print("End State truth     at index {} is:\n  {}".format(start, xs[end]))
+    print("Start State Position Error (m) EKF-Truth   =", 1000*(x_kf_start[0:3] - xs[start][0:3]))
+    print("Start State Position Error (m) Smooth-Truth =", 1000*(xs_smoothed[start][0:3] - xs[start][0:3]))
+    print("End State Position Error (m) EKF Pred-Truth   =", 1000*(x_kf[0:3] - xs[end][0:3]))
+    print("End State Position Error (m) Smooth-Truth =", 1000*(xs_smoothed[end][0:3] - xs[end][0:3]))
+    n = 3
+    prob_norm = (2*np.pi)**(n/2) * np.linalg.det(P_kf[0:3,0:3])**0.5
+    state_err = xs[end][0:3] - x_kf[0:3]
+    prob_pred = 1 / prob_norm * np.exp(-0.5 * state_err @ np.linalg.inv(P_kf[0:3,0:3]) @ state_err)
+    print("Probability Score variance contains truth: ", prob_pred)
+
+    print("Thats all folks!")
+
+
 
 if __name__ == "__main__":
     #tut1_simulating_an_orbit()
@@ -1542,5 +1803,6 @@ if __name__ == "__main__":
     #test_solve_for_state_derivatives_influence()
     #test_gmat_ekf6()
     #test_gmat_ekf7()
-    test_gmat_ece7()
-    
+    #test_gmat_ekfs7()
+    #test_gmat_ece7()
+    test_prediction_results()

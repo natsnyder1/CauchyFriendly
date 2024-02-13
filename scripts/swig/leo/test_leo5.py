@@ -37,7 +37,7 @@ def lookup_air_density(r_sat):
 
 class leo_satellite_5state():
 
-    def __init__(self, leo5_alt = 200e3, leo5_A = 64.0, leo5_gps_std_dev = 2.0, leo5_dt = 60.0):
+    def __init__(self, leo5_alt = 200e3, leo5_A = 64.0, leo5_m = 5000, leo5_gps_std_dev = 2.0, leo5_dt = 60.0):
         # Size of simulation dynamics
         self.n = 5
         self.num_satellites = 2 # number of sattelites to talk to (measurements)
@@ -52,7 +52,7 @@ class leo_satellite_5state():
         self.M = 5.9722e24 # Mass of earth (kg)
         self.G = 6.674e-11 # m^3/(s^2 * kg) Universal Gravitation Constant
         self.mu = self.M*self.G  #Nm^2/kg^2
-        self.m = 5000.0 # kg
+        self.m = leo5_m # kg
         self.rho = lookup_air_density(self.r_sat) # kg/m^3
         self.C_D = 2.0 #drag coefficient
         self.A = leo5_A #m^2
@@ -1098,8 +1098,9 @@ def test_single_sliding_window():
     # Leo Satelite Parameters
     leo5_alt = 550e3 # meters
     leo5_A = 14 # meters^2
+    leo5_m = 5000 # kg
     leo5_gps_std_dev = 7.5 # meters
-    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_gps_std_dev)
+    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_m, leo5_gps_std_dev)
 
     # Cauchy and Kalman Tunables
     num_window_steps = 8
@@ -1257,11 +1258,12 @@ def test_python_debug_window_manager():
     np.random.seed(seed)
 
     # Leo Satelite Parameters
-    leo5_alt = 550e3 # meters
-    leo5_A = 14 # meters^2
+    leo5_alt = 200e3 # kmeters
+    leo5_A = 1.4 # meters^2
+    leo5_m = 200 # kg
     leo5_gps_std_dev = 7.5 # meters
     leo5_dt = 60 # sec
-    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_gps_std_dev, leo5_dt)
+    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_m, leo5_gps_std_dev, leo5_dt)
 
     # Log or Load Setting
     LOAD_RESULTS_AND_EXIT = True
@@ -1275,14 +1277,14 @@ def test_python_debug_window_manager():
     WITH_PLOT_MARG_DENSITY = False
     reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
     reinit_method = reinit_methods[4]
-    prop_steps = 300 # Number of time steps to run sim
-    num_windows = 6 # Number of Cauchy Windows
+    prop_steps = 600 # Number of time steps to run sim
+    num_windows = 8 # Number of Cauchy Windows
     ekf_scale = 10000 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
     time_tag = False
 
-    alt_and_std = str(int(leo.r_sat/1000)) + "km" + "_A" + str(int(10*leo.A)) + "_std" + str(int(10*leo.std_dev_gps)) + "_dt" + str(int(leo5_dt))
+    alt_and_std = str(int(leo.r_sat/1000)) + "km" + "_A" + str(int(10*leo.A)) + "_m" + str(int(leo5_m)) + "_std" + str(int(10*leo.std_dev_gps)) + "_dt" + str(int(leo5_dt))
     ekf_scaled = "_ekfs" + str(ekf_scale)
     beta_scaled = "_bs" + str(beta_scale)
     gamma_scaled = "_gs" + str(gamma_scale)
@@ -1359,8 +1361,8 @@ def test_python_debug_window_manager():
     xs_kf, Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs_without_z0, ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
     if WITH_LOG:
         ce.log_kalman(log_dir, xs_kf, Ps_kf)
-    #ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
-    #exit(1)
+    ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
+    exit(1)
     #'''
 
     # Compute 1-sigma bounds for KF for Window Plot Compares  

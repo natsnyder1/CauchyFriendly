@@ -3,14 +3,14 @@
 printf "This script wraps a C++ header only file to have a python interface through swig\nModify the contents of this file judiciously\n"
 
 FILE_NAME="pycauchy" 
-PYTHON_INC_PATH="-I/usr/local/include/python3.7m/"
-
 SWIG_FILE=${FILE_NAME}.i
 INCLUDE_FILE=${FILE_NAME}.hpp
+# Nats computer
+PYTHON_INC_PATH="-I/usr/local/include/python3.7m/"
 LIB_LAPACK="-llapacke -llapack -lblas -lm -lpthread"
 # For cluster
-#PYTHON_INC_PATH="-I/home/natsnyder1/.local/lib/python3.8/site-packages/numpy/core/include"
-#LIB_LAPACK= -Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl
+#PYTHON_INC_PATH="-I/home/natsnyder1/.local/lib/python3.7/site-packages/numpy/core/include -I/cm/local/apps/python37/include/python3.7m"
+#LIB_LAPACK="-Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl"
 
 
 rm _${FILE_NAME}.so

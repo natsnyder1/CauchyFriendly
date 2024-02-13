@@ -1319,7 +1319,7 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
     # 2.) Plot the state error and one-sigma bound of the covariance 
     # 3.) Plot the msmts, and the msmt and process noise 
     # 4.) Plot the max complex error in the mean/covar and norm factor 
-    fig = plt.figure(1)
+    fig = plt.figure()
     #if with_kf:
     fig.suptitle("True States (r) vs Cauchy (b) vs Kalman (g--)")
     #else:
@@ -1334,7 +1334,7 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
             plt.plot(T[:plot_len], kf_cond_means[:plot_len,i], 'g--')
 
     if with_kf or with_ce:
-        fig = plt.figure(2)
+        fig = plt.figure()
         #if with_kf:
         fig.suptitle("Cauchy 1-Sig (b/r) vs Kalman 1-Sig (g-/m-)")
         #else:
@@ -1352,7 +1352,7 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
 
     if with_sim:
         line_types = ['-', '--', '-.', ':', '-', '--', '-.', ':']
-        fig = plt.figure(3)
+        fig = plt.figure()
         fig.suptitle("Msmts (m), Msmt Noise (g), Proc Noise (b)")
         m = 3 #proc_noises.shape[1] + msmt_noises.shape[1] + msmts.shape[1]
         count = 1
@@ -1368,7 +1368,7 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
         for i in range(proc_noises.shape[1]):
             plt.plot(T[1:plot_len], proc_noises[:plot_len-1,i], "k" + line_types[i])
     if with_ce:
-        fig = plt.figure(4)
+        fig = plt.figure()
         fig.suptitle("Complex Errors (mean,covar,norm factor) in Semi-Log")
         plt.subplot(311)
         plt.semilogy(T[cd:plot_len], cerr_means, 'g')
