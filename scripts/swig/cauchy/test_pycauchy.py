@@ -3,6 +3,9 @@ import numpy as np
 import cauchy_estimator as ce
 import gaussian_filters as gf
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg',force=True)
+
 file_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Creates a single cauchy estimator instance and runs the estimator for several steps
@@ -238,11 +241,12 @@ def test_3state_lti_window_manager():
 
     # Run Cauchy Estimator
     num_windows = 8
-    log_dir = file_dir + "/../../../log/python/swig_3state_lti"
-    debug_print = True
-    log_sequential = False 
-    log_full = False
-    cauchyEst = ce.PySlidingWindowManager("lti", num_windows, num_steps + 1, log_dir, debug_print, log_sequential, log_full)
+    #log_dir = file_dir + "/../../../log/python/swig_3state_lti"
+    swm_debug_print = True
+    win_debug_print = False
+    #log_sequential = False 
+    #log_full = False
+    cauchyEst = ce.PySlidingWindowManager("lti", num_windows, swm_debug_print, win_debug_print)
     cauchyEst.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma) 
     
     z0 = zs[0]
@@ -261,7 +265,7 @@ def test_3state_lti_window_manager():
 
     # Plot Cauchy (and Kalman Filter) performance in relation to the true simulation state history
     ce.plot_simulation_history( cauchyEst.moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf) )
-    #foobar = 0 # hold plots up in debug mode by breaking here
+    foobar = 0 # hold plots up in debug mode by breaking here
 
 # Runs the estimator for a long estimation horizon, given the chosen window bank size
 def test_2state_lti_window_manager():
@@ -296,11 +300,12 @@ def test_2state_lti_window_manager():
 
     # Run Cauchy Estimator
     num_windows = 6
-    log_dir = file_dir + "/../../../log/python/swig_2state_lti"
-    debug_print = True
-    log_sequential = False 
-    log_full = False
-    cauchyEst = ce.PySlidingWindowManager("lti", num_windows, num_steps + 1, log_dir, debug_print, log_sequential, log_full)
+    #log_dir = file_dir + "/../../../log/python/swig_2state_lti"
+    swm_debug_print = True
+    win_debug_print = False
+    #log_sequential = False 
+    #log_full = False
+    cauchyEst = ce.PySlidingWindowManager("lti", num_windows, swm_debug_print, win_debug_print)
     cauchyEst.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma) 
     
     z0 = zs[0]
@@ -319,7 +324,7 @@ def test_2state_lti_window_manager():
 
     # Plot Cauchy (and Kalman Filter) performance in relation to the true simulation state history
     ce.plot_simulation_history( cauchyEst.moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf) )
-    #foobar = 0 # hold plots up in debug mode by breaking here
+    foobar = 0 # hold plots up in debug mode by breaking here
 
 # Runs the 3-state dummy problem and looks at their marginals
 def test_3state_marginal_cpdfs():
@@ -458,6 +463,6 @@ if __name__ == "__main__":
     #test_2state_lti_single_window()
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
-    #test_3state_lti_window_manager()
+    test_3state_lti_window_manager()
     #test_3state_marginal_cpdfs()
-    test_3state_reset()
+    #test_3state_reset()

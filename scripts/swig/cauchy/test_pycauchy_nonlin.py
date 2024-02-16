@@ -2,7 +2,8 @@ import numpy as np
 import cauchy_estimator as ce 
 import gaussian_filters as gf
 import math
-#import matplotlib.pyplot as plt 
+import matplotlib
+matplotlib.use('TkAgg',force=True)
 
 class PendulumParams:
     L = 0.3 # meters
@@ -51,15 +52,15 @@ def simulate_pendulum(x0, steps):
     for i in range(steps):
         _, Gamma_k = c2d_linearized_dynamics(xk)
         # Some different ways of creating the process noise matrix, or sampling from it 
-        #wk = np.random.standard_cauchy() * np.sqrt(pend.PSD/pend.dt) * ce.GAUSSIAN_TO_CAUCHY_NOISE
+        wk = np.random.standard_cauchy() * np.sqrt(pend.PSD/pend.dt) * ce.GAUSSIAN_TO_CAUCHY_NOISE
 
         #Wk = 1.0/pend.dt * Gamma_k @ np.atleast_2d(pend.PSD) @ Gamma_k.T #1
         #wk = Gamma_k.reshape(-1) * np.random.randn() * np.sqrt(pend.PSD/pend.dt) #1a
         #wk = np.random.multivariate_normal(np.zeros(2), Wk) #1b
 
         # Qk and Wk come out very similar, except that Qk is full rank and Wk is not
-        _,_,Qk = ce.discretize_nl_sys( ce.cd4_gvf(xk, pend_ode), np.array([[0.0,1.0]]).T, np.atleast_2d(pend.PSD), pend.dt, 2) #2
-        wk = np.random.multivariate_normal(np.zeros(2), Qk)
+        #_,_,Qk = ce.discretize_nl_sys( ce.cd4_gvf(xk, pend_ode), np.array([[0.0,1.0]]).T, np.atleast_2d(pend.PSD), pend.dt, 2) #2
+        #wk = np.random.multivariate_normal(np.zeros(2), Qk)
         
         xk = nonlin_transition_model(xk) + wk
         xs.append(xk)
@@ -69,7 +70,9 @@ def simulate_pendulum(x0, steps):
         vs.append(vk)
         zs.append(zk)
     
-    return ( np.array(xs), np.array(zs).reshape((steps+1,1)), np.array(ws).reshape((steps,2)), np.array(vs).reshape((steps+1,1)) )
+    ws = np.array(ws)
+    pncc = 1 if ws.ndim == 1 else 2
+    return ( np.array(xs), np.array(zs).reshape((steps+1,1)), ws.reshape((steps, pncc)), np.array(vs).reshape((steps+1,1)) )
 
 def ekf_f(x, u, other_params):
     return ce.runge_kutta4(pend_ode, x, pend.dt)
@@ -92,13 +95,10 @@ def ece_dynamics_update_callback(c_duc):
     x = pyduc.cget_x()
     Phi_k, Gamma_k = c2d_linearized_dynamics(x)
     xbar = nonlin_transition_model(x)
-    H_k = pend.H.copy()
-
     pyduc.cset_x(xbar)
     pyduc.cset_is_xbar_set_for_ece()
     pyduc.cset_Phi(Phi_k)
     pyduc.cset_Gamma(Gamma_k)
-    pyduc.cset_H(H_k)
 
 def ece_nonlinear_msmt_model(c_duc, c_zbar):
     pyduc = ce.Py_CauchyDynamicsUpdateContainer(c_duc)
@@ -136,12 +136,15 @@ gamma = (np.sqrt(V) * ce.GAUSSIAN_TO_CAUCHY_NOISE).reshape(-1) #/ np.sqrt(2) # t
 ce.set_tr_search_idxs_ordering([1,0])
 num_windows = 8 #3 + i
 num_controls = 0
-cauchyEst = ce.PySlidingWindowManager("nonlin", num_windows, steps+1)
+swm_print_debug = True
+win_print_debug = False
+cauchyEst = ce.PySlidingWindowManager("nonlin", num_windows, swm_print_debug, win_print_debug)
 cauchyEst.initialize_nonlin(x0_kf, A0, p0, b0, beta, gamma, ece_dynamics_update_callback, ece_nonlinear_msmt_model, ece_extended_msmt_update_callback, num_controls, pend.dt, 0, None)
 for zk in zs:
     cauchyEst.step(zk, None)
 cauchyEst.shutdown()
 ce.plot_simulation_history(cauchyEst.moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf) )
+#ce.plot_simulation_history(cauchyEst.avg_moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf) )
 
 foo = 5
 

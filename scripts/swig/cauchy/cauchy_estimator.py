@@ -66,21 +66,30 @@ class Py_CauchyDynamicsUpdateContainer():
         self.p =  self.cduc.contents.p 
     
     # The cget/cset methods set or get the underline C pointers
+    def cget_step(self):
+        return self.cduc.contents.step
+    
+    def cget_dt(self):
+        return self.cduc.contents.dt
+
     # The inputs to these functions are numpy vectors / matrices, which then sets the raw C-Pointers
     def cget_x(self):
         x = np.zeros(self.n, dtype=np.float64)
         for i in range(self.n):
             x[i] = self.cduc.contents.x[i]
         return x
-    
-    def cget_step(self):
-        return self.cduc.contents.step
 
     def cset_x(self, x):
         assert(x.ndim == 1)
         assert(x.size == self.n)
         for i in range(self.n):
             self.cduc.contents.x[i] = x[i]
+    
+    def cget_u(self):
+        u = np.zeros(self.cmcc, dtype=np.float64)
+        for i in range(self.cmcc):
+            u[i] = self.cduc.contents.u[i]
+        return u 
 
     def cget_Phi(self):
         size_Phi = self.n * self.n
@@ -110,6 +119,13 @@ class Py_CauchyDynamicsUpdateContainer():
         for i in range(size_Gamma):
             self.cduc.contents.Gamma[i] = _Gamma[i]
 
+    def cget_B(self):
+        size_B = self.n*self.cmcc
+        B = np.zeros(size_B)
+        for i in range(size_B):
+            B[i] = self.cduc.contents.B[i]
+        return B.reshape((self.n, self.cmcc))
+    
     def cset_B(self, B):
         size_B = self.n*self.cmcc
         assert(B.size == size_B)
@@ -156,6 +172,9 @@ class Py_CauchyDynamicsUpdateContainer():
         self.cduc.contents.is_xbar_set_for_ece = True
 
     def cset_zbar(self, c_zbar, zbar):
+        if self.p == 1:
+            if type(zbar) != np.ndarray:
+                zbar = np.array([zbar], dtype=np.float64).reshape(-1)
         _zbar = zbar.reshape(-1)
         assert(_zbar.size == self.p)
         size_zbar = _zbar.size
@@ -182,14 +201,12 @@ def template_dynamics_update_callback(c_duc):
     #   Gamma <- compute using jacobian_f(x_k, u_k)
     #   B <- compute using jacobian_f(x_k, u_k)
     #   beta <- possibly set if time varyinig 
-    #   H <- compute using jacobian_h(x_k+1)
-    #   gamma <- possibly set if time varying
     #   (call) pyduc.set_is_xbar_set_for_ece() (this tells the C library you are absolutely sure that you have updated the system state)
     # ...
     # end doing stuff
 
     # return stuff to C
-    # call pyduc.cset_"x/Phi/Gamma/B/H/beta/gamma" depending on what you have updated
+    # call pyduc.cset_"x/Phi/Gamma/B/beta" depending on what you have updated
     # for example, to set Phi, the transition matrix (newly updated by you)
     # pyduc.cset_Phi(Phi), which sets the Phi matrix on the c-side
     
@@ -236,8 +253,8 @@ def template_extended_msmt_update_callback(c_duc):
     # once this function ends, the modified data is available to the C program
     foo = 5
 
-
-class PySlidingWindowManager():
+# The Python Wrapper to interact with the C-side Sliding Window Manager
+class PySlidingWindowManager_CPP():
 
     def __init__(self, mode, num_windows, num_sim_steps, log_dir = None, debug_print = True, log_seq = False, log_full = False):
         self.num_windows = int(num_windows)
@@ -484,6 +501,7 @@ class PySlidingWindowManager():
             self.shutdown()
             self.is_initialized = False
 
+# The Python Wrapper to interact with the C-side Cauchy Estimator
 class PyCauchyEstimator():
     def __init__(self, mode, num_steps, debug_print = True):
         self.modes = ["lti", "ltv", "nonlin"]
@@ -1038,6 +1056,241 @@ class PyCauchyEstimator():
             self.shutdown()
             self.is_initialized = False
 
+# The Python Wrapper to interact with a Sliding Window Manager Object without the pipes and forking on the C-side
+# This is slower than PySlidingWindowManager_CPP but doesnt come with all the uneeded baggage for debugging
+class PySlidingWindowManager():
+
+    def __init__(self, mode, num_windows, swm_debug_print = True, win_debug_print = False):
+        self.num_windows = int(num_windows)
+        assert(num_windows < 20)
+        self.modes = ["lti", "ltv", "nonlin"]
+        if(mode.lower() not in self.modes):
+            print("[Error PySlidingWindowManager:] chosen mode {} invalid. Please choose one of the following: {}".format(mode, self.modes))
+        else:
+            self.mode = mode.lower()
+            print("Set Sliding Window Manager Mode to:", self.mode)
+        self.is_initialized = False
+        self.moment_info = {"x" : [], "P" :[], "cerr_x" : [], "cerr_P" : [], "fz" :[], "cerr_fz" : [], "win_idx" : [], "err_code" : []} # Full window means
+        self.avg_moment_info = {"x" : [], "P" :[], "cerr_x" : [], "cerr_P" : [], "fz" :[], "cerr_fz" : [], "win_idx" : [], "err_code" : []} # Full window means
+        self.debug_print = bool(swm_debug_print)
+        self.step_idx = 0
+        self.win_idxs = np.arange(self.num_windows)
+        self.win_counts = np.zeros(self.num_windows, dtype=np.int64)
+        self.cauchyEsts = [PyCauchyEstimator(self.mode, self.num_windows, bool(win_debug_print) ) for _ in range(self.num_windows)]
+
+    def _set_dimensions(self):
+        self.n = self.cauchyEsts[0].n
+        self.cmcc = self.cauchyEsts[0].cmcc
+        self.pncc = self.cauchyEsts[0].pncc
+        self.p = self.cauchyEsts[0].p
+
+    def initialize_lti(self, A0, p0, b0, Phi, B, Gamma, beta, H, gamma, dt=0, step=0, reinit_func = None):
+        if p0.size == 1:
+            print("[Error PySlidingWindowManager:] Do not use this class for scalar systems! This is only for systems of dimension >1 Use the PyCauchyEstimator class instead!")
+            exit(1)
+        if self.mode != "lti":
+            print("Attempting to call initialize_lti method when mode was set to {} is not allowed! You must call initialize_{} ... or reset the mode altogether!".format(self.mode, self.mode))
+            print("NonLin initialization not successful!")
+            return
+        self.reinit_func = reinit_func
+        _step = int(step)
+        _dt = float(dt)
+        for i in range(self.num_windows):
+            self.cauchyEsts[i].initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma, _step + i, _dt)
+            self.cauchyEsts[i].set_window_number(i+1)
+        self.is_initialized = True
+        self._set_dimensions()
+        print("LTI initialization successful! You can use the step(msmts, controls) method to run the estimtor now!")
+        print("Note: Conditional Mean/Variance will be a function of the last {} time-steps, {} measurements per step == {} total!".format(self.num_windows, self.p, self.p * self.num_windows) )
+
+    def initialize_ltv(self, A0, p0, b0, Phi, B, Gamma, beta, H, gamma, dynamics_update_callback, dt=0, step=0, reinit_func = None):
+        if p0.size == 1:
+            print("[Error PySlidingWindowManager:] Do not use this class for scalar systems! This is only for systems of dimension >1 Use the PyCauchyEstimator class instead!")
+            exit(1)
+        if self.mode != "ltv":
+            print("Attempting to call initialize_lti method when mode was set to {} is not allowed! You must call initialize_{} ... or reset the mode altogether!".format(self.mode, self.mode))
+            print("NonLin initialization not successful!")
+            return
+        self.reinit_func = reinit_func
+        _dt = float(dt)
+        _step = int(step)
+        for i in range(self.num_windows):
+            self.cauchyEsts[i].initialize_ltv(A0, p0, b0, Phi, B, Gamma, beta, H, gamma, dynamics_update_callback, _step + i, _dt)
+            self.cauchyEsts[i].set_window_number(i+1)        
+
+        self.is_initialized = True
+        self._set_dimensions()
+        print("LTV initialization successful! You can use the step(msmts, controls) method to run the estimtor now!")
+        print("Note: Conditional Mean/Variance will be a function of the last {} time-steps, {} measurements per step == {} total!".format(self.num_windows, self.p, self.p * self.num_windows) )
+    
+    def initialize_nonlin(self, x0, A0, p0, b0, beta, gamma, dynamics_update_callback, nonlinear_msmt_model, extended_msmt_update_callback, cmcc, dt=0, step=0, reinit_func = None):
+        if p0.size == 1:
+            print("[Error PySlidingWindowManager:] Do not use this class for scalar systems! This is only for systems of dimension >1 Use the PyCauchyEstimator class instead!")
+            exit(1)
+        if self.mode != "nonlin":
+            print("Attempting to call initialize_lti method when mode was set to {} is not allowed! You must call initialize_{} ... or reset the mode altogether!".format(self.mode, self.mode))
+            print("NonLin initialization not successful!")
+            return
+        self.reinit_func = reinit_func
+        _dt = float(dt)
+        _step = int(step)
+        for i in range(self.num_windows):
+            self.cauchyEsts[i].initialize_nonlin(x0, A0, p0, b0, beta, gamma, dynamics_update_callback, nonlinear_msmt_model, extended_msmt_update_callback, cmcc, _dt, _step + i)
+            self.cauchyEsts[i].set_window_number(i+1)     
+
+        self.is_initialized = True
+        self._set_dimensions()
+        print("Nonlin initialization successful! You can use the step(msmts, controls) method now to run the Sliding Window Manager!")
+        print("Note: Conditional Mean/Variance will be a function of the last {} time-steps, {} measurements per step == {} total!".format(self.num_windows, self.p, self.p * self.num_windows) )
+
+    def _best_window_est(self):
+        W = self.num_windows
+        okays = np.zeros(W, dtype=np.bool8)
+        idxs = []
+        check_idx = self.p-1
+        COV_UNSTABLE = 2
+        COV_DNE = 8
+        for i in range(W):
+            if(self.win_counts[i] > 0):
+                err = self.cauchyEsts[i]._err_code[check_idx]
+                if (err & COV_UNSTABLE) or (err & COV_DNE):
+                    pass
+                else:
+                    idxs.append((i, self.win_counts[i]))
+                    okays[i] = True
+        if self.step_idx == 0:
+            best_idx = 0
+            okays[0] = True
+        else:
+            if(len(idxs) == 0):
+                print("No window is available without an error code!")
+                exit(1)
+            sorted_idxs = list(reversed(sorted(idxs, key = lambda x : x[1])))
+            best_idx = sorted_idxs[0][0]
+
+        n = self.n
+        best_estm = self.cauchyEsts[best_idx]
+        self.moment_info["fz"].append(best_estm._fz[check_idx])
+        self.moment_info["x"].append(best_estm._x[check_idx*n:].copy())
+        self.moment_info["P"].append(best_estm._P[check_idx*n*n:].copy().reshape((n,n)))
+        self.moment_info["cerr_x"].append(best_estm._cerr_x[check_idx])
+        self.moment_info["cerr_P"].append(best_estm._cerr_P[check_idx])
+        self.moment_info["cerr_fz"].append(best_estm._cerr_fz[check_idx])
+        self.moment_info["win_idx"].append(best_idx)
+        self.moment_info["err_code"].append(best_estm._err_code[check_idx])
+        return best_idx, okays
+    
+    def _weighted_average_win_est(self, usable_wins):
+        n = self.n
+        last_idx = self.p-1
+        win_avg_mean = np.zeros(n)
+        win_avg_cov = np.zeros((n,n))
+        win_avg_fz = 0
+        win_avg_cerr_fz = 0 
+        win_avg_cerr_x = 0
+        win_avg_cerr_P = 0
+        win_avg_err_code = 0
+        win_norm_fac = 0.0
+        for i in range(self.num_windows):
+            win_count = self.win_counts[i]
+            if self.win_counts[i] > 0:
+                win_okay = usable_wins[i]
+                if win_okay:
+                    est = self.cauchyEsts[i]
+                    norm_fac = win_count / self.num_windows
+                    win_norm_fac += norm_fac
+                    x, P = est.get_last_mean_cov()
+                    win_avg_mean += x * norm_fac
+                    win_avg_cov += P * norm_fac
+                    win_avg_fz += est._fz[last_idx] * norm_fac 
+                    win_avg_cerr_fz += est._cerr_fz[last_idx] * norm_fac
+                    win_avg_cerr_x += est._cerr_x[last_idx] * norm_fac
+                    win_avg_cerr_P += est._cerr_P[last_idx] * norm_fac
+                    win_avg_err_code |= est._err_code[last_idx]
+        win_avg_mean /= win_norm_fac
+        win_avg_cov /= win_norm_fac
+        win_avg_fz /= win_norm_fac
+        win_avg_cerr_fz /= win_norm_fac
+        win_avg_cerr_x /= win_norm_fac
+        win_avg_cerr_P /= win_norm_fac
+        self.avg_moment_info["fz"].append(win_avg_fz)
+        self.avg_moment_info["x"].append(win_avg_mean.copy())
+        self.avg_moment_info["P"].append(win_avg_cov.copy())
+        self.avg_moment_info["cerr_x"].append(win_avg_cerr_x)
+        self.avg_moment_info["cerr_P"].append(win_avg_cerr_P)
+        self.avg_moment_info["cerr_fz"].append(win_avg_cerr_fz)
+        self.avg_moment_info["win_idx"].append(-1)
+        self.avg_moment_info["err_code"].append(win_avg_err_code)
+        return win_avg_mean, win_avg_cov
+
+    def step(self, msmts, controls = None, reinit_args = None):
+        if(self.is_initialized == False):
+            print("Estimator is not initialized yet. Mode set to {}. Please call method initialize_{} before running step()!".format(self.mode, self.mode))
+            print("Not stepping! Please call correct method / fix mode!")
+            return
+        if self.debug_print:
+            print("SWM: Step ", self.step_idx)
+        # If we are on first estimation step, step the first window
+        if self.step_idx == 0:
+            if self.debug_print:
+                print("  Window {} is on step {}/{}".format(1, 1, self.num_windows) )
+            self.cauchyEsts[0].step(msmts, controls)
+            self.win_counts[0] += 1
+        else:
+            # Step all windows that are not uninitialized
+            idx_max = np.argmax(self.win_counts)
+            idx_min = np.argmin(self.win_counts)
+            for win_idx, win_count in zip(self.win_idxs, self.win_counts):
+                if(win_count > 0):
+                    if self.debug_print:
+                        print("  Window {} is on step {}/{}".format(win_idx+1, win_count+1, self.num_windows) )
+                    self.cauchyEsts[win_idx].step(msmts, controls)
+                    self.win_counts[win_idx] += 1
+        
+        # Find best window, its estimates, and the weighted average of the estimation results
+        best_idx, usable_wins = self._best_window_est()
+        wavg_xhat, wavg_Phat = self._weighted_average_win_est(usable_wins)
+        xhat, Phat = self.cauchyEsts[best_idx].get_last_mean_cov()
+        
+        # Reinitialize the empty window
+        if self.step_idx > 0:
+            if self.reinit_func is not None:
+                self.reinit_func(self.cauchyEsts, best_idx, usable_wins, self.win_counts.copy(), reinit_args)
+            else:
+                if reinit_args is not None:
+                    print("  [Warn PySlidingWindowManager:] Providing reinit_args with no reinit_func given will do nothing!")
+                # using speyer's start method if no user reinit function provided
+                speyer_restart_idx = self.p-1
+                self.cauchyEsts[idx_min].reset_about_estimator(self.cauchyEsts[best_idx], msmt_idx = speyer_restart_idx)
+                if self.debug_print:
+                    print("  Window {} reinitializes Window {}".format(best_idx+1, idx_min+1))
+            # reset full estimator, increment reinitialized estimator count
+            self.win_counts[idx_min] += 1
+            if(self.win_counts[idx_max] == self.num_windows):
+                self.cauchyEsts[idx_max].reset()
+                self.win_counts[idx_max] = 0
+        # Increment step index
+        self.step_idx += 1
+        # return the best estimate as well as the averaged conditional estimates 
+        return xhat, Phat, wavg_xhat, wavg_Phat
+        
+    # Shuts down sliding window manager
+    def shutdown(self):
+        if(self.is_initialized == False):
+            print("Cannot shutdown Sliding Window Manager before it has been initialized!")
+            return
+        for i in range(self.num_windows):
+            self.cauchyEsts[i].shutdown()
+        self.win_counts = np.zeros(self.num_windows, dtype=np.int64)
+        print("Sliding Window Manager has been shutdown!")
+        self.is_initialized = False
+        self.step_idx = 0
+    
+    def __del__(self):
+        if self.is_initialized:
+            self.shutdown()
+            self.is_initialized = False
+
 
 # Reads and parses window data 
 def load_window_data(f_win_data):
@@ -1437,31 +1690,43 @@ def cd4_gvf(x, f, other_params=None):
 # input: jacobian of nonliinear dynamics matrix f(x,u) w.r.t x, continous time control matrix G, power spectral density Q of ctime process, change in time dt (time of step k to k+1), order of taylor approximation
 # returns: discrete state transition matrix, discrete control matrix, and discrete process noise matrix, given the gradient of f(x,u) w.r.t x
 # This function essentially gives you the process model parameter matrices required for the EKF
-def discretize_nl_sys(JacA, G, Q, dt, order):
+def discretize_nl_sys(JacA, G, Q, dt, order, with_Gamk = True, with_Wk = True):
     assert(JacA.ndim == 2)
     assert(G.ndim == 2)
-    assert(Q.ndim == 2)
+    if with_Wk: 
+        assert(Q.ndim == 2)
     assert(dt > 0)
     assert(order > 0)
 
     n = JacA.shape[0]
     Phi_k = np.zeros((n,n))
     Gam_k = np.zeros_like(G)
-    Q_k = np.zeros((n,n))
+    W_k = np.zeros((n,n))
 
     # Form Discrete Time State Transition Matrices Phi_k and Control Gain Matrix Gam_k
     for i in range(order+1):
         Phi_k += np.linalg.matrix_power(JacA, i) * dt**i / math.factorial(i)
-        Gam_k += np.linalg.matrix_power(JacA, i) @ G * dt**(i+1) / math.factorial(i+1)
+        if with_Gamk:
+            Gam_k += np.linalg.matrix_power(JacA, i) @ G * dt**(i+1) / math.factorial(i+1)
 
-    # Form Discrete Time Noise Matrix Qk
-    for i in range(order+1):
-        for j in range(order+1):
-            tmp_i = np.linalg.matrix_power(JacA, i) / math.factorial(i) @ G
-            tmp_j = np.linalg.matrix_power(JacA, j) / math.factorial(j) @ G
-            Tk_coef = dt**(i+j+1) / (i+j+1)
-            Q_k += tmp_i @ Q @ tmp_j.T * Tk_coef
-    return Phi_k, Gam_k, Q_k
+    if with_Wk:
+        # Form Discrete Time Noise Matrix Qk
+        for i in range(order+1):
+            for j in range(order+1):
+                tmp_i = np.linalg.matrix_power(JacA, i) / math.factorial(i) @ G
+                tmp_j = np.linalg.matrix_power(JacA, j) / math.factorial(j) @ G
+                Tk_coef = dt**(i+j+1) / (i+j+1)
+                W_k += tmp_i @ Q @ tmp_j.T * Tk_coef
+    if not with_Gamk and not with_Wk:
+        return Phi_k
+    elif not with_Gamk and with_Wk:
+        return Phi_k, W_k
+    elif with_Gamk and not with_Wk:
+        return Phi_k, Gam_k
+    else:
+        return Phi_k, Gam_k, W_k
+    
+    
 
 def discretize_nl_sys_proccess_noise(JacA, G, Q, dt, order):
     assert(JacA.ndim == 2)

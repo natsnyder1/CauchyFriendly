@@ -1361,8 +1361,8 @@ def test_python_debug_window_manager():
     xs_kf, Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs_without_z0, ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
     if WITH_LOG:
         ce.log_kalman(log_dir, xs_kf, Ps_kf)
-    ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
-    exit(1)
+    #ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
+    #exit(1)
     #'''
 
     # Compute 1-sigma bounds for KF for Window Plot Compares  
