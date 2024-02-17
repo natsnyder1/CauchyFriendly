@@ -448,7 +448,7 @@ void test_7state_leo()
     unsigned int seed = 10; //time(NULL);
     printf("Seeding with %u \n", seed);
     srand ( seed );
-    char log_dir[50] = "../log/leo7/dense/w5";
+    char log_dir[50] = "../log/leo7/gtable/w4";
 
     count = 0;
     leo_satellite_7state leo;
@@ -582,7 +582,7 @@ void test_7state_leo()
     ece_leo_7state_transition_model_and_jacobians(&duc);
     ece_leo_7state_measurement_jacobian(&duc);
     const int total_steps = sim_num_steps+1;
-    const int num_windows = 5; 
+    const int num_windows = 4; 
     const bool WINDOW_PRINT_DEBUG = true;
     const bool WINDOW_LOG_SEQUENTIAL = true;
     const bool WINDOW_LOG_FULL = true;

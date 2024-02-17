@@ -1679,28 +1679,28 @@ struct SimulationLogger
 		char no_delimit[2] = "";
 		char* delimit = log_dir[len_log_dir-1] == '/' ? no_delimit : slash_delimit;
 
-		sprintf(tmp_path, "%s%s%s", log_dir, delimit, "true_states.txt");
+		snprintf(tmp_path, 4095, "%s%s%s", log_dir, delimit, "true_states.txt");
 		f_true_state_history = fopen(tmp_path, "w");
 		if(f_true_state_history == NULL)
 		{
 			printf(RED "[ERROR: log_simulation_history] true_states.txt file path has failed! Debug here!" NC "\n");
 			exit(1);
 		}
-		sprintf(tmp_path, "%s%s%s", log_dir, delimit, "msmts.txt");
+		snprintf(tmp_path, 4095, "%s%s%s", log_dir, delimit, "msmts.txt");
 		f_msmt_history = fopen(tmp_path, "w");
 		if(f_msmt_history == NULL)
 		{
 			printf(RED "[ERROR: log_simulation_history] msmts.txt file path has failed! Debug here!" NC "\n");
 			exit(1);
 		}
-		sprintf(tmp_path, "%s%s%s", log_dir, delimit, "msmt_noises.txt");
+		snprintf(tmp_path, 4095, "%s%s%s", log_dir, delimit, "msmt_noises.txt");
 		f_msmt_noise_history = fopen(tmp_path, "w");
 		if(f_msmt_noise_history == NULL)
 		{
 			printf(RED "[ERROR: log_simulation_history] msmt_noises.txt file path has failed! Debug here!" NC "\n");
 			exit(1);
 		}
-		sprintf(tmp_path, "%s%s%s", log_dir, delimit, "proc_noises.txt");
+		snprintf(tmp_path, 4095, "%s%s%s", log_dir, delimit, "proc_noises.txt");
 		f_proc_noise_history = fopen(tmp_path, "w");
 		if(f_proc_noise_history == NULL)
 		{

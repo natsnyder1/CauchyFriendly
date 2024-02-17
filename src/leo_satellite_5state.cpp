@@ -467,7 +467,7 @@ void test_5state_leo()
     unsigned int seed = 0; //time(NULL);
     printf("Seeding with %u \n", seed);
     srand ( seed );
-    char log_dir[50] = "../log/leo5/dense/w8";
+    char log_dir[50] = "../log/leo5/gtable/w5";
 
     count = 0;
     leo_satellite_5state leo;
@@ -578,7 +578,7 @@ void test_5state_leo()
     int ftr_idx_ordering[5] = {3,2,4,1,0};
     set_tr_search_idxs_ordering(ftr_idx_ordering, 5);
     
-    ///* 
+    /* 
     int foo_steps = 7;
     bool print_basic_info = true;
     CauchyEstimator cauchyEst(A0, p0, b0, foo_steps, n, cmcc, pncc, p, print_basic_info);
@@ -602,9 +602,9 @@ void test_5state_leo()
             print_cmat(cauchyEst.conditional_mean, 1, 5, 5);
         }
     }
-    //*/
+    */
 
-    /*
+    ///*
     const bool is_extended = true;
     ece_leo_5state_transition_model_and_jacobians(&duc);
     ece_leo_5state_measurement_jacobian(&duc);
@@ -623,7 +623,7 @@ void test_5state_leo()
     for(int i = 1; i < total_steps; i++)
         swm.step(sim_log.msmt_history + i*p, NULL);
     swm.shutdown();
-    */
+    //*/
 }
 
 int main()

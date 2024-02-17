@@ -46,10 +46,10 @@ void make_gtable_first(CauchyTerm* term, const double G_SCALE_FACTOR)
       }
     }
     g_kv.key = j;
-    //C_COMPLEX_TYPE denom_left = CMPLX(ygi + term->d_val, term->c_val);
-    //C_COMPLEX_TYPE denom_right = CMPLX(ygi - term->d_val, term->c_val);
-    //g_kv.value = 1.0 / denom_left - 1.0 / denom_right;
-    g_kv.value = 1.0 / (term->d_val + ygi + I*term->c_val) - 1.0 / (-term->d_val + ygi + I*term->c_val);
+    C_COMPLEX_TYPE denom_left = MAKE_CMPLX(ygi + term->d_val, term->c_val);
+    C_COMPLEX_TYPE denom_right = MAKE_CMPLX(ygi - term->d_val, term->c_val);
+    g_kv.value = 1.0 / denom_left - 1.0 / denom_right;
+    //g_kv.value = 1.0 / (term->d_val + ygi + I*term->c_val) - 1.0 / (-term->d_val + ygi + I*term->c_val);
     g_kv.value *= G_SCALE_FACTOR;
 
     if(HASHTABLE_STORAGE)
@@ -221,8 +221,8 @@ bool make_gtable(
     g_num_m = lookup_g_numerator(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
 
     g_kv.key = b_enc;
-    g_kv.value = g_num_p / (d_val + ygi + I*c_val) - g_num_m / (-d_val + ygi + I*c_val);
-    //g_kv.value = g_num_p / CMPLX(ygi+d_val, c_val) - g_num_m / CMPLX(ygi-d_val, c_val);
+    //g_kv.value = g_num_p / (d_val + ygi + I*c_val) - g_num_m / (-d_val + ygi + I*c_val);
+    g_kv.value = g_num_p / MAKE_CMPLX(ygi+d_val, c_val) - g_num_m / MAKE_CMPLX(ygi-d_val, c_val);
     g_kv.value *= G_SCALE_FACTOR;
 
     // --- Store depending on method --- //

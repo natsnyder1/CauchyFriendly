@@ -425,7 +425,7 @@ void speyers_window_init(const int N, double* x1_hat, double* Var,
 void print_window_settings(CauchyWindow* cw)
 {
     char* str = (char*) malloc(4096);
-    sprintf(str, "Hello from Window Number: %d\n  pid: %d\n  p2c_fd: %d, c2p_fd: %d\n  win_size: %d\n", cw->window_number, cw->pid, cw->p2c_fd, cw->c2p_fd, cw->win_size);
+    snprintf(str, 4095, "Hello from Window Number: %d\n  pid: %d\n  p2c_fd: %d, c2p_fd: %d\n  win_size: %d\n", cw->window_number, cw->pid, cw->p2c_fd, cw->c2p_fd, cw->win_size);
     printf("%s\n", str);
     free(str);
 }
@@ -824,9 +824,9 @@ int compare_func_win_counts(const void* p1, const void* p2)
 struct SlidingWindowManager
 {
     // Manager Internal Variables
-    void (*dynamics_update_callback)(CauchyDynamicsUpdateContainer*) = NULL;
-    void (*nonlinear_msmt_model)(CauchyDynamicsUpdateContainer*, double* _zbar) = NULL;
-    void (*extended_msmt_update_callback)(CauchyDynamicsUpdateContainer*) = NULL;
+    void (*dynamics_update_callback)(CauchyDynamicsUpdateContainer*);
+    void (*nonlinear_msmt_model)(CauchyDynamicsUpdateContainer*, double* _zbar);
+    void (*extended_msmt_update_callback)(CauchyDynamicsUpdateContainer*);
     CauchyWindowManager cwm;
     CauchyWindow cw;
     WindowMessage win_msg;
@@ -1002,7 +1002,9 @@ struct SlidingWindowManager
                    RED "Please set this variable to true and recompile the program! Exiting!\n");
             exit(1);
         }
-
+        dynamics_update_callback = _dynamics_update_callback;
+        nonlinear_msmt_model = _nonlinear_msmt_model;
+        extended_msmt_update_callback = _extended_msmt_update_callback;
         am_i_manager = init_cauchy_windows(&cwm, &cw);
         if(!am_i_manager)
         {
@@ -1022,9 +1024,6 @@ struct SlidingWindowManager
         }
         else
         {
-            dynamics_update_callback = _dynamics_update_callback;
-            nonlinear_msmt_model = _nonlinear_msmt_model;
-            extended_msmt_update_callback = _extended_msmt_update_callback;
             win_msg.init(-1, duc->n, is_extended);
             init_msg.init(duc->n, is_extended);
             msmt_msg.init(duc->p, duc->cmcc);
@@ -1319,7 +1318,7 @@ struct SlidingWindowManager
             int len_win_log_dir = len_log_dir + 8;
             win_log_dir = (char*) malloc( (len_win_log_dir+1) * sizeof(char) );
             null_ptr_check(win_log_dir);
-            sprintf(win_log_dir, "%s/windows", log_dir);
+            snprintf(win_log_dir, len_win_log_dir, "%s/windows", log_dir);
             check_dir_and_create(win_log_dir);
             create_all_window_log_files();
         }
@@ -1334,49 +1333,49 @@ struct SlidingWindowManager
         assert(strlen(log_dir) < 4000);
         char* temp_path = (char*) malloc( 4096 * sizeof(char) );
         null_ptr_check(temp_path);
-        sprintf(temp_path, "%s/%s", log_dir, "cond_means.txt");
+        snprintf(temp_path, 4095, "%s/%s", log_dir, "cond_means.txt");
         f_fw_means = fopen(temp_path, "w");
         if(f_fw_means == NULL)
         {
             printf("cond_means.txt file path has failed! Debug here!\n");
             exit(1);
         }
-        sprintf(temp_path, "%s/%s", log_dir, "cerr_cond_means.txt");
+        snprintf(temp_path, 4095, "%s/%s", log_dir, "cerr_cond_means.txt");
         f_fw_cerr_means = fopen(temp_path, "w");
         if(f_fw_cerr_means == NULL)
         {
             printf("cerr_cond_means.txt file path has failed! Debug here!\n");
             exit(1);
         }
-        sprintf(temp_path, "%s/%s", log_dir, "cond_covars.txt");
+        snprintf(temp_path, 4095, "%s/%s", log_dir, "cond_covars.txt");
         f_fw_variances = fopen(temp_path, "w");
         if(f_fw_variances == NULL)
         {
             printf("cond_covars.txt file path has failed! Debug here!\n");
             exit(1);
         }
-        sprintf(temp_path, "%s/%s", log_dir, "cerr_cond_covars.txt");
+        snprintf(temp_path, 4095, "%s/%s", log_dir, "cerr_cond_covars.txt");
         f_fw_cerr_variances = fopen(temp_path, "w");
         if(f_fw_cerr_variances == NULL)
         {
             printf("cerr_cond_covars.txt file path has failed! Debug here!\n");
             exit(1);
         }
-        sprintf(temp_path, "%s/%s", log_dir, "norm_factors.txt");
+        snprintf(temp_path, 4095, "%s/%s", log_dir, "norm_factors.txt");
         f_fw_norm_factors = fopen(temp_path, "w");
         if(f_fw_norm_factors == NULL)
         {
             printf("norm_factors.txt file path has failed! Debug here!\n");
             exit(1);
         }
-        sprintf(temp_path, "%s/%s", log_dir, "cerr_norm_factors.txt");
+        snprintf(temp_path, 4095, "%s/%s", log_dir, "cerr_norm_factors.txt");
         f_fw_cerr_norm_factors = fopen(temp_path, "w");
         if(f_fw_cerr_norm_factors == NULL)
         {
             printf("norm_factors.txt file path has failed! Debug here!\n");
             exit(1);
         }
-        sprintf(temp_path, "%s/%s", log_dir, "numeric_error_codes.txt");
+        snprintf(temp_path, 4095, "%s/%s", log_dir, "numeric_error_codes.txt");
         f_fw_numeric_errors = fopen(temp_path, "w");
         if(f_fw_numeric_errors == NULL)
         {
@@ -1405,12 +1404,12 @@ struct SlidingWindowManager
         for(int win_idx = 0; win_idx < num_windows; win_idx++)
         {
             // Create window 'win_idx' lod directory in the windows subfolder of log_dir
-            sprintf(temp_win_dir_path, "%s/win%d", win_log_dir, win_idx);
+            snprintf(temp_win_dir_path, 4095, "%s/win%d", win_log_dir, win_idx);
             check_dir_and_create(temp_win_dir_path);
             // Create file pointers to each of these directories
 
             // Condition Means of window win_idx
-            sprintf(temp_file_path, "%s/%s", temp_win_dir_path, "cond_means.txt");
+            snprintf(temp_file_path, 4095, "%s/%s", temp_win_dir_path, "cond_means.txt");
             f_aw_means[win_idx] = fopen(temp_file_path, "w");
             if(f_aw_means[win_idx] == NULL)
             {
@@ -1418,7 +1417,7 @@ struct SlidingWindowManager
                 exit(1);
             }
             // Max error of conditional means of window win_idx
-            sprintf(temp_file_path, "%s/%s", temp_win_dir_path, "cerr_cond_means.txt");
+            snprintf(temp_file_path, 4095, "%s/%s", temp_win_dir_path, "cerr_cond_means.txt");
             f_aw_cerr_means[win_idx] = fopen(temp_file_path, "w");
             if(f_aw_cerr_means[win_idx] == NULL)
             {
@@ -1426,7 +1425,7 @@ struct SlidingWindowManager
                 exit(1);
             }
             // Condition Variances of window win_idx
-            sprintf(temp_file_path, "%s/%s", temp_win_dir_path, "cond_covars.txt");
+            snprintf(temp_file_path, 4095, "%s/%s", temp_win_dir_path, "cond_covars.txt");
             f_aw_variances[win_idx] = fopen(temp_file_path, "w");
             if(f_aw_variances[win_idx] == NULL)
             {
@@ -1434,7 +1433,7 @@ struct SlidingWindowManager
                 exit(1);
             }
             // Max error of conditional variances of window win_idx
-            sprintf(temp_file_path, "%s/%s", temp_win_dir_path, "cerr_cond_covars.txt");
+            snprintf(temp_file_path, 4095, "%s/%s", temp_win_dir_path, "cerr_cond_covars.txt");
             f_aw_cerr_variances[win_idx] = fopen(temp_file_path, "w");
             if(f_aw_cerr_variances[win_idx] == NULL)
             {
@@ -1442,7 +1441,7 @@ struct SlidingWindowManager
                 exit(1);
             }
             // Normalization factors of window win_idx
-            sprintf(temp_file_path, "%s/%s", temp_win_dir_path, "norm_factors.txt");
+            snprintf(temp_file_path, 4095, "%s/%s", temp_win_dir_path, "norm_factors.txt");
             f_aw_norm_factors[win_idx] = fopen(temp_file_path, "w");
             if(f_aw_norm_factors[win_idx] == NULL)
             {
@@ -1450,7 +1449,7 @@ struct SlidingWindowManager
                 exit(1);
             }
             // Complex error of normalization factors of window win_idx
-            sprintf(temp_file_path, "%s/%s", temp_win_dir_path, "cerr_norm_factors.txt");
+            snprintf(temp_file_path, 4095, "%s/%s", temp_win_dir_path, "cerr_norm_factors.txt");
             f_aw_cerr_norm_factors[win_idx] = fopen(temp_file_path, "w");
             if(f_aw_cerr_norm_factors[win_idx] == NULL)
             {
@@ -1458,7 +1457,7 @@ struct SlidingWindowManager
                 exit(1);
             }
             // Numeric error codes of each window win_idx
-            sprintf(temp_file_path, "%s/%s", temp_win_dir_path, "numeric_error_codes.txt");
+            snprintf(temp_file_path, 4095, "%s/%s", temp_win_dir_path, "numeric_error_codes.txt");
             f_aw_numeric_errors[win_idx] = fopen(temp_file_path, "w");
             if(f_aw_numeric_errors[win_idx] == NULL)
             {

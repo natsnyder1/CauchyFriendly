@@ -5,9 +5,8 @@ GCC_RELEASE = -O3 # It is seen that -O3 compilation sometimes causes a seg fault
 
 CFLAGS=""
 
-#INC_LAPACK=-I/usr/local/opt/lapack/include -L/usr/local/opt/lapack/lib
-
-LIB_LAPACK = -llapacke -llapack -lblas -lm -lpthread
+INC_LAPACK=-I/usr/local/opt/lapack/include
+LIB_LAPACK = -L/usr/local/opt/lapack/lib -llapacke -llapack -lblas -lm -lpthread
 LIB_GLPK = -lglpk -lpthread
 
 D ?= 0
@@ -18,19 +17,19 @@ else
 endif
 
 bin/gamma : gamma.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+	$(CC) $(CFLAGS) $^ -o $@ $(INC_LAPACK) $(LIB_LAPACK)
 
 bin/binsearch : binsearch.cpp
 	$(CC) $(CFLAGS) $^ -o $@
 
 bin/test_cpdf_ndim : test_cpdf_ndim.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+	$(CC) $(CFLAGS) $^ -o $@ $(INC_LAPACK) $(LIB_LAPACK)
 
 bin/test_enum : test_enumerations.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK) $(LIB_GLPK)
+	$(CC) $(CFLAGS) $^ -o $@ $(INC_LAPACK) $(LIB_LAPACK) $(LIB_GLPK)
 
 bin/test_coalign : test_coalign_with_zeros.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+	$(CC) $(CFLAGS) $^ -o $@ $(INC_LAPACK) $(LIB_LAPACK)
 
 cpdf : bin/test_cpdf_ndim
 

@@ -5,11 +5,15 @@ printf "This script wraps a C++ header only file to have a python interface thro
 FILE_NAME="pycauchy" 
 SWIG_FILE=${FILE_NAME}.i
 INCLUDE_FILE=${FILE_NAME}.hpp
-# Nats computer
-PYTHON_INC_PATH="-I/usr/local/include/python3.7m/"
-LIB_LAPACK="-llapacke -llapack -lblas -lm -lpthread"
+# Nats Mac computer
+INC_LAPACK="-I/usr/local/opt/lapack/include"
+LIB_LAPACK="-L/usr/local/opt/lapack/lib -llapacke -llapack -lblas -lm -lpthread"
+INC_PYTHON="-I/Library/Frameworks/Python.framework/Versions/3.7/include/python3.7m"
+LIB_PYTHON="-L/Library/Frameworks/Python.framework/Versions/3.7/lib -lpython3.7m"
+INC_NUMPY="-I/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages/numpy/core/include/"
+
 # For cluster
-#PYTHON_INC_PATH="-I/home/natsnyder1/.local/lib/python3.7/site-packages/numpy/core/include -I/cm/local/apps/python37/include/python3.7m"
+#INC_PYTHON="-I/home/natsnyder1/.local/lib/python3.7/site-packages/numpy/core/include -I/cm/local/apps/python37/include/python3.7m"
 #LIB_LAPACK="-Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl"
 
 
@@ -28,12 +32,12 @@ if [ $? -eq 1 ]; then
     echo "[ERROR:] swig -c++ -python ${SWIG_FILE} command returned with failure!"
     exit 1
 fi
-g++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $PYTHON_INC_PATH
+g++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $INC_LAPACK $INC_PYTHON $INC_NUMPY
 if [ $? -eq 1 ]; then 
-    echo "[ERROR:] g++ -fpic -c ${FILE_NAME}_wrap.cxx $PYTHON_INC_PATH command returned with failure!"
+    echo "[ERROR:] g++ -fpic -c ${FILE_NAME}_wrap.cxx $INC_LAPACK $INC_PYTHON $INC_NUMPY command returned with failure!"
     exit 1
 fi
-g++ -shared ${FILE_NAME}_wrap.o -lstdc++ $LIB_LAPACK -o _${FILE_NAME}.so
+g++ $LIB_PYTHON -dynamiclib -lstdc++ $LIB_LAPACK ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] g++ -shared ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so -lstdc++ command returned with failure!"
     exit 1

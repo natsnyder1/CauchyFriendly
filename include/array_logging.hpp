@@ -39,7 +39,8 @@ void check_dir_and_create(char* dir_path)
     printf("Directory opening failed!\n");
     assert(false);
   }
-  closedir(dir);
+  if(dir != NULL)
+    closedir(dir);
 }
 
 // For all window data
@@ -107,11 +108,11 @@ void log_kf_data(char* log_dir, double* kf_state_history, double* kf_covar_histo
   char no_delim[2] = "";
   char* delim = log_dir[len_log_dir-1] == '/' ? no_delim : slash_delim;
 
-  sprintf(temp_path, "%s%s%s", log_dir, delim, "kf_cond_means.txt");
+  snprintf(temp_path, 4095, "%s%s%s", log_dir, delim, "kf_cond_means.txt");
   log_double_array_to_file(temp_path, kf_state_history, total_steps, state_dim);
-  sprintf(temp_path, "%s%s%s", log_dir, delim, "kf_cond_covars.txt");
+  snprintf(temp_path, 4095, "%s%s%s", log_dir, delim, "kf_cond_covars.txt");
   log_double_array_to_file(temp_path, kf_covar_history, total_steps, state_dim*state_dim);
-  sprintf(temp_path, "%s%s%s", log_dir, delim, "kf_residuals.txt");
+  snprintf(temp_path, 4095, "%s%s%s", log_dir, delim, "kf_residuals.txt");
   log_double_array_to_file(temp_path, kf_residual_history, total_steps-1, p);  
   free(temp_path);
 }

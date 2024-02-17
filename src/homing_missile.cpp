@@ -458,7 +458,7 @@ void test_homing_missile(int argc, char** argv)
 {
     char default_log_dir[40] = "../log/homing_missile/default";
     // Cauchy estimator CMD LINE PREAMBLE
-    int NUM_WINDOWS = 8;
+    int NUM_WINDOWS = 7;
     char* BASE_LOG_DIR;
     double SCALE_BETA = 5.0; // 1.0 seems to be pretty good until the end // 5 (may...) be winner // 25 pretty good // 50 pretty drifty
     double RADAR_SAS_PARAM = 1.3;
@@ -507,11 +507,11 @@ void test_homing_missile(int argc, char** argv)
     char* mc_subdir_base = (char*) malloc( len_mc_subdir );
     null_ptr_check(mc_subdir_base);
     char mc_dir_prefix[100];
-    sprintf(mc_dir_prefix, "w%d_bs%d_sas%d", NUM_WINDOWS, (int)SCALE_BETA, (int)(10*RADAR_SAS_PARAM));
+    snprintf(mc_dir_prefix, 100, "w%d_bs%d_sas%d", NUM_WINDOWS, (int)SCALE_BETA, (int)(10*RADAR_SAS_PARAM));
     if(BASE_LOG_DIR[strlen(BASE_LOG_DIR)-1] == '/')
-        sprintf(mc_subdir_base, "%s%s", BASE_LOG_DIR, mc_dir_prefix );
+        snprintf(mc_subdir_base,len_mc_subdir-1, "%s%s", BASE_LOG_DIR, mc_dir_prefix );
     else
-        sprintf(mc_subdir_base, "%s/%s", BASE_LOG_DIR, mc_dir_prefix );
+        snprintf(mc_subdir_base,len_mc_subdir-1, "%s/%s", BASE_LOG_DIR, mc_dir_prefix );
     check_dir_and_create(mc_subdir_base);
 
     char mtc_prefix[4] = "mct";
@@ -588,17 +588,19 @@ void test_homing_missile(int argc, char** argv)
     srand ( seed ); //seed // 1658964656 -- no crazy cov error since msmts stay about zero //1658778374 -- a very nice example of EKF vs EMCE // another good example 1658966894
     
     // Create subdirectory for this monte carlo trial 
-    char* mc_sub_dir = (char*) malloc( strlen(mc_subdir_base) + 10 );
+    int len_mc_sub_dir = strlen(mc_subdir_base) + 10;
+    char* mc_sub_dir = (char*) malloc( len_mc_sub_dir );
     null_ptr_check(mc_sub_dir);
     // Create path array to log control dependent data
-    char* sim_logpath = (char*) malloc( strlen(mc_subdir_base) + 250 );
+    int len_sim_logpath = strlen(mc_subdir_base) + 250;
+    char* sim_logpath = (char*) malloc( len_sim_logpath );
     null_ptr_check(sim_logpath);
     for(int mc_trial = 0; mc_trial < num_mc_trials; mc_trial++)
     {   
         printf("MC Trial %d/%d:\n", mc_trial+1, num_mc_trials);
 
         // Set mc_sub_dir for this trial 
-        sprintf(mc_sub_dir, "%s/%s%d", mc_subdir_base, mtc_prefix, mc_start_idx + mc_trial);
+        snprintf(mc_sub_dir, len_mc_sub_dir-1, "%s/%s%d", mc_subdir_base, mtc_prefix, mc_start_idx + mc_trial);
         check_dir_and_create(mc_sub_dir);
 
         // Reset the dynamic simulation counters and generate realizations
@@ -607,9 +609,9 @@ void test_homing_missile(int argc, char** argv)
         memset(u_feedback, 0, cmcc * sizeof(double));
 
         // Log Process and Measurement Noise realizations 
-        sprintf(sim_logpath, "%s/msmt_noises.txt", mc_sub_dir);
+        snprintf(sim_logpath, len_sim_logpath-1, "%s/msmt_noises.txt", mc_sub_dir);
         log_double_array_to_file(sim_logpath, hs.msmt_noise_history, total_steps, p);
-        sprintf(sim_logpath, "%s/proc_noises.txt", mc_sub_dir);
+        snprintf(sim_logpath, len_sim_logpath-1, "%s/proc_noises.txt", mc_sub_dir);
         log_double_array_to_file(sim_logpath, hs.evader_telegraph_wave, sim_num_steps, cmcc);
 
         // Reset the Kalman Filter
@@ -646,11 +648,11 @@ void test_homing_missile(int argc, char** argv)
             memcpy(kf_residual_history + i*p, work2, p*sizeof(double) );
         }
         // Log true states dependent on controller for EKF
-        sprintf(sim_logpath, "%s/kf_with_controller_true_states.txt", mc_sub_dir);
+        snprintf(sim_logpath, len_sim_logpath-1, "%s/kf_with_controller_true_states.txt", mc_sub_dir);
         log_double_array_to_file(sim_logpath, hs.ekf_true_relative_state_history, total_steps, n);
-        sprintf(sim_logpath, "%s/kf_with_controller_msmts.txt", mc_sub_dir);
+        snprintf(sim_logpath, len_sim_logpath-1, "%s/kf_with_controller_msmts.txt", mc_sub_dir);
         log_double_array_to_file(sim_logpath, hs.ekf_msmt_history, total_steps, p);
-        sprintf(sim_logpath, "%s/kf_controls.txt", mc_sub_dir);
+        snprintf(sim_logpath, len_sim_logpath-1, "%s/kf_controls.txt", mc_sub_dir);
         log_double_array_to_file(sim_logpath, hs.ekf_control_history, sim_num_steps, cmcc);
 
         // Log Kalman Filter
@@ -699,11 +701,11 @@ void test_homing_missile(int argc, char** argv)
         swm.shutdown(); // logs EMCE data
 
         // Log true states dependent on controller for EMCE
-        sprintf(sim_logpath, "%s/cauchy_with_controller_true_states.txt", mc_sub_dir);
+        snprintf(sim_logpath, len_sim_logpath-1, "%s/cauchy_with_controller_true_states.txt", mc_sub_dir);
         log_double_array_to_file(sim_logpath, hs.cauchy_true_relative_state_history, total_steps, n);
-        sprintf(sim_logpath, "%s/cauchy_with_controller_msmts.txt", mc_sub_dir);
+        snprintf(sim_logpath,len_sim_logpath-1, "%s/cauchy_with_controller_msmts.txt", mc_sub_dir);
         log_double_array_to_file(sim_logpath, hs.cauchy_msmt_history, total_steps, p);
-        sprintf(sim_logpath, "%s/cauchy_controls.txt", mc_sub_dir);
+        snprintf(sim_logpath, len_sim_logpath-1, "%s/cauchy_controls.txt", mc_sub_dir);
         log_double_array_to_file(sim_logpath, hs.cauchy_control_history, sim_num_steps, cmcc);
         //*/
     }

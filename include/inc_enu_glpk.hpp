@@ -173,7 +173,7 @@ void inc_enu_setup_feasibility_lp(glp_prob** lp, int* ja, int m, int n)
     x_name[0] = 'x';
     for(int i = 0; i < n; i++)
     {
-        sprintf(x_name+1,"%d",i+1);
+        snprintf(x_name+1, 3, "%d",i+1);
         glp_set_col_name(*lp, i+1, x_name); //assigns name x1 to first column
         glp_set_col_bnds(*lp, i+1, GLP_FR, 0.0, 0.0); //sets the type and bounds of the first row,
     }
@@ -359,7 +359,7 @@ int inc_enu_cell_count_central(int num_hyp, int dim)
 void run_inc_enu(int* Bs, int* cell_counts, double* As, double* root_point, const int N, const int m, const int n, const bool is_encode_B = true, const bool is_sort_B = false)
 {
     if(is_encode_B)
-        assert( sizeof(int) * 8 > (uint)m );
+        assert( sizeof(int) * 8 > (int)m );
     glp_prob *lp; // LP pointer
     int ja[1 + n]; // Column indices of each element of constraint matrix (GLPK Starts all indexing at 1. Index 0 is ignored.)
     inc_enu_setup_feasibility_lp(&lp, ja, m, n);

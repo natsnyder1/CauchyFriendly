@@ -1,4 +1,3 @@
-from doctest import testfile
 import numpy as np 
 import ctypes 
 import os 

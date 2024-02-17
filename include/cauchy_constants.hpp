@@ -10,7 +10,6 @@
 const double RECIPRICAL_TWO_PI = 1.0 / (2.0 * PI);
 typedef double __complex__ C_COMPLEX_TYPE; // This is actually buggy, and cannot change for the moment
 
-
 // TP Settings
 const double COALIGN_TP_EPS = 1e-8;
 // MU Settings

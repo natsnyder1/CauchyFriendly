@@ -334,8 +334,8 @@ struct CauchyTerm
 
         if(first_update)
         {
-            g_num_p = 1 + 0*I; //CMPLX(1,0);
-            g_num_m = 1 + 0*I; //CMPLX(1,0);
+            g_num_p = MAKE_CMPLX(1,0); //1 + 0*I; //
+            g_num_m = MAKE_CMPLX(1,0); //1 + 0*I; //
         }
         else
         {
@@ -370,11 +370,11 @@ struct CauchyTerm
             g_num_m = lookup_g_numerator(enc_lm ^ enc_lhp, two_to_phc_minus1, rev_phc_mask, gtable_p, size_gtable_p, false);
         }
         // Compute G and add complex part to yei
-        //g_val = g_num_p / CMPLX(ygi+d_val, c_val) -  g_num_m / CMPLX(ygi-d_val, c_val);
-        g_val = g_num_p / (ygi+d_val + I*c_val) - g_num_m / (ygi-d_val + I*c_val);
+        g_val = g_num_p / MAKE_CMPLX(ygi+d_val, c_val) -  g_num_m / MAKE_CMPLX(ygi-d_val, c_val);
+        //g_val = g_num_p / (ygi+d_val + I*c_val) - g_num_m / (ygi-d_val + I*c_val);
         g_val *= RECIPRICAL_TWO_PI;
         for(int j = 0; j < d; j++)
-            yei[j] = -tmp_yei[j] + I*b[j]; //yei[j] = CMPLX(-tmp_yei[j], b[j]);
+            yei[j] = MAKE_CMPLX(-tmp_yei[j], b[j]); //yei[j] = -tmp_yei[j] + I*b[j]; //
 
         return g_val;
     }
@@ -399,7 +399,7 @@ struct CauchyTerm
         C_COMPLEX_TYPE g_val = lookup_g_numerator(enc_sv, two_to_m_minus1, rev_mask, gtable_p, cells_gtable_p * GTABLE_SIZE_MULTIPLIER, true);
 
         for(int j = 0; j < d; j++)
-            yei[j] = -tmp_yei[j] + I*b[j]; //yei[j] = CMPLX(-tmp_yei[j], b[j]);
+            yei[j] = MAKE_CMPLX(-tmp_yei[j], b[j]); //yei[j] = -tmp_yei[j] + I*b[j]; //
 
         return g_val;
     }

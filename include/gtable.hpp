@@ -4,7 +4,7 @@
 #include "cauchy_constants.hpp"
 
 // This is the fix for mac, in linux, this ownt trigger -- possibly change cpu_linalg.hpp lines ~1776
-/*
+///*
 #if __APPLE__
     double creal(C_COMPLEX_TYPE val)
     {
@@ -38,14 +38,7 @@
         return val;
     }
 #endif
-*/
-
-#if __linux__
-    //C_COMPLEX_TYPE MAKE_CMPLX(double real, double imag)
-    //{
-    //    return real + I*imag;
-    //}  
-#endif 
+//*/
 
 
 struct KeyValue

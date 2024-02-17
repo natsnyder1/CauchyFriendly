@@ -740,12 +740,12 @@ void test_3d_cpdf_and_marginals()
     double A0[n*n] =  {1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0}; //{-0.63335359, -0.74816241, -0.19777826, -0.7710082 ,  0.63199184,  0.07831134, -0.06640465, -0.20208744,  0.97711365}; 
     double p0[n] = {0.10, 0.08, 0.05}; //{0.0, 0.0, 0.0}; //
     double b0[n] = {0, 0, 0};
-    const int steps = 9;
+    const int steps = 7;
     bool print_basic_info = true;
     CauchyEstimator cauchyEst(A0, p0, b0, steps, n, cmcc, pncc, p, print_basic_info);
     double zs[steps] = {0.022172011200334241, -0.11943271347277583, -1.22353301003957098, 
                        -1.4055389648301792, -1.34053610027255954, 0.4580483915838776, 
-                        0.65152999529515989, 0.52378648722334, 0.75198272983};
+                        0.65152999529515989}; //, 0.52378648722334, 0.75198272983};
 
     // CPDF Grid Sizes
     double grid2d_low_x = -2;
@@ -831,7 +831,7 @@ int main()
 
     // Threaded Functionality Testing
     //test_3d_threaded_marginal_cpdf_eval();
-    //test_2d_cpdf_and_marginals();
-    test_3d_cpdf_and_marginals();
+    test_2d_cpdf_and_marginals();
+    //test_3d_cpdf_and_marginals();
     return 0;
 }

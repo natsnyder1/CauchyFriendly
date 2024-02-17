@@ -336,7 +336,7 @@ struct CauchyEstimator
     void finalize_cached_moments()
     {
         G_SCALE_FACTOR = RECIPRICAL_TWO_PI / creal(fz);
-        C_COMPLEX_TYPE Ifz = I*fz; //CMPLX(cimag(fz), creal(fz)); // imaginary fz
+        C_COMPLEX_TYPE Ifz = MAKE_CMPLX(0, creal(fz)); //I*fz; // imaginary fz
         for(int i = 0; i < d; i++)
             conditional_mean[i] /= Ifz;
 
@@ -557,7 +557,7 @@ struct CauchyEstimator
         assert(creal(fz) > 0);
         G_SCALE_FACTOR = RECIPRICAL_TWO_PI / creal(fz);
 
-        C_COMPLEX_TYPE Ifz = I*fz; //CMPLX(cimag(fz), creal(fz)); // imaginary fz
+        C_COMPLEX_TYPE Ifz = MAKE_CMPLX(0, creal(fz)); //I*fz;
         for(int i = 0; i < d; i++)
             conditional_mean[i] /= Ifz;
 

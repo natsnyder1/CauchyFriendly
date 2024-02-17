@@ -434,7 +434,8 @@ struct PointWiseNDimCauchyCPDF
         int size_gtable_p = GTABLE_SIZE_MULTIPLIER * term->cells_gtable_p;
         C_COMPLEX_TYPE gp = lookup_g_numerator(enc_lp, two_to_phc_minus1, rev_phc_mask, term->gtable_p, size_gtable_p, true);
         C_COMPLEX_TYPE gm = lookup_g_numerator(enc_lm, two_to_phc_minus1, rev_phc_mask, term->gtable_p, size_gtable_p, false);
-        C_COMPLEX_TYPE g_val = gp / (term->p[0] + I*term->b[0]) - gm / (-term->p[0] + I*term->b[0]);
+        //C_COMPLEX_TYPE g_val = gp / (term->p[0] + I*term->b[0]) - gm / (-term->p[0] + I*term->b[0]);
+        C_COMPLEX_TYPE g_val = gp / MAKE_CMPLX(term->p[0], term->b[0]) - gm / MAKE_CMPLX(-term->p[0], term->b[0]);
         return g_val;
     }
 
@@ -1082,7 +1083,8 @@ struct PointWiseNDimCauchyCPDF
                         }
                         C_COMPLEX_TYPE g_num_lhs = lookup_g_numerator(enc_sv_num_lhs, two_to_m_minus1, rev_m_mask, parent->gtable_p, parent->cells_gtable_p * GTABLE_SIZE_MULTIPLIER, true);
                         C_COMPLEX_TYPE g_num_rhs = lookup_g_numerator(enc_sv_num_rhs, two_to_m_minus1, rev_m_mask, parent->gtable_p, parent->cells_gtable_p * GTABLE_SIZE_MULTIPLIER, true);
-                        C_COMPLEX_TYPE g_val = g_num_lhs / (I*b_c + p_cc) - g_num_rhs / (I*b_c - p_cc);
+                        //C_COMPLEX_TYPE g_val = g_num_lhs / (I*b_c + p_cc) - g_num_rhs / (I*b_c - p_cc);
+                        C_COMPLEX_TYPE g_val = g_num_lhs / MAKE_CMPLX(p_cc, b_c) - g_num_rhs / MAKE_CMPLX(-p_cc, b_c);
                         fx_unnormalized += creal(g_val);
                         if(setup_cache)
                         {
@@ -1198,7 +1200,7 @@ struct PointWiseNDimCauchyCPDF
         if(with_timing_print)
             printf("Marginal 2D CPDF for states (%d,%d) took %d ms to process %d terms!\n", marg_idx1, marg_idx2, tmr.cpu_time_used, cauchyEst->Nt);
         double fx_normalized = 2 * fx_unnormalized * RECIPRICAL_TWO_PI * RECIPRICAL_TWO_PI / norm_factor;
-        return fx_normalized + 0*I;
+        return MAKE_CMPLX(fx_normalized, 0); //fx_normalized + 0*I;
     }
 
     /*
@@ -1422,8 +1424,8 @@ struct PointWiseNDimCauchyCPDF
             }
             
             // 3.) Form gamma1 and gamma2 and evaluate the analytic form of the integral
-            gamma1 = gam1_real + I*gam1_imag;
-            gamma2 = gam2_real + I*gam2_imag;
+            gamma1 = MAKE_CMPLX(gam1_real, gam1_imag); //gam1_real + I*gam1_imag;
+            gamma2 = MAKE_CMPLX(gam2_real, gam2_imag); //gam2_real + I*gam2_imag;
 
             // Faster integral, some caching has been added
             //sin(theta) / (gamma1*gamma1*cos(theta) + gamma1*gamma2*sin(theta));
@@ -1482,8 +1484,8 @@ struct PointWiseNDimCauchyCPDF
         double term_integral = 0;
         for(int i = 0; i < m; i++)
         {
-            gamma1 = gam1_reals[i] + I*gam1_imag;
-            gamma2 = gam2_reals[i] + I*gam2_imag;
+            gamma1 = MAKE_CMPLX(gam1_reals[i], gam1_imag); //gam1_reals[i] + I*gam1_imag;
+            gamma2 = MAKE_CMPLX(gam2_reals[i], gam2_imag); //gam2_reals[i] + I*gam2_imag;
             gamma2 *= gamma1;
             gamma1 *= gamma1;
             sin_t1 = sin_thetas[i];
@@ -1760,7 +1762,7 @@ struct CauchyCPDFGridDispatcher2D
             num_tags++;
         }
         tag_count = ++tag_counts[tag_idx];
-        sprintf(path, "%s/grid_elems_%d%d.txt", log_dir, tag[0], tag[1]);
+        snprintf(path, len_log_dir + 29, "%s/grid_elems_%d%d.txt", log_dir, tag[0], tag[1]);
         // First log if tag_count == 1
         // Open (possibly overwrite old) grid dims file
         if(tag_count == 1)
@@ -1775,7 +1777,7 @@ struct CauchyCPDFGridDispatcher2D
         fprintf(dims_file, "%d,%d\n", num_points_x, num_points_y);
         
         // write out binary data stream
-        sprintf(path, "%s/cpdf_%d%d_%d.bin", log_dir, tag[0], tag[1], tag_count);
+        snprintf(path, len_log_dir + 29, "%s/cpdf_%d%d_%d.bin", log_dir, tag[0], tag[1], tag_count);
         data_file = fopen(path, "wb");
         if(data_file == NULL)
         {
@@ -1975,7 +1977,7 @@ struct CauchyCPDFGridDispatcher1D
             num_tags++;
         }
         tag_count = ++tag_counts[tag_idx];
-        sprintf(path, "%s/grid_elems_%d.txt", log_dir, tag);
+        snprintf(path, len_log_dir + 29, "%s/grid_elems_%d.txt", log_dir, tag);
         // First log if tag_count == 1
         // Open (possibly overwrite old) grid dims file
         if(tag_count == 1)
@@ -1990,7 +1992,7 @@ struct CauchyCPDFGridDispatcher1D
         fprintf(dims_file, "%d\n", num_grid_points);
         
         // write out binary data stream
-        sprintf(path, "%s/cpdf_%d_%d.bin", log_dir, tag, tag_count);
+        snprintf(path, len_log_dir + 29, "%s/cpdf_%d_%d.bin", log_dir, tag, tag_count);
         data_file = fopen(path, "wb");
         if(data_file == NULL)
         {

@@ -341,8 +341,8 @@ def test_3state_marginal_cpdfs():
     b0 = np.zeros(ndim) # Initial median of system state
 
     zs = [0.022172011200334241, -0.11943271347277583, -1.22353301003957098, 
-            -1.4055389648301792, -1.34053610027255954, 0.4580483915838776, 
-            0.65152999529515989, 0.52378648722334, 0.75198272983]
+            -1.4055389648301792, -1.34053610027255954, 0.4580483915838776] 
+            #0.65152999529515989, 0.52378648722334, 0.75198272983]
     num_steps = len(zs)
     
     # 2D Grid Params
@@ -421,7 +421,6 @@ def test_3state_marginal_cpdfs():
         plt.show()
         plt.close()
         
-
 # Runs the 3-state dummy problem and looks at their marginals
 def test_3state_reset():
     ndim = 3
@@ -461,8 +460,8 @@ if __name__ == "__main__":
     #test_1state_lti()
     #test_2state_cpdfs()
     #test_2state_lti_single_window()
-    #test_3state_lti_single_window()
+    test_3state_lti_single_window()
     #test_2state_lti_window_manager()
-    test_3state_lti_window_manager()
+    #test_3state_lti_window_manager()
     #test_3state_marginal_cpdfs()
     #test_3state_reset()

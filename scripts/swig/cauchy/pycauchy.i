@@ -8,7 +8,6 @@
      wrapper file. We include the C header file necessary 
      to compile the interface */
     #include "pycauchy.hpp" 
-  
     /* variable declaration*/
 %} 
 
