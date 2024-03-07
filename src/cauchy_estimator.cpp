@@ -1,6 +1,6 @@
 #include "../include/cauchy_estimator.hpp"
 #include "../include/cpdf_2d.hpp"
-
+#include "../include/cpdf_ndim.hpp"
 
 // Scalar problem
 void test_cauchy_1_state_moshe()
@@ -55,8 +55,8 @@ void test_cauchy_2_state_moshe()
   const int pncc = 1;
   const int p = 1;
   double Phi[n*n] = {0.9, 0.1, -0.2, 1.1};
-  double Gamma[n*pncc] = {.1, 0.3};
-  double H[p*n] = {1.0, 0.5};
+  double Gamma[n*pncc] = {1, 0.3};
+  double H[p*n] = {1.0, 1.0};
   double beta[pncc] = {0.1}; // Cauchy process noise scaling parameter(s)
   double gamma[p] = {0.2}; // Cauchy measurement noise scaling parameter(s)
   double A0[n*n] = {1,0,0,1}; // Unit directions of the initial state uncertainty
@@ -66,14 +66,22 @@ void test_cauchy_2_state_moshe()
   bool print_basic_info = true;
   char* log_dir = NULL;
   CauchyEstimator cauchyEst(A0, p0, b0, steps, n, cmcc, pncc, p, print_basic_info);
-  PointWise2DCauchyCPDF cpdf(log_dir,-1.5, 1.5, 0.25, -3, 1, 0.25);
-  double zs[steps] = {0.022356919463887182, -0.22675889756491788, 0.42133397996398181, 
-                      -1.7507202433585822, -1.3984154994099112, -1.7541436172809546, -1.8796017689052031, 
-                      -1.9279807448991575, -1.9071129520752277, -2.0343612017356922};
-  for(int i = 0; i < steps; i++)
+  //PointWise2DCauchyCPDF cpdf(log_dir,-1.5, 1.5, 0.25, -3, 1, 0.25);
+  //PointWise2DCauchyCPDF cpdf(log_dir,.1, 1, .2, .2, 1, .2);
+
+  PointWiseNDimCauchyCPDF cpdf(&cauchyEst);
+  CauchyCPDFGridDispatcher2D grid2d(&cpdf, -2, 2, .025, -2, 2, .025);
+
+  double zs[steps] = {0.0338, 0.2049, -2.3543, -0.6042, -0.2662, 0.1307, -0.2250, 0.1951, -0.2191, 0.0996};
+                      //-1.7507202433585822, -1.3984154994099112, -1.7541436172809546, -1.8796017689052031, 
+                      //-1.9279807448991575, -1.9071129520752277, -2.0343612017356922};
+  for(int i = 0; i < steps-SKIP_LAST_STEP; i++)
   {
     cauchyEst.step(zs[i], Phi, Gamma, beta, H, gamma[0], NULL, NULL);
-    cpdf.evaluate_point_wise_cpdf(&cauchyEst, NUM_CPUS);
+    //cpdf.evaluate_point_wise_cpdf(&cauchyEst); //, NUM_CPUS);
+    //printf("x=%.2lf, y=%.2lf, z=%.6E\n", cpdf.cpdf_points[0].x, cpdf.cpdf_points[0].y, cpdf.cpdf_points[0].z );
+    grid2d.evaluate_point_grid(0, 1, 2,true);
+    //printf("x=%.2lf, y=%.2lf, z=%.6E\n", grid2d.points[0].x, grid2d.points[0].y, grid2d.points[0].z);
   }
 }
 
@@ -291,8 +299,8 @@ int main()
     printf("Size of Cauchy Term is %lu\n", sizeof(CauchyTerm));
     printf("Size of Cauchy Estimator is %lu\n", sizeof(CauchyEstimator));
     //test_cauchy_1_state_moshe();
-    //test_cauchy_2_state_moshe();
-    test_cauchy_3_state_moshe();
+    test_cauchy_2_state_moshe();
+    //test_cauchy_3_state_moshe();
     //test_cauchy_4_state_moshe();
     //test_cauchy_3_state_moshe_3msmts();
     //test_cauchy_5_state_moshe();

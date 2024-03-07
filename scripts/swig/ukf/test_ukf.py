@@ -93,7 +93,7 @@ def test_ukf():
 
     kappa = 0.0
     alpha = 0.30
-    beta = 20.0
+    beta = 2.0
     nx = 1
     lam, W_m0, W_c0, W_mci = ukf.ukf_weights(nx, kappa, alpha, beta)
     for i in range(num_props):

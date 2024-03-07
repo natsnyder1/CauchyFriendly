@@ -1491,7 +1491,7 @@ def simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, 
         vs.append( vk )
     return ( np.array(xs), np.array(zs), np.array(ws), np.array(vs) )
 
-def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, with_partial_plot=False, with_cauchy_delay=False, scale=1):
+def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, with_partial_plot=False, with_cauchy_delay=False, scale=1, labels=None, xshift=None):
     
     with_sim = simulation_history is not None
     with_kf = kf_history is not None
@@ -1505,10 +1505,12 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
         T = np.arange(0, kf_history[0].shape[0])
     elif with_ce:
         n = cauchy_moment_info["x"][0].size
-        T = len(cauchy_moment_info["x"]) + with_cauchy_delay
+        T = np.arange(len(cauchy_moment_info["x"]) + with_cauchy_delay)
     else:
         print("Must provide simulation data, kalman filter data or cauchy estimator data!\nExiting function with no plotting (Nothing Given!)")
         return 
+    if xshift is not None:
+        T += xshift
 
     # Simulation history
     if with_sim:
@@ -1589,7 +1591,8 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
     if with_kf or with_ce:
         fig = plt.figure()
         #if with_kf:
-        fig.suptitle("Cauchy 1-Sig (b/r) vs Kalman 1-Sig (g-/m-)")
+        _title = labels[0] if labels is not None else "Cauchy 1-Sig (b/r) vs Kalman 1-Sig (g-/m-)"
+        fig.suptitle(_title)
         #else:
         #    fig.suptitle("State Error (b) vs One Sigma Bound (r)")
         for i in range(n):
@@ -1602,7 +1605,11 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
                 plt.plot(T[:plot_len], true_states[:plot_len,i] - kf_cond_means[:plot_len,i], 'g--')
                 plt.plot(T[:plot_len], scale*np.sqrt(kf_cond_covars[:plot_len,i,i]), 'm--')
                 plt.plot(T[:plot_len], -scale*np.sqrt(kf_cond_covars[:plot_len,i,i]), 'm--')
-
+            if labels is not None:
+                plt.ylabel(labels[1][i])
+        if labels is not None:
+            plt.xlabel(labels[2])
+    
     if with_sim:
         line_types = ['-', '--', '-.', ':', '-', '--', '-.', ':']
         fig = plt.figure()

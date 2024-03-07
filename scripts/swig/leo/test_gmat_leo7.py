@@ -2,9 +2,13 @@ import time
 import numpy as np
 import math
 import matplotlib.pyplot as plt 
+import matplotlib
+matplotlib.use('TkAgg',force=True)
 import sys, os
 import cauchy_estimator as ce
 import pickle 
+from scipy.stats import chi2 
+
 
 file_dir = os.path.dirname(os.path.abspath(__file__))
 gmat_root_dir = '/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/GMAT/application'
@@ -435,7 +439,7 @@ class FermiSatelliteModel():
 
     def reset_initial_state(self, x):
         self.x0 = x[0:6].copy()
-        self.reset_state(self, x, 0)
+        self.reset_state(x, 0)
 
     def solve_for_state_jacobians(self, Jac, dv_dt):
         # Nominal dv_dt w/out parameter changes is inputted
@@ -497,6 +501,11 @@ class FermiSatelliteModel():
         if num_sf > 0:
             xk[6:] = self.propagate_solve_fors(False)
         return xk
+    
+    def get_state(self):
+        num_sf = len(self.solve_for_states)
+        xk = np.zeros(6 + num_sf)
+        return np.array(self.gator.GetState() + self.solve_for_states)
 
     # Set Other Estimation Variables
     def set_solve_for(self, field = "Cd", dist="gauss", scale = -1, tau = -1, alpha = None):
@@ -1315,6 +1324,27 @@ def plot_all_windows(win_moms, xs_true, e_hats_kf, one_sigs_kf, best_idx, idx_mi
     plt.show()
     plt.close('all')
 
+def get_cross_along_radial_errors_cov(xhat, Phat, xt):
+    # position and velocity 3-vector components
+    rh = xhat[0:3]
+    rhn = np.linalg.norm(rh)
+    vh = xhat[3:6]
+    vhn = np.linalg.norm(xhat[3:6])
+    # Unit directions 
+    uv = vh / vhn # x-axis - along track
+    ur = rh / rhn # z-axis - radial
+    uc = np.cross(ur, uv) # y-axis - cross track direction is radial direction cross_prod along track direction
+    R = np.vstack((uv,uc,ur))
+
+    # Error w.r.t input coordinate frame 
+    e = xt[0:3] - xhat[0:3]
+    # Error w.r.t track frame
+    e_track = R @ e
+    # Error Covariance w.r.t track frame
+    P_track = R @ Phat @ R.T 
+
+    return e_track, P_track, R
+
 def test_gmat_ece7():
     seed = int(np.random.rand() * (2**32 -1))
     print("Seeding with seed: ", seed)
@@ -1735,12 +1765,68 @@ def test_gmat_ece7():
     foobar = 2
     '''
 
+def test_point_in_ellipse():
+    from scipy.stats import chi2
+    conf_int = 0.70
+    N_samples = 2000
+    # find whether a point lies within the 1,2,3,4,5,6-sigma covariance ellipse
+    P = np.array([2,1,1,2]).reshape((2,2))
+    # The chi squared ppf which corresponds to some quantile (conf_int)
+    s = chi2.ppf(conf_int, P.shape[0])
+    # Ellipse is the matrix square root of covariance
+    D, U = np.linalg.eig(P)
+    E = U @ np.diag(D * s)**0.5 
+    # Generate points on ellipse x = E @ unit
+    unit = np.array([[np.cos(t), np.sin(t)] for t in np.arange(0,2*np.pi, 0.05)])
+    points = unit @ E.T # batch these
+    # Sample Gaussian Points
+    sampled = np.random.multivariate_normal(np.zeros(2), P, size=(N_samples,))
+    # Inverse Cov
+    Pinv = np.linalg.inv(P)
+    # Points inside ellipse have form x^T Pinv @ x <= s
+    inside_ell = np.zeros(N_samples, dtype=np.int64)
+    for i in range(N_samples):
+        inside_ell[i] = sampled[i] @ Pinv @ sampled[i] < s 
+    print("Percent inside ellipse: ", np.sum(inside_ell) / N_samples)
+    plt.scatter(sampled[:,0], sampled[:,1], color='b')
+    plt.plot(points[:,0], points[:,1], 'r')
+    plt.show()
+    foobar = 2
 
-def test_prediction_results():
-    file_path = file_dir + "/pylog/gmat7/kf_smooth/ekf_run.pickle"
-    with open(file_path, "rb") as handle:
-        (xs,zs,ws,vs), (xs_kf,Ps_kf), (xs_smoothed, Ps_smoothed) = pickle.load(handle)
-    
+def test_point_in_ellipse2():
+    from scipy.stats import chi2
+    conf_int = 0.95
+    N_samples = 2000
+    # find whether a point lies within the 1,2,3,4,5,6-sigma covariance ellipse
+    #P = np.array([[2, -1.0, 0.5],
+    #              [-1, 3.0, -0.6],
+    #              [.5,-0.6, 2.0]])#.reshape((3,3))
+    P = np.array([[ 0.00385068, -0.00154697,  0.00260381],
+                  [-0.00154697,  0.00062195, -0.0010462 ],
+                  [ 0.00260381, -0.0010462 ,  0.0017614 ]])
+    # The chi squared ppf which corresponds to some quantile (conf_int)
+    s = chi2.ppf(conf_int, P.shape[0])
+    # Ellipse is the matrix square root of covariance
+    D, U = np.linalg.eig(P)
+    E = U @ np.diag(D * s)**0.5 
+    # Generate points on ellipse x = E @ unit
+    unit = np.array([[np.cos(t), np.sin(t), 0] for t in np.arange(0,2*np.pi, 0.05)])
+    points = unit @ E.T # batch these
+    # Sample Gaussian Points
+    sampled = np.random.multivariate_normal(np.zeros(3), P, size=(N_samples,))
+    # Inverse Cov
+    Pinv = np.linalg.inv(P)
+    # Points inside ellipse have form x^T Pinv @ x <= s
+    inside_ell = np.zeros(N_samples, dtype=np.int64)
+    for i in range(N_samples):
+        inside_ell[i] = sampled[i] @ Pinv @ sampled[i] < s 
+    print("Percent inside ellipse: ", np.sum(inside_ell) / N_samples)
+    #plt.scatter(sampled[:,0], sampled[:,1], color='b')
+    #plt.plot(points[:,0], points[:,1], 'r')
+    #plt.show()
+    foobar = 2
+
+def test_mc_trial_logger():
     r_sat = 550e3 #km
     r_earth = 6378.1e3
     M = 5.9722e24 # Mass of earth (kg)
@@ -1750,48 +1836,494 @@ def test_prediction_results():
     r0 = r_earth + r_sat # orbit distance from center of earth
     v0 = np.sqrt(mu/r0) # speed of the satellite in orbit for distance r0
     #x0 = np.array([r0/np.sqrt(2), r0/np.sqrt(2), 0.0, v0/np.sqrt(2), -v0/np.sqrt(2), 0.0])
-    x0 = np.array([r0/np.sqrt(3), r0/np.sqrt(3), r0/np.sqrt(3), -0.57735027*v0, 0.78867513*v0, -0.21132487*v0])
-
+    #x0 = np.array([r0/np.sqrt(3), r0/np.sqrt(3), r0/np.sqrt(3), -0.57735027*v0, 0.78867513*v0, -0.21132487*v0])
+    x0 = np.array([4.99624529e+03,  3.87794646e+03,  2.73604324e+03, -5.02809357e+00, 5.57592134e+00,  1.26986117e+00])*1000
     # Convert to kilometers
     x0 /= 1e3 # kilometers
     std_gps_noise = 7.5 / 1e3 # kilometers
     dt = 60 
-
-    start = 1070
-    end = 2200
-    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
-    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    num_orbits = 20 #105
     # Set additional solve for states
     std_Cd = 0.0013
     tau_Cd = 21600
-    fermiSat.set_solve_for("Cd", "sas", std_Cd, tau_Cd, alpha=1.3)
+    sas_Cd = "sas" #"gauss" # sas
+    # With smoother 
+    with_smoother = False
+    # With Plotting 
+    with_plots = True
+    # Get Chi-Squared Stats for three states 
+    n_pred_states = 3
+    quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
+    qs = np.array([chi2.ppf(q, n_pred_states) for q in quantiles]) # quantile scores
 
-    # Reset state:
-    x_kf_start = xs_kf[start]
-    P_kf_start = Ps_kf[start]
-    P_kf = P_kf_start.copy()
-    P_kf[6,6] *= 1000
-    fermiSat.reset_state(x_kf_start, start)
-    for i in range(start, end):
-        Phi = fermiSat.get_transition_matrix(3)
-        P_kf = Phi @ P_kf @ Phi.T
-        x_kf = fermiSat.step()
+    # STM Taylor Order Approx
+    STM_order = 3
+    # Process Noise Model
+    W6 = leo6_process_noise_model(dt)
+    Wn = np.zeros((7,7))
+    if sas_Cd == "gauss":
+        scale_pv = 1.0*1e3
+        scale_d = 20.0
+        sas_alpha = 2.0
+    else:
+        scale_pv = 10000
+        scale_d = 10000
+        sas_alpha = 1.3
+        #scale_pv = 500
+        #scale_d = 250
+    Wn[0:6,0:6] = W6.copy()
+    Wn[0:6,0:6] *= scale_pv
+    # Process Noise for changes in Cd
+    if sas_Cd != "gauss":
+        Wn[6,6] = (1.3898 * std_Cd)**2 # tune to cauchy LSF
+    else:
+        Wn[6,6] = std_Cd**2
+    Wn[6,6] *= scale_d #0 # Tunable w/ altitude
 
-    #print("Start State of kf   at index {} is:\n  {}".format(start, x_kf_start))
-    #print("End State predicted at index {} is:\n  {}".format(end, x_kf))
-    #print("End State smoother  at index {} is:\n  {}".format(start, xs_smoothed[end]))
-    #print("End State truth     at index {} is:\n  {}".format(start, xs[end]))
-    print("Start State Position Error (m) EKF-Truth   =", 1000*(x_kf_start[0:3] - xs[start][0:3]))
-    print("Start State Position Error (m) Smooth-Truth =", 1000*(xs_smoothed[start][0:3] - xs[start][0:3]))
-    print("End State Position Error (m) EKF Pred-Truth   =", 1000*(x_kf[0:3] - xs[end][0:3]))
-    print("End State Position Error (m) Smooth-Truth =", 1000*(xs_smoothed[end][0:3] - xs[end][0:3]))
-    n = 3
-    prob_norm = (2*np.pi)**(n/2) * np.linalg.det(P_kf[0:3,0:3])**0.5
-    state_err = xs[end][0:3] - x_kf[0:3]
-    prob_pred = 1 / prob_norm * np.exp(-0.5 * state_err @ np.linalg.inv(P_kf[0:3,0:3]) @ state_err)
-    print("Probability Score variance contains truth: ", prob_pred)
+    # Monte Carlo Settings
+    mc_trials = 2
+    mc_dic = { "mode" : sas_Cd, 
+               "trials": mc_trials, 
+               "x0" : x0.copy(),
+               "dt" : dt,
+               "std_gps_noise" : std_gps_noise,
+               "sas_Cd" : sas_Cd,
+               "std_Cd" : std_Cd,
+               "tau_Cd" : tau_Cd,
+               "sas_alpha" : sas_alpha,
+               "SimProcNoise6" : W6.copy(),
+               "STM_order" : STM_order,
+               "EKFProcNoiseMat" : Wn.copy(),
+               "scale_pv" : scale_pv,
+               "scale_d" : scale_d,
+               "sim_truth" : [], 
+               "ekf_runs" : [], 
+               "ekf_smoothed" : [],
+               }
+    
+    # Create Satellite Model 
+    x07 = np.zeros(7)
+    x07[0:6] = x0.copy()
+    fermiSat = FermiSatelliteModel(x0, dt, std_gps_noise)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
 
-    print("Thats all folks!")
+    # Run trials
+    n = 6 + len(fermiSat.solve_for_states)
+    V = np.eye(3) * std_gps_noise**2
+    I = np.eye(n)
+    H = np.hstack((np.eye(3), np.zeros((3,n-3))))
+    for trial in range(mc_trials):
+        print("Trial {}/{}".format(trial+1, mc_trials))
+        xs, zs, ws, vs = fermiSat.simulate(num_orbits, W=None, with_density_jumps=False)
+        mc_dic["sim_truth"].append((xs,zs,ws,vs))
+
+        # Setup Kalman Filter
+        P_kf = np.eye(n) * (0.001)**2
+        P_kf[6,6] = .01
+        x_kf = np.random.multivariate_normal(xs[0], P_kf)
+        x_kf[6] = 0
+        fermiSat.reset_state(x_kf, 0)
+        xs_kf = [x_kf.copy()]
+        Ps_kf = [P_kf.copy()]
+        Phis_kf = [] 
+        Ms_kf = [P_kf.copy()]
+        N = zs.shape[0]
+        for i in range(1, N):
+            # Time Prop
+            Phi_k = fermiSat.get_transition_matrix(STM_order)
+            P_kf = Phi_k @ P_kf @ Phi_k.T + Wn
+            # For Smoother
+            Phis_kf.append(Phi_k.copy())
+            Ms_kf.append(P_kf.copy())
+
+            x_kf = fermiSat.step() #* 1000
+            # Measurement Update
+            K = np.linalg.solve(H @ P_kf @ H.T + V, H @ P_kf).T #P_kf @ H.T @ np.linalg.inv(H @ P_kf @ H.T + V)
+            zbar = H @ x_kf
+            zk = zs[i]
+            r = zk - zbar 
+            print("Norm residual: ", np.linalg.norm(r), " Norm State Diff:", np.linalg.norm(xs[i] - x_kf))
+            x_kf = x_kf + K @ r 
+            # Make sure changes in Cd/Cr are within bounds
+            x_kf[6:] = np.clip(x_kf[6:], -0.98, np.inf)
+
+            fermiSat.reset_state(x_kf, i) #/1000)
+            P_kf = (I - K @ H) @ P_kf @ (I - K @ H).T + K @ V @ K.T 
+            # Log
+            xs_kf.append(x_kf.copy())
+            Ps_kf.append(P_kf.copy())
+        xs_kf = np.array(xs_kf)
+        Ps_kf = np.array(Ps_kf)
+        mc_dic["ekf_runs"].append((xs_kf, Ps_kf))
+        
+        if with_plots:
+            trial_filter_hits = np.zeros(qs.size)
+            for i in range(N):
+                x_kf = xs_kf[i]
+                P_kf = Ps_kf[i]
+                e_kf = (xs[i] - x_kf)[0:n_pred_states]
+                Pinv = np.linalg.inv(P_kf[0:n_pred_states, 0:n_pred_states])
+                score = e_kf.T @ Pinv @ e_kf
+                hits = score < qs
+                #print("Score: {}, qs:{}".format(score, qs))
+                trial_filter_hits += hits
+            trial_filter_hits /= N
+            print("Checking % Qauntiles of:\n  ", quantiles)
+            print("Filter Trial", trial+1, "% Quantiles:\n  ", trial_filter_hits)
+            xlabels = ["Q=" + str(q*100)+"%\n(Realized {})".format(np.round(trial_filter_hits[i]*100,2)) for i,q in enumerate(quantiles)]
+            bar_colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'tab:brown']
+            plt.figure()
+            plt.title(r"Trial Realization Error Quantiles of the Filtered Position Covariance $P_k$" + "\n" + r"Computed as $R_Q=\frac{\sum_{k=1}^N\mathbb{1}(s_k \leq s_{Q})}{N}, \quad s_k = e^T_k P^{-1}_k e_k,\quad e_k = x^k_{1:3} - \hat{x}^k_{1:3}$")
+            plt.ylabel("Trial Realization Quantiles Percentages " + r"$100*R_Q$")
+            plt.bar(xlabels, trial_filter_hits*100, color=bar_colors)
+            plt.xlabel("Total Filtering Steps in Realization={}, dt={} sec between steps".format(N, mc_dic["dt"]))
+            plt.show()
+            Ts = np.arange(xs.shape[0])
+            es_track = [] 
+            Ps_track = [] 
+            for xhat,Phat,xt in zip(xs_kf,Ps_kf,xs):
+                et, Pt, _ = get_cross_along_radial_errors_cov(xhat, Phat[0:3,0:3], xt)
+                es_track.append(et)
+                Ps_track.append(Pt)
+            es_track = np.array(es_track)
+            Ps_track = np.array(Ps_track)
+            sig_bound = np.array([np.diag(_P)**0.5 for _P in Ps_kf])
+            plt.figure()
+            plt.suptitle("Filter Along Track, Cross Track, Radial Track Errors vs 1-Sigma Bound")
+            plt.subplot(3,1,1)
+            plt.plot(Ts, es_track[:, 0], 'g--')
+            plt.plot(Ts, sig_bound[:, 0], 'm--')
+            plt.plot(Ts, -sig_bound[:, 0], 'm--')
+            plt.subplot(3,1,2)
+            plt.plot(Ts, es_track[:, 1], 'g--')
+            plt.plot(Ts, sig_bound[:, 1], 'm--')
+            plt.plot(Ts, -sig_bound[:, 1], 'm--')
+            plt.subplot(3,1,3)
+            plt.plot(Ts, es_track[:, 2], 'g--')
+            plt.plot(Ts, sig_bound[:, 2], 'm--')
+            plt.plot(Ts, -sig_bound[:, 2], 'm--')
+            plt.show()
+            foobar = 2
+            foobar = 2
+
+        # Get smoother estimates
+        if with_smoother:
+            x_smoothed = xs_kf[-1].copy()
+            P_smoothed = Ps_kf[-1].copy()
+            xs_smoothed = [x_smoothed.copy()]
+            Ps_smoothed = [P_smoothed.copy()]
+            for i in reversed(range(N-1)):
+                Phi = Phis_kf[i]
+                x_kf = xs_kf[i]
+                P_kf = Ps_kf[i]
+                M_kf = Ms_kf[i+1]
+
+                #C = P_kf @ Phi.T @ np.linalg.inv(M_kf)
+                C = np.linalg.solve(M_kf, Phi @ P_kf).T
+                fermiSat.reset_state(x_kf, i)
+                x_smoothed = x_kf + C @ (x_smoothed - fermiSat.step() )
+                P_smoothed = P_kf + C @ ( P_smoothed - M_kf ) @ C.T
+                print("Smoothed Diff is: ", x_smoothed - x_kf)
+                xs_smoothed.append(x_smoothed.copy())
+                Ps_smoothed.append(P_smoothed.copy())
+            xs_smoothed.reverse()
+            Ps_smoothed.reverse()
+            xs_smoothed = np.array(xs_smoothed)
+            Ps_smoothed = np.array(Ps_smoothed)
+            mc_dic["ekf_smoothed"].append((xs_kf, xs_smoothed))
+            # Plot
+            if with_plots:
+                foo = np.zeros(xs_kf.shape[0])
+                moment_info = {"x": xs_smoothed, "P": Ps_smoothed, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+                print("Smoother + EKF Results")
+            ce.plot_simulation_history(moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), scale=1)
+        # Plot
+        elif with_plots:
+            print("EKF Results (No Smoother)")
+            ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf), scale=1)
+
+        # Clear Sim
+        fermiSat.reset_initial_state(x07)
+
+    # Log Data 
+    dir_path = file_dir + "/pylog/gmat7/pred/mcdata_" + sas_Cd + "trials_" + str(mc_trials) + "_" + str(int(time.time())) + ".pickle"
+    print("Writing MC Data To: ", dir_path)
+    with open(dir_path, "wb") as handle:
+        pickle.dump(mc_dic, handle)
+
+def test_mc_trial_prediction():
+    # Load Data 
+    dir_path = file_dir + "/pylog/gmat7/pred/" + "mcdata_gausstrials_2_1709759984.pickle"
+    print("Reading MC Data From: ", dir_path)
+    with open(dir_path, "rb") as handle:
+        mc_dic = pickle.load(handle)
+    
+    # Whether to use smoother or true state as error reference
+    with_sim_truth = True 
+    # Whether to include process noise in covariance propagation
+    with_proc_noise_prop = False
+    # Whether to check the trial's filter plot
+    with_trial_filter_plot = False
+    # Whether to check the trial's filter along, cross, and radial error/covariance plot
+    with_trial_filter_along_cross_radial_track_plot = False
+    # Whether to check each trial's filtered elliptic error quantiles
+    with_trial_filter_quantile_plot = False
+    # Whether to debug and plot each trials predicted state error vs the predicted variance bound
+    with_trial_pred_state_err_plot = True
+    # Whether to debug and plot each trials predicted along, cross, and radial state error vs the predicted along, cross, and radial variance bound
+    with_trial_pred_along_cross_radial_track_plot = True
+    # Whether to compute/plot the monte carlo trial averages of predictive elliptic error quantiles
+    with_trial_pred_quantile_plot = True
+    # Whether to compute/plot the monte carlo trial averages of predictive elliptic error quantiles
+    with_mc_pred_quantile_plot = True
+    # Whether to compute a monte carlo over all trials and compare it to the KFs Predictor Covariance
+    with_mc_pred_covariance_avg_plot = True
+    start_percent = 0.250 # halfway into the simulation
+
+    # Load up the fermi sat model
+    fermiSat = FermiSatelliteModel(mc_dic["x0"], mc_dic["dt"], mc_dic["std_gps_noise"])
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    fermiSat.set_solve_for("Cd", mc_dic["sas_Cd"], mc_dic["std_Cd"], mc_dic["tau_Cd"], alpha=mc_dic["sas_alpha"])
+    Wn = mc_dic["EKFProcNoiseMat"] * with_proc_noise_prop
+
+    # Get Chi-Squared Stats for three states 
+    n_pred_states = 3
+    quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
+    qs = np.array([chi2.ppf(q, n_pred_states) for q in quantiles]) # quantile scores
+
+    # Get sim length and set start index 
+    N = mc_dic["sim_truth"][0][0].shape[0]
+    start_idx = int(N * start_percent)
+    mc_trials = mc_dic["trials"]
+
+    # Get array of prediction steps vs chi squared bucket counts
+    chi2_labels = [str(q) for q in quantiles]
+    sim_steps = N-start_idx
+    ellipsoid_trial_hits = np.zeros( (sim_steps, qs.size) )
+    ellipsoid_hits = np.zeros(qs.size)
+    ellipsoid_trial_scores = np.zeros(sim_steps)
+    ellipsoid_scores = np.zeros(sim_steps)
+    # Monte Carlo Stats
+    eIs = np.zeros((mc_trials, sim_steps, n_pred_states))
+    Ts = np.arange(N) #* mc_dic["dt"]
+    print("Loaded Data From: ", dir_path)
+    # For each trial, 
+    # 1.) Propagate the state and covariance from start idx to end
+    # 2.) At each propagation, compute whether the error lies within the covariances selected confidence ellipsoid percents
+    for trial in range(mc_trials):
+        print("Processing Trial {}/{}".format(trial+1, mc_trials))
+        if with_sim_truth:
+            xs,zs,ws,vs = mc_dic["sim_truth"][trial]
+        else:
+            xs,_ = mc_dic["ekf_smoothed"][trial]
+        xs_kf,Ps_kf = mc_dic["ekf_runs"][trial]
+
+        if with_trial_filter_quantile_plot:
+            trial_filter_hits = np.zeros(qs.size)
+            for i in range(N):
+                x_kf = xs_kf[i]
+                P_kf = Ps_kf[i]
+                e_kf = (xs[i] - x_kf)[0:n_pred_states]
+                Pinv = np.linalg.inv(P_kf[0:n_pred_states, 0:n_pred_states])
+                score = e_kf.T @ Pinv @ e_kf
+                hits = score < qs
+                #print("Score: {}, qs:{}".format(score, qs))
+                trial_filter_hits += hits
+            trial_filter_hits /= N
+            print("Checking % Quantiles of:\n  ", quantiles)
+            print("Filter Trial", trial+1, "% Quantiles:\n  ", trial_filter_hits)
+            xlabels = ["Q=" + str(q*100)+"%\n(Realized {})".format(np.round(trial_filter_hits[i]*100,2)) for i,q in enumerate(quantiles)]
+            bar_colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'tab:brown']
+            plt.figure()
+            plt.title(r"Trial Realization Error Quantiles of the Filtered Position Covariance $P_k$" + "\n" + r"Computed as $R_Q=\frac{\sum_{k=1}^N\mathbb{1}(s_k \leq s_{Q})}{N}, \quad s_k = e^T_k P^{-1}_k e_k,\quad e_k = x^k_{1:3} - \hat{x}^k_{1:3}$")
+            plt.ylabel("Trial Realization Quantiles Percentages " + r"$100*R_Q$")
+            plt.bar(xlabels, trial_filter_hits*100, color=bar_colors)
+            plt.xlabel("Total Filtering Steps in Realization={}, dt={} sec between steps".format(N, mc_dic["dt"]))
+            plt.show()
+            foobar = 2
+        
+        if with_trial_filter_plot:
+            ce.plot_simulation_history(None, (xs,zs,ws,vs), (xs_kf,Ps_kf) )
+            foobar = 2
+        if with_trial_filter_along_cross_radial_track_plot:
+            es_track = [] 
+            Ps_track = [] 
+            for xhat,Phat,xt in zip(xs_kf,Ps_kf,xs):
+                et, Pt, _ = get_cross_along_radial_errors_cov(xhat, Phat[0:3,0:3], xt)
+                es_track.append(et)
+                Ps_track.append(Pt)
+            es_track = np.array(es_track)
+            Ps_track = np.array(Ps_track)
+            sig_bound = np.array([np.diag(_P)**0.5 for _P in Ps_kf])
+            plt.figure()
+            plt.suptitle("Filter Along Track, Cross Track, Radial Track Errors vs 1-Sigma Bound")
+            plt.subplot(3,1,1)
+            plt.plot(Ts, es_track[:, 0], 'g--')
+            plt.plot(Ts, sig_bound[:, 0], 'm--')
+            plt.plot(Ts, -sig_bound[:, 0], 'm--')
+            plt.subplot(3,1,2)
+            plt.plot(Ts, es_track[:, 1], 'g--')
+            plt.plot(Ts, sig_bound[:, 1], 'm--')
+            plt.plot(Ts, -sig_bound[:, 1], 'm--')
+            plt.subplot(3,1,3)
+            plt.plot(Ts, es_track[:, 2], 'g--')
+            plt.plot(Ts, sig_bound[:, 2], 'm--')
+            plt.plot(Ts, -sig_bound[:, 2], 'm--')
+            plt.show()
+            foobar = 2
+
+
+        # Set satellite at start index 
+        x_kf = xs_kf[start_idx]
+        P_kf = Ps_kf[start_idx]
+        fermiSat.reset_state(x_kf, start_idx)
+        # Propagate state and variance in prediction mode
+        xkf_preds = [] 
+        Pkf_preds = [] 
+        ellipsoid_trial_scores *= 0
+        Wn *= 0
+        Wn[0,0] = 1e-5
+        for idx in range(start_idx, N):
+            # Propagate State and Covariance
+            if idx != start_idx:
+                Phi = fermiSat.get_transition_matrix(mc_dic["STM_order"])
+                x_kf = fermiSat.step()
+                P_kf = Phi @ P_kf @ Phi.T + Wn
+                
+                # Kinda works to bound the error
+                #_,_, R = get_cross_along_radial_errors_cov(x_kf, P_kf[0:3,0:3], xs[idx])
+                #foo = Wn.copy()
+                #foo[0:3,0:3] = R.T @ foo[0:3,0:3] @ R
+                #P_kf = Phi @ P_kf @ Phi.T + foo
+                
+            e_kf = (xs[idx] - x_kf)[0:n_pred_states]
+            i = idx - start_idx
+            if with_mc_pred_quantile_plot:
+                Pinv = np.linalg.inv(P_kf[0:n_pred_states, 0:n_pred_states])
+                score = e_kf.T @ Pinv @ e_kf
+                ellipsoid_trial_scores[i] = score
+                hits = score < qs
+                ellipsoid_trial_hits[i, :] = hits
+            # Append state info for predictive state error plots
+            if with_trial_pred_state_err_plot:
+                xkf_preds.append(x_kf[0:6])
+                Pkf_preds.append(P_kf[0:n_pred_states, 0:n_pred_states])
+            if with_mc_pred_covariance_avg_plot:
+                eIs[trial, i, :] = e_kf
+                # Store the Kalman Predictors covariance for a single trial, 
+                # it should not vary very much from one simulation to another,
+                # given that the simulation starts from the same location
+                # This is to compare the MC covariance with the Kalman Predictors
+                if not with_trial_pred_state_err_plot:
+                    if trial == (mc_trials-1):
+                        Pkf_preds.append(P_kf[0:n_pred_states, 0:n_pred_states])
+
+        # Compute trial scores and hits
+        sum_trial_hits = np.sum(ellipsoid_trial_hits, axis=0) / (N - start_idx)
+        ellipsoid_hits += sum_trial_hits
+        ellipsoid_scores += ellipsoid_trial_scores
+        if with_trial_pred_state_err_plot:
+            xkf_preds = np.array(xkf_preds)
+            Pkf_preds = np.array(Pkf_preds)
+            plt_title="Estimation Error of Predicted Position, Bounded by Predicted 1-Sigma Bound"
+            plt_ylabels=("PosX Error (km)", "Posy (km)", "PosZ (km)")
+            plt_xlabel = "Realization has Filter Steps={}, Prediction Steps={}, Total Steps={}. dt={} sec between steps".format(start_idx, N-start_idx,N, mc_dic["dt"])
+            ce.plot_simulation_history(None, (xs[start_idx:, 0:n_pred_states],zs[start_idx:],ws[start_idx:,0:n_pred_states],vs[start_idx:]), (xkf_preds[:,0:3],Pkf_preds), labels=(plt_title,plt_ylabels,plt_xlabel), xshift=start_idx)
+            foobar = 2
+        if with_trial_pred_along_cross_radial_track_plot:
+            es_track = [] 
+            Ps_track = [] 
+            for xhat,Phat,xt in zip(xkf_preds,Pkf_preds,xs[start_idx:,:]):
+                et, Pt, _ = get_cross_along_radial_errors_cov(xhat, Phat[0:3,0:3], xt)
+                es_track.append(et)
+                Ps_track.append(Pt)
+            es_track = np.array(es_track)
+            Ps_track = np.array(Ps_track)
+            sig_bound = np.array([np.diag(_P)**0.5 for _P in Ps_track])
+            plt.figure()
+            plt.suptitle("Predictor Along Track, Cross Track, Radial Track Errors vs 1-Sigma Bound")
+            plt.subplot(3,1,1)
+            plt.plot(Ts[start_idx:], es_track[:, 0], 'g--')
+            plt.plot(Ts[start_idx:], sig_bound[:, 0], 'm--')
+            plt.plot(Ts[start_idx:], -sig_bound[:, 0], 'm--')
+            plt.subplot(3,1,2)
+            plt.plot(Ts[start_idx:], es_track[:, 1], 'g--')
+            plt.plot(Ts[start_idx:], sig_bound[:, 1], 'm--')
+            plt.plot(Ts[start_idx:], -sig_bound[:, 1], 'm--')
+            plt.subplot(3,1,3)
+            plt.plot(Ts[start_idx:], es_track[:, 2], 'g--')
+            plt.plot(Ts[start_idx:], sig_bound[:, 2], 'm--')
+            plt.plot(Ts[start_idx:], -sig_bound[:, 2], 'm--')
+            plt.show()
+            foobar=2
+        # Plot Ellipsoid Trial percentages
+        if with_trial_pred_quantile_plot:
+            plt.figure()
+            plt.title(r"Trial Realization of Elliptic Error Scores $s_{k+i|k} = e^T_{k+i|k} P^{-1}_{k+i|k} e_{k+i|k},\quad e_{k+i|k} = x^{k+i|k}_{1:3} - \hat{x}^{k+i|k}_{1:3}$ of the Predicted Position Covariance $P_{k+i|k}$" + "\n(Ie: What ellipsoid of the covariance matrix does the propagated state (error) reside within?)")
+            plt.plot(Ts[start_idx:], ellipsoid_trial_scores, label = "Ellipsoid scores")
+            for i in range(quantiles.size):
+                plt.plot(Ts[start_idx:], np.ones(Ts[start_idx:].size) * qs[i], label = "quantile-" + str(quantiles[i]*100) + "%" )
+            plt.legend(loc=1, prop={'size' : 12})
+            plt.xlabel("Filter Steps={}, Prediction Steps={}, Total Steps={}. dt={} sec between steps".format(start_idx, N-start_idx,N, mc_dic["dt"]))
+            plt.show() 
+            xlabels = ["Q=" + str(q*100)+"%\n(Realized {})".format(np.round(sum_trial_hits[i]*100,2)) for i,q in enumerate(quantiles)]
+            bar_colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'tab:brown']
+            plt.figure()
+            plt.title(r"Trial Realization of Elliptic Error Quantiles of the Predicted Position Covariance $P_{k+i|i}$" + "\n" + r"Computed as $R_Q=\frac{\sum_{i=1}^{N-k}\mathbb{1}(s_{k+i|k} \leq s_{Q})}{N}, \quad s_{k+i|k} = e^T_{k+i|k} P^{-1}_{k+i|k} e_{k+i|k},\quad e_{k+i|k} = x^{k+i|k}_{1:3} - \hat{x}^{k+i|k}_{1:3}$")
+            plt.ylabel("Trial Quantile Percentage " + r"$100*R_Q$")
+            plt.bar(xlabels, sum_trial_hits*100, color=bar_colors)
+            plt.xlabel("Filter Steps={}, Prediction Steps={}, Total Steps={}. dt={} sec between steps".format(start_idx, N-start_idx,N, mc_dic["dt"]))
+            plt.show()
+            foobar = 2
+    ellipsoid_hits /= mc_trials
+    ellipsoid_scores /= mc_trials
+
+    if with_mc_pred_covariance_avg_plot:
+        e_bar = np.mean(eIs, axis = 0) # average error across all trials
+        P_mc = np.zeros( (sim_steps, n_pred_states, n_pred_states) )
+        for i in range(mc_trials):
+            e_ks = eIs[i] - e_bar
+            e_ks = e_ks.reshape((*e_ks.shape,1))
+            P_mc += e_ks @ e_ks.transpose((0,2,1))
+        if mc_trials > 1:
+            P_mc /= mc_trials
+        ylabels = ["PosX", "PosY", "PosZ", "VelX", "VelY", "VelZ", "Drag"] 
+        if with_trial_pred_state_err_plot:
+            Pkf_preds = np.array(Pkf_preds)
+        one_sigs_mc = np.array([np.diag(pmc)**0.5 for pmc in P_mc])
+        one_sigs_kf = np.array([np.diag(pkf)**0.5 for pkf in Pkf_preds])
+        plt.figure()
+        plt.suptitle("Monte Carlo Average of Predicted (one-sig) standard deviation (r) vs Kalman Predictor's (one-sig) standard deviation (b)")
+        for i in range(n_pred_states):
+            plt.subplot(n_pred_states,1,i+1)
+            plt.plot(Ts[start_idx:], one_sigs_mc[:, i], 'r')
+            plt.plot(Ts[start_idx:], one_sigs_kf[:, i], 'b')
+            plt.ylabel(ylabels[i])
+            if i == (n_pred_states-1):
+                plt.xlabel("Total MC Trials Averaged={}, Filter Steps={}, Prediction Steps={}, Total Steps={}. dt={} sec between steps".format(mc_trials, start_idx, N-start_idx,N, mc_dic["dt"]))
+        plt.show()
+        foobar = 2
+
+    # Plot Ellipsoid MC percentages
+    if with_mc_pred_quantile_plot:
+        plt.figure()
+        plt.title(r"Monte Carlo Averages of Elliptic Error Scores $s_{k+i|k} = e^T_{k+i|k} P^{-1}_{k+i|k} e_{k+i|k},\quad e_{k+i|k} = x^{k+i|k}_{1:3} - \hat{x}^{k+i|k}_{1:3}$ of the Predicted Position Covariance $P_{k+i|k}$" + "\n(Ie: What ellipsoid of the covariance matrix does the propagated state (error) reside within?)")
+        plt.plot(Ts[start_idx:], ellipsoid_scores, label = "Ellipsoid scores")
+        for i in range(quantiles.size):
+            plt.plot(Ts[start_idx:], np.ones(Ts[start_idx:].size) * qs[i], label = "quantile-" + str(quantiles[i]*100) + "%" )
+        plt.legend(loc=1, prop={'size' : 12})
+        plt.xlabel("Total MC Trials Averaged={}, Filter Steps={}, Prediction Steps={}, Total Steps={}. dt={} sec between steps".format(mc_trials, start_idx, N-start_idx,N, mc_dic["dt"]))
+        plt.show() 
+        xlabels = ["Q=" + str(q*100)+"%\n(Realized {})".format(np.round(ellipsoid_hits[i]*100,2)) for i,q in enumerate(quantiles)]
+        bar_colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'tab:brown']
+        plt.figure()
+        plt.title(r"Monte Carlo Averages of Elliptic Error Quantiles of the Predicted Position Covariance $P_{k+i|i}$" + "\n" + r"Computed as $R_Q=\frac{\sum_{i=1}^{N-k}\mathbb{1}(s_{k+i|k} \leq s_{Q})}{N}, \quad s_{k+i|k} = e^T_{k+i|k} P^{-1}_{k+i|k} e_{k+i|k},\quad e_{k+i|k} = x^{k+i|k}_{1:3} - \hat{x}^{k+i|k}_{1:3}$")
+        plt.ylabel("MC Average Quantile Percentage " + r"$100*R_Q$")
+        plt.bar(xlabels, ellipsoid_hits*100, color=bar_colors)
+        plt.xlabel("Total MC Trials Averaged={}, Filter Steps={}, Prediction Steps={}, Total Steps={}. dt={} sec between steps".format(mc_trials, start_idx, N-start_idx,N, mc_dic["dt"]))
+        plt.show()
+    foobar=2
 
 
 
@@ -1805,4 +2337,7 @@ if __name__ == "__main__":
     #test_gmat_ekf7()
     #test_gmat_ekfs7()
     #test_gmat_ece7()
-    test_prediction_results()
+    #test_prediction_results()
+    #test_point_in_ellipse2()
+    #test_mc_trial_logger()
+    test_mc_trial_prediction()

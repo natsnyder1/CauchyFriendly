@@ -6,8 +6,9 @@ file_dir = os.path.dirname(os.path.abspath(__file__))
 import cauchy_estimator as ce
 import gaussian_filters as gf
 import math
-import time
 import pickle
+import matplotlib
+matplotlib.use('TkAgg',force=True)
 
 def lookup_air_density(r_sat):
     if(r_sat == 550e3):
@@ -1273,13 +1274,13 @@ def test_python_debug_window_manager():
     # Cauchy and Kalman Tunables
     WITH_PLOT_ALL_WINDOWS = True
     WITH_SAS_DENSITY = True
-    WITH_ADDED_DENSITY_JUMPS = False
+    WITH_ADDED_DENSITY_JUMPS = True
     WITH_PLOT_MARG_DENSITY = False
     reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
     reinit_method = reinit_methods[4]
     prop_steps = 300 # Number of time steps to run sim
     num_windows = 8 # Number of Cauchy Windows
-    ekf_scale = 1 # Scaling factor for EKF atmospheric density
+    ekf_scale = 10000 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
     time_tag = False
@@ -1557,6 +1558,132 @@ def test_python_debug_window_manager():
     ce.plot_simulation_history(avg_moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
     foobar = 2
 
+def load_and_rerun_kf():
+    global leo
+    seed = 2124125479 #int(np.random.rand() * (2**32 -1))
+    print("Seeding with seed: ", seed)
+    np.random.seed(seed)
+
+    # Leo Satelite Parameters
+    leo5_alt = 200e3 # kmeters
+    leo5_A = 64 # meters^2
+    leo5_m = 5000 # kg
+    leo5_gps_std_dev = 2.0 # meters
+    leo5_dt = 60 # sec
+    leo = leo_satellite_5state(leo5_alt, leo5_A, leo5_m, leo5_gps_std_dev, leo5_dt)
+
+    # Log or Load Setting
+    LOAD_RESULTS_AND_EXIT = True
+    #WITH_LOG = False
+    #assert(not (LOAD_RESULTS_AND_EXIT and WITH_LOG))
+
+    # Cauchy and Kalman Tunables
+    WITH_PLOT_ALL_WINDOWS = True
+    WITH_SAS_DENSITY = True
+    WITH_ADDED_DENSITY_JUMPS = True
+    WITH_PLOT_MARG_DENSITY = False
+    reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
+    reinit_method = reinit_methods[4]
+    prop_steps = 300 # Number of time steps to run sim
+    num_windows = 8 # Number of Cauchy Windows
+    ekf_scale = 1 # Scaling factor for EKF atmospheric density
+    gamma_scale = 1 # scaling gamma up by .... (1 is normal)
+    beta_scale = 1 # scaling beta down by ... (1 is normal)
+    time_tag = False
+
+    alt_and_std = str(int(leo.r_sat/1000)) + "km" + "_A" + str(int(10*leo.A)) + "_m" + str(int(leo5_m)) + "_std" + str(int(10*leo.std_dev_gps)) + "_dt" + str(int(leo5_dt))
+    ekf_scaled = "_ekfs" + str(ekf_scale)
+    beta_scaled = "_bs" + str(beta_scale)
+    gamma_scaled = "_gs" + str(gamma_scale)
+    density_type = "_sas" if WITH_SAS_DENSITY else "_gauss"
+    added_jumps = "_wj" if WITH_ADDED_DENSITY_JUMPS else "_nj"
+    #time_id = str(time.time()) if time_tag else "" ### ADD SEEDING LOAD/LOG LOGIC!!
+
+    # Log Files
+    '''
+    if WITH_LOG:
+        log_dir = file_dir + "/pylog/leo5/"
+        if( not os.path.isdir(log_dir)):
+            os.mkdir(log_dir)
+        log_dir += alt_and_std + "/"
+        if( not os.path.isdir(log_dir)):
+            os.mkdir(log_dir)
+        log_dir += reinit_method + "/"
+        if( not os.path.isdir(log_dir)):
+            os.mkdir(log_dir)
+        log_dir += "w" + str(num_windows) + density_type + added_jumps + ekf_scaled + beta_scaled + gamma_scaled + "/"
+        if( not os.path.isdir(log_dir)):
+            os.mkdir(log_dir)
+        with open(log_dir + "seed.txt", "w") as handle:
+            handle.write( "Seeded with: " + str(seed) )
+    '''
+
+    # Load Files
+    if LOAD_RESULTS_AND_EXIT:
+        log_dir = file_dir + "/pylog/leo5/"
+        log_dir += alt_and_std + "/"
+        log_dir += reinit_method + "/"
+        log_dir += "w" + str(num_windows) + density_type + added_jumps + ekf_scaled + beta_scaled + gamma_scaled + "/"
+    
+    # Possibly only plot logged simulation results and exit
+    if LOAD_RESULTS_AND_EXIT:
+        scale = 1
+        ce_moments = ce.load_cauchy_log_folder(log_dir, False)
+        xs_kf, Ps_kf = ce.load_kalman_log_folder(log_dir)
+        xs, zs, ws, vs = ce.load_sim_truth_log_folder(log_dir)
+        weighted_ce_hist_path = log_dir + "weighted_ce.pickle"
+        found_pickle = False
+        if os.path.isfile(weighted_ce_hist_path):
+            with open(weighted_ce_hist_path, "rb") as handle:
+                found_pickle = True
+                avg_ce_xhats, avg_ce_Phats, win_moms = pickle.load(handle)
+                foo = np.zeros(avg_ce_xhats.shape[0])
+                avgd_moment_info = {"x": avg_ce_xhats, "P": avg_ce_Phats, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+                print("All Window Cauchy Estimator History:")
+                one_sigs_kf = np.array([ np.sqrt( np.diag(P_kf)) for P_kf in Ps_kf ])
+                e_hats_kf = np.array([xt - xh for xt,xh in zip(xs,xs_kf) ])
+                #plot_all_windows(win_moms, xs, e_hats_kf, one_sigs_kf, 0, 1)
+        print("Full Window History:")
+        #ce.plot_simulation_history(ce_moments, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True, scale=scale)
+        if found_pickle:
+            print("Weighted Cauchy Estimator History:")
+            #ce.plot_simulation_history(avgd_moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True, scale=scale)
+        foobar=2
+        #exit(1)
+
+    # Get Ground Truth and Measurements
+    #zs = np.genfromtxt(file_dir + "/../../../log/leo5/dense/w5/msmts.txt", delimiter= ' ')
+    #zs = zs[1:,:]
+    #xs, zs, ws, vs = simulate_leo5_state(prop_steps, with_sas_density=WITH_SAS_DENSITY, with_added_jumps=WITH_ADDED_DENSITY_JUMPS)
+    #zs_without_z0 = zs[1:,:]
+    #if WITH_LOG:
+    #    ce.log_sim_truth(log_dir, xs, zs, ws, vs)
+
+    # Run EKF 
+    #'''
+    W_kf = leo.W.copy()
+    V_kf = leo.V.copy()
+
+    # EKF WITH SCALING
+    W_kf[4,4] *= 10000
+    xs_kf, Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs[1:], ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
+    #if WITH_LOG:
+    #    ce.log_kalman(log_dir, xs_kf, Ps_kf)
+    #ce.plot_simulation_history(None, (xs, zs, ws, vs), (xs_kf, Ps_kf))
+    #exit(1)
+    #'''
+
+    print("Weighted Cauchy Estimator History:")
+    ce.plot_simulation_history(avgd_moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
+    plt.figure()
+    Ts = np.arange(xs.shape[0])
+    plt.plot(Ts, xs[:,4], 'r')
+    plt.plot(Ts, xs_kf[:,4], 'g')
+    plt.plot(Ts[1:], avgd_moment_info['x'][:, 4], 'b')
+    plt.show()
+    foobar = 2
+
+
 if __name__ == '__main__':
     #test_leo5()
     #test_kalman_schmidt_recursion_cascade()
@@ -1567,4 +1694,5 @@ if __name__ == '__main__':
     #test_innovation()
     #test_innovation2()
     #test_single_sliding_window()
-    test_python_debug_window_manager()
+    #test_python_debug_window_manager()
+    load_and_rerun_kf()

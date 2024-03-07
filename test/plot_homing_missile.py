@@ -1,7 +1,7 @@
-from cmath import log
-from xxlimited import foo
 import numpy as np 
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg',force=True)
 import os
 import pickle
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -147,18 +147,50 @@ def draw_mc_plot(gsd_Pces, gsd_Pkfs, mde_ces, mde_kfs, label_ces, label_kfs):
     bin_width = 5
     num_bins = int( (bin_high - bin_low) / bin_width ) + 1
     fig = plt.figure()
-    plt.tight_layout()
+    fig2 = plt.figure()
+    #plt.tight_layout()
     bins = np.linspace(bin_low,bin_high, num_bins)
-    fig.suptitle("Histograms of Target Miss Distance as a Function of SAS Noise Severity\n(Bin Width={} feet)".format(bin_width))
+    fig.suptitle("Histograms of Target Miss Distance as a Function of SAS Noise Severity\n(Bin Width={} feet)".format(bin_width), fontsize = 24)
+    fig2.suptitle("CDF of Target Miss Distance as a Function of SAS Noise Severity\n(Bin Width={} feet)".format(bin_width), fontsize = 24)
     for mde_ce, mde_kf, label_ce, label_kf in zip(mde_ces, mde_kfs, label_ces, label_kfs):
-        ax = plt.subplot(3,2,count)
-        plt.ylabel("Bin Counts")
+        ax = fig.add_subplot(3,2,count) #plt.subplot(3,2,count)
+        ax2 = fig2.add_subplot(3,2,count)
+        ax.set_ylabel("Bin Counts", fontsize = 20)
+        ax2.set_ylabel("CDF", fontsize = 20)
         if count > 4:
-            plt.xlabel("Miss Distance (Feet)")
-        plt.title("Alpha=" + label_ce[3:])
-        plt.hist(mde_ce, bins, alpha=0.5, label=label_ce)
-        plt.hist(mde_kf, bins, alpha=0.5, label=label_kf)
-        ax.legend(loc=1, prop={'size' : 12}) #leg_prop)
+            ax.set_xlabel("Miss Distance (Feet)", fontsize = 20)
+            ax2.set_xlabel("Miss Distance (Feet)", fontsize = 20)
+        ax.set_title("Alpha=" + label_ce[3:], fontsize = 20)
+        ax2.set_title("Alpha=" + label_ce[3:], fontsize = 20)
+
+        ce_hist = ax.hist(mde_ce, bins, alpha=0.5, label=label_ce)
+        ce_hits = ce_hist[0]
+        ce_bins = ce_hist[1]
+        kf_hist = ax.hist(mde_kf, bins, alpha=0.5, label=label_kf)
+        kf_hits = kf_hist[0]
+        ax.legend(loc=1, prop={'size' : 12}, fontsize = 18) #leg_prop)
+
+        n = ce_hits.size
+        assert(n % 2 == 0)
+        cdf_bins = ce_bins[n//2:]
+        ce_cdf = np.cumsum(np.flip(ce_hits[0:n//2]) + ce_hits[n//2:])
+        kf_cdf = np.cumsum(np.flip(kf_hits[0:n//2]) + kf_hits[n//2:])
+        ce_cdf /= ce_cdf[-1]
+        kf_cdf /= kf_cdf[-1]
+        ax2.plot(cdf_bins[1:], ce_cdf, 'b', label=label_ce)
+        ax2.plot(cdf_bins[1:], kf_cdf, color='orange', label=label_kf)
+        x_major_ticks = np.arange(0, 341, 20)
+        #x_minor_ticks = np.arange(0, 101, 5)
+        y_major_ticks = np.arange(0, 1.1, .10)
+        #y_minor_ticks = np.arange(0, 1.1, .5)
+        ax2.set_xticks(x_major_ticks)
+        #ax2.set_xticks(x_minor_ticks, minor=True)
+        ax2.set_yticks(y_major_ticks)
+        #ax2.set_yticks(y_minor_ticks, minor=True)
+        # And a corresponding grid
+        ax2.grid(which='both')
+        ax2.legend(loc=1, prop={'size' : 12}) #leg_prop)
+        
         count += 1
     plt.show()
     '''
@@ -320,5 +352,5 @@ def plot_cached_monte_carlo_averages(mc_dir):
 if __name__ == "__main__":
     mc_dir = file_dir + "/../log/homing_missile/monte_carlo/"
     #view_mct_run()
-    #plot_monte_carlo_averages(mc_dir)
-    plot_cached_monte_carlo_averages(mc_dir)
+    plot_monte_carlo_averages(mc_dir)
+    #plot_cached_monte_carlo_averages(mc_dir)

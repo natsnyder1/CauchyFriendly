@@ -53,14 +53,14 @@ def test_2state_lti_single_window():
     ndim = 2
     Phi = np.array([ [0.9, 0.1], [-0.2, 1.1] ])
     Gamma = np.array([.1, 0.3])
-    H = np.array([1.0, 0.0])
+    H = np.array([1.0, 2.0])
     beta = np.array([0.1]) # Cauchy process noise scaling parameter(s)
     gamma = np.array([0.2]) # Cauchy measurement noise scaling parameter(s)
     A0 = np.eye(ndim) # Unit directions of the initial state uncertainty
-    p0 = np.array([0.10, 0.05]) # Initial state uncertainty cauchy scaling parameter(s)
+    p0 = np.array([0.10, 0.08]) # Initial state uncertainty cauchy scaling parameter(s)
     b0 = np.zeros(ndim) # Initial median of system state
 
-    np.random.seed(15)
+    np.random.seed(19)
     num_steps = 10
 
     # Applying (arbitrary) controls to the estimator via 'B @ u'
@@ -71,7 +71,7 @@ def test_2state_lti_single_window():
     # Simulate system states and measurements
     x0_truth = p0 * np.random.randn(ndim)
     (xs, zs, ws, vs) = ce.simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H, gamma, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
-
+    
     # Run Cauchy Estimator
     ce.set_tr_search_idxs_ordering([1,0])
     cauchyEst = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
@@ -83,6 +83,8 @@ def test_2state_lti_single_window():
         zk1 = zs[i]
         uk = us[i-1] if num_controls > 0 else None 
         cauchyEst.step(zk1, uk)
+        X,Y,Z = cauchyEst.get_2D_pointwise_cpdf(-3,3,0.05, -3,3,0.05)
+        cauchyEst.plot_2D_pointwise_cpdf(X,Y,Z)
     ce.plot_simulation_history( cauchyEst.moment_info, (xs, zs, ws, vs), None )
     cauchyEst.shutdown()
 
@@ -421,7 +423,6 @@ def test_3state_marginal_cpdfs():
         plt.show()
         plt.close()
         
-
 # Runs the 3-state dummy problem and looks at their marginals
 def test_3state_reset():
     ndim = 3
@@ -456,13 +457,141 @@ def test_3state_reset():
     #cauchyEst2.step(zs[1])
     foobar = 2
 
+# Creates a single cauchy instance and then 
+def test_2state_smoothing():
+    # x_{k+1} = \Phi_k @ x_k + B_k @ u_k + \Gamma_k @ w_k
+    # z_k = H @ x_k + v_k
+    ndim = 2
+    Phi = np.array([ [0.9, 0.1], [-0.2, 1.1] ])
+    Gamma = np.array([.1, 0.3])
+    H = np.array([1.0, 2.0])
+    beta = np.array([0.1]) # Cauchy process noise scaling parameter(s)
+    gamma = np.array([0.2]) # Cauchy measurement noise scaling parameter(s)
+    A0 = np.eye(ndim) # Unit directions of the initial state uncertainty
+    p0 = np.array([0.10, 0.08]) # Initial state uncertainty cauchy scaling parameter(s)
+    b0 = np.zeros(ndim) # Initial median of system state
+
+    np.random.seed(1)
+    num_steps = 7
+
+    # Applying (arbitrary) controls to the estimator via 'B @ u'
+    num_controls = 0
+    B = np.random.randn(ndim,num_controls) if num_controls > 0 else  None
+    us = np.random.randn(num_steps, num_controls) if num_controls > 0 else  None
+    
+    # Simulate system states and measurements
+    x0_truth = p0 * np.random.randn(ndim)
+    (xs, zs, ws, vs) = ce.simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H, gamma, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
+    
+    cauchyEst = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
+    cauchyEst.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma, 0, 0)
+    xs_ce = [] 
+    Ps_ce = [] 
+    for i in range(num_steps+1):
+        x_ce, P_ce = cauchyEst.step(zs[i], None) # Step over all measurements simultaneously 
+        xs_ce.append(x_ce)
+        Ps_ce.append(P_ce)
+    xs_ce = np.array(xs_ce)
+    Ps_ce = np.array(Ps_ce)
+    cauchyEst.shutdown()
+
+    # Run Cauchy Smoother
+    ndim = ndim + num_steps
+    A0 = np.eye(ndim) # Unit directions of the initial state uncertainty
+    p0 = np.concatenate(( p0, np.repeat(beta, num_steps) )) # Initial state uncertainty cauchy scaling parameter(s)
+    b0 = np.zeros(ndim) # Initial median of system state
+    beta = np.array([]) # Cauchy process noise scaling parameter(s)
+    gamma = np.repeat(gamma, num_steps+1) # Cauchy measurement noise scaling parameter(s)
+    H_smooth = np.zeros((num_steps+1, ndim))
+    n = 2
+    p = 1
+    r = 1
+    for i in range(num_steps+1):
+        for j in range(i+1):
+            if j == 0:
+                H_smooth[i*p:(i+1)*p, j*n:(j+1)*n] = H @ np.linalg.matrix_power(Phi, i)
+            else:
+                H_smooth[i*p : (i+1)*p, n+(j-1)*r : n+j*r] = H @ np.linalg.matrix_power(Phi, i-j) @ Gamma 
+    _Phi = Phi 
+    _Gamma = Gamma 
+    Phi = np.eye(ndim) # not used
+    Gamma = np.zeros((ndim,0))
+
+    #H_smooth = np.flip(H_smooth, axis = 0)
+    #zs = np.flip(zs)
+    #rev_idxs = list(reversed(np.arange(ndim)))
+    #ce.set_tr_search_idxs_ordering( rev_idxs )
+
+    cauchyEst = ce.PyCauchyEstimator("lti", 1, debug_print=True)
+    cauchyEst.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H_smooth, gamma, 0, 0)
+    cauchyEst.step(zs, None) # Step over all measurements simultaneously 
+    cauchyEst.shutdown()
+    x_hat_large, P_hat_large = cauchyEst.get_last_mean_cov()
+    print("State History:\n", xs)
+    print("Process Noise History:\n", ws)
+    print("Large state est vector:", x_hat_large)
+    # Turn Smoother state vector into smoothed set of state estimates
+    xk = x_hat_large[0:n]
+    x_hats = [xk]
+    P11 = P_hat_large[0:2,0:2]
+    P_hat = P11.copy()
+    P_hats = [P11] 
+    n = 2
+    pncc = 1
+    G = _Gamma.reshape((n,pncc))
+    from numpy.linalg import matrix_power as MPOW
+    for idx in range(num_steps):
+        # Propagation of the conditional smoothed mean
+        xk = _Phi @ xk + _Gamma * x_hat_large[n+idx]
+        # Propagation of the conditional smoothed covariance
+        k = idx+2
+        km1 = k-1
+        km1Phi = MPOW(_Phi, km1)
+        t1 = km1Phi @ P11 @ km1Phi.T 
+        t2 = np.zeros((2,2))
+        t3 = np.zeros((2,2))
+        t4 = np.zeros((2,2))
+        for i in range(1,k):
+            wi_idx_start = n+(i-1)*pncc
+            wi_idx_stop = wi_idx_start + pncc
+            Pwix1 = P_hat_large[wi_idx_start:wi_idx_stop,0:n]
+            Px1wi = Pwix1.T
+            kmim1Phi = MPOW(_Phi, k-i-1)
+            _t = km1Phi @ Px1wi @ G.T @ kmim1Phi.T
+            t2 += _t 
+            t3 += _t.T #kmim1Phi @ G @ Pwix1 @ km1Phi.T
+        for i in range(1,k):
+            wi_idx_start = n+(i-1)*pncc
+            wi_idx_stop = wi_idx_start + pncc
+            for j in range(1,k):
+                wj_idx_start = n+(j-1)*pncc
+                wj_idx_stop = wj_idx_start + pncc
+                Pwiwj = P_hat_large[wi_idx_start:wi_idx_stop,wj_idx_start:wj_idx_stop]
+                kmim1Phi = MPOW(_Phi, k-i-1)
+                kmjm1Phi = MPOW(_Phi, k-j-1)
+                t4 += kmim1Phi @ G @ Pwiwj @ G.T @ kmjm1Phi.T
+        P_hat = t1 + t2 + t3 + t4
+        # Store
+        x_hats.append(xk)
+        P_hats.append(P_hat)
+    x_hats = np.array(x_hats) 
+    P_hats = np.array(P_hats) 
+    print("Estimator Means:\n", xs_ce)
+    print("Estimator Covs:\n", Ps_ce)
+
+    print("Smoothed x_hats:\n", x_hats)
+    print("Smoothed Covs:\n", P_hats)
+
+    print("Last Est Cov:\n", Ps_ce[-1])
+    print("Last Smoothed Cov:\n", P_hats[-1])
 
 if __name__ == "__main__":
     #test_1state_lti()
     #test_2state_cpdfs()
-    #test_2state_lti_single_window()
+    test_2state_lti_single_window()
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
-    test_3state_lti_window_manager()
+    #test_3state_lti_window_manager()
     #test_3state_marginal_cpdfs()
     #test_3state_reset()
+    #test_2state_smoothing()

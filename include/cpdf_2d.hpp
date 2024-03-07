@@ -172,6 +172,96 @@ C_COMPLEX_TYPE eval_term_for_2D_ucpdf_v2(double x1, double x2, double* A, double
     return (2 * term_integral * RECIPRICAL_TWO_PI_SQUARED) + 0*I;
 }
 
+// Non-Optimized version of eval_term_for_2D_ucpdf
+C_COMPLEX_TYPE _eval_term_for_2D_ucpdf_v2(double x1, double x2, double* A, double* p, double* b, GTABLE gtable, const int gtable_size, const int m)
+{
+    const int d = 2;
+    const int two_m = 2*m;
+    const int two_to_m_minus1 = 1 << (m-1);
+    const int two_to_m = (1<<m);
+    const int rev_m_mask = two_to_m - 1;
+    int enc_sv;
+    const double RECIPRICAL_TWO_PI = 1.0 / (2.0*PI);
+    const double RECIPRICAL_TWO_PI_SQUARED = RECIPRICAL_TWO_PI * RECIPRICAL_TWO_PI;
+    double thetas[two_m+1];
+    double SVs[2*m*m];
+    double* SV;
+    double A_scaled[m*d];
+    double* a;
+    get_cell_wall_angles(thetas, A, m); // angles of cell walls
+    get_SVs_of_2D_HPA(SVs, A, thetas, m, true); // SVs corresponding to cells within the above (sequential) cell walls
+    thetas[two_m] = thetas[0] + 2*PI;
+    for(int i = 0; i < m; i++)
+        for(int j = 0; j < d; j++)
+            A_scaled[i*d + j] = A[i*d + j] * p[i];
+
+    double gam1_real;
+    double gam2_real;
+    double gam1_imag = b[0] - x1;
+    double gam2_imag = b[1] - x2;
+    C_COMPLEX_TYPE g_val;
+    C_COMPLEX_TYPE gamma1;
+    C_COMPLEX_TYPE gamma2;
+    C_COMPLEX_TYPE integral_low_lim;
+    C_COMPLEX_TYPE integral_high_lim;
+    C_COMPLEX_TYPE integral_over_cell;
+    C_COMPLEX_TYPE term_integral = 0;
+    double theta1;
+    double theta2;
+    double sin_t1;
+    double cos_t1;
+    double sin_t2;
+    double cos_t2;
+    for(int i = 0; i < 2*m; i++)
+    {
+
+        // 1.) Encode SV and extract G in the i-th cell
+        SV = SVs + i*m;
+        enc_sv = 0;
+        for(int j = 0; j < m; j++)
+            if( SV[j] < 0 )
+                enc_sv |= (1 << j);
+        
+        // Overloading numerator lookup function to lookup gtable Gs (just replace "phc" definitions with "m" definitions, which is done here)
+        g_val = lookup_g_numerator(enc_sv, two_to_m_minus1, rev_m_mask, gtable, gtable_size, true);
+        //g_val = enc_sv & two_to_m_minus1 ? conj(gtable[enc_sv ^ rev_m_mask]) : gtable[enc_sv];
+        
+        // Evaluating the piece-wise integral within this cell
+
+        // 2.) Evaluate the real part of gamma1 parameter and real part of gamma2 parameter
+        gam1_real = 0;
+        gam2_real = 0;
+        for(int j = 0; j < m; j++)
+        {
+            a = A_scaled + j*d;
+            gam1_real -= a[0] * SV[j];
+            gam2_real -= a[1] * SV[j];
+        }
+        
+        // 3.) Form gamma1 and gamma2 and evaluate the analytic form of the integral
+        gamma1 = gam1_real + I*gam1_imag;
+        gamma2 = gam2_real + I*gam2_imag;
+
+        // Faster integral, some caching has been added
+        //sin(theta) / (gamma1*gamma1*cos(theta) + gamma1*gamma2*sin(theta));
+        gamma2 *= gamma1;
+        gamma1 *= gamma1;
+        theta1 = thetas[i];
+        theta2 = thetas[i+1];
+        sin_t1 = sin(theta1);
+        cos_t1 = cos(theta1);
+        sin_t2 = sin(theta2);
+        cos_t2 = cos(theta2);
+
+        integral_low_lim = sin_t1 / (gamma1*cos_t1 + gamma2*sin_t1);
+        integral_high_lim = sin_t2 / (gamma1*cos_t2 + gamma2*sin_t2);
+        integral_over_cell = integral_high_lim - integral_low_lim;
+        integral_over_cell *= g_val;
+        term_integral += integral_over_cell;
+    }
+    return term_integral * RECIPRICAL_TWO_PI_SQUARED;
+}
+
 // Evaluates the un-normalized conditional pdf the CF generates
 double eval_2D_ucpdf_at_x(double x1, double x2, CauchyEstimator* cauchyEst)
 {
@@ -375,13 +465,13 @@ struct PointWise2DCauchyCPDF
     // Calls threaded version of the above function
     int evaluate_point_wise_cpdf(CauchyEstimator* cauchyEst, const int num_threads)
     {
+        assert(num_threads > 1);
         if( (cauchyEst->master_step == cauchyEst->num_estimation_steps) && (SKIP_LAST_STEP == true) )
         {
             printf(RED "[Error CPDF Evaluation:] Cannot evaluate cauchy estimator cpdf for the last step since SKIP_LAST_STEP == true! (The G Tables were not created, as they were skipped!)" NC "\n");
             return 1;
         }
 
-        assert(num_threads > 1);
         const uint points_per_thread = (num_gridx * num_gridy) / num_threads;
         const uint last_thread_extra = (num_gridx * num_gridy) % num_threads;
         assert((points_per_thread*num_threads + last_thread_extra) == (num_gridx * num_gridy) );

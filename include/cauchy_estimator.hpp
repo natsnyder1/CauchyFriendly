@@ -1149,6 +1149,8 @@ struct CauchyEstimator
             printf("Deallocating memory after FTR took %d ms\n", tmr.cpu_time_used);   
             compute_moments(false);
         }
+        else
+            fz = 1 + 0*I;
     }
 
     void step_first(double msmt, double* H, double gamma)
@@ -1172,6 +1174,8 @@ struct CauchyEstimator
         gb_tables->swap_gtables();
         if(print_basic_info)
             compute_moments(false);
+        else
+            fz = 1 + 0*I;;
         memcpy(last_conditional_mean, conditional_mean, d*sizeof(C_COMPLEX_TYPE));
         memcpy(last_conditional_variance, conditional_variance, d*d*sizeof(C_COMPLEX_TYPE));
         last_fz = fz;

@@ -1889,6 +1889,7 @@ struct CauchyCPDFGridDispatcher1D
             printf(YEL "[WARN CauchyCPDFGridDispatcher1D:] Cannot evaluate cauchy estimator cpdf for the last step since SKIP_LAST_STEP == true! (The G Tables were not created, as they were skipped!)" NC "\n");
             return 1;
         }
+        
         if(num_grid_points < num_threads)
             num_threads = num_grid_points-1;
         // Evaluate first point and setup caching

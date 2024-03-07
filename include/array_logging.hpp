@@ -39,7 +39,8 @@ void check_dir_and_create(char* dir_path)
     printf("Directory opening failed!\n");
     assert(false);
   }
-  closedir(dir);
+  if( dir != NULL)
+    closedir(dir);
 }
 
 // For all window data
