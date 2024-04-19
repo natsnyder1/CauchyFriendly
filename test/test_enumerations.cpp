@@ -50,9 +50,9 @@ void test_single_enumerations()
 
 void test_enumeration_timing()
 {
-    const int iters = 10000;
-    const int m = 10;
-    const int d = 2;
+    const int iters = 5000;
+    const int m = 12;
+    const int d = 4;
     const int cells_cen = cell_count_central(m, d);
     double root_point[d];
     for(int i = 0; i < d; i++)

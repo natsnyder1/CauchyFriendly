@@ -2,7 +2,6 @@
 #cauchy_estimator.py
 #gaussian_filters.py
 #pycauchy.py
-eop_file.txt
-SpaceWeather-v1.2.txt
 gmat_py.py
 __pycache__
+.ipynb_checkpoints

@@ -213,7 +213,10 @@ struct CauchyTerm
             
             enc_lhp = enc_sgn_AH;
             if(phc < m)
-                enc_lhp &= ~mask_last_bit;
+            {
+                int clear_bits_above_phc = (1<<phc)-1;
+                enc_lhp &= clear_bits_above_phc;
+            }
             if(HALF_STORAGE)
             {
                 int mask_rev = (1<<m) - 1;

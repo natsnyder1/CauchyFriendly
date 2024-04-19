@@ -1734,7 +1734,6 @@ def discretize_nl_sys(JacA, G, Q, dt, order, with_Gamk = True, with_Wk = True):
         return Phi_k, Gam_k, W_k
     
     
-
 def discretize_nl_sys_proccess_noise(JacA, G, Q, dt, order):
     assert(JacA.ndim == 2)
     assert(G.ndim == 2)
@@ -1752,7 +1751,6 @@ def discretize_nl_sys_proccess_noise(JacA, G, Q, dt, order):
             Tk_coef = dt**(i+j+1) / (i+j+1)
             Q_k += tmp_i @ Q @ tmp_j.T * Tk_coef
     return Q_k
-
 
 # input: Continous time dynamics A, continous time PSD of full system state, dt 
 # Q should be positive semidefinite

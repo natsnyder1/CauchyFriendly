@@ -1358,16 +1358,16 @@ def test_gmat_ece7():
     # Cauchy and Kalman Tunables
     WITH_PLOT_ALL_WINDOWS = True
     WITH_SAS_DENSITY = True
-    WITH_ADDED_DENSITY_JUMPS = False
+    WITH_ADDED_DENSITY_JUMPS = True
     WITH_PLOT_MARG_DENSITY = False
-    reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
-    reinit_method = reinit_methods[1]
+    reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF", "diag_boosted"]
+    reinit_method = reinit_methods[6]
     r_sat = 550e3 #km
     std_gps_noise = 7.5 / 1e3 # kilometers
     dt = 60 
-    num_orbits = 40
-    num_windows = 4 # Number of Cauchy Windows
-    ekf_scale = 250 # Scaling factor for EKF atmospheric density
+    num_orbits = 1
+    num_windows = 3 # Number of Cauchy Windows
+    ekf_scale = 10000 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
     time_tag = False
@@ -1518,7 +1518,7 @@ def test_gmat_ece7():
     one_sigs_kf = np.array([ np.sqrt( np.diag(P_kf)* 1000**2) for P_kf in Ps_kf ])
     one_sigs_kf[:,6] /= 1000
     e_hats_kf = np.array([xt - xh for xt,xh in zip(xs,xs_kf) ]) * 1000
-    WITH_PLOT_KF_SEPERATELY = True
+    WITH_PLOT_KF_SEPERATELY = False
     if WITH_PLOT_KF_SEPERATELY:
         xs[:,0:6] *= 1000
         xs_kf[:,0:6] *= 1000
@@ -1554,7 +1554,7 @@ def test_gmat_ece7():
     zs_without_z0 = zs[1:]
 
     ce.set_tr_search_idxs_ordering([5,4,6,3,2,1,0])
-    debug_print = False
+    debug_print = True
     fermiSat.step()
     win_idxs = np.arange(num_windows)
     win_counts = np.zeros(num_windows, dtype=np.int64)
@@ -1625,6 +1625,15 @@ def test_gmat_ece7():
             _A0 = cauchyEsts[best_idx]._Phi.copy().reshape((7,7)).T # np.eye(5)
             _p0 = np.repeat(0.01, 7)
             win_moms[idx_min].append( cauchyEsts[idx_min].reset_with_last_measurement(1000*zk[2], _A0, _p0, b0, xhat) )
+        elif(reinit_method == "diag_boosted"):
+            _xbar = cauchyEsts[best_idx]._xbar[14:]
+            _dz = zk[2] - _xbar[2]
+            _dx = xhat - _xbar
+            _P = Phat + np.diag(np.ones(7)*1.0)
+            _H = np.zeros((3,7))
+            _H[0:3,0:3] = np.eye(3)
+            _A0, _p0, _b0 = ce.speyers_window_init(_dx, _P, _H[2,:], gamma[2], _dz)
+            win_moms[idx_min].append( cauchyEsts[idx_min].reset_with_last_measurement(zk[2], _A0, _p0, b0, _xbar) )
         elif("H2" in reinit_method):
             # Both H channels concatenated
             _H = np.array([1.0, 1.0, 1.0, 0, 0, 0, 0])
@@ -1768,7 +1777,7 @@ def test_gmat_ece7():
 def test_point_in_ellipse():
     from scipy.stats import chi2
     conf_int = 0.70
-    N_samples = 2000
+    N_samples = 200
     # find whether a point lies within the 1,2,3,4,5,6-sigma covariance ellipse
     P = np.array([2,1,1,2]).reshape((2,2))
     # The chi squared ppf which corresponds to some quantile (conf_int)
@@ -2338,6 +2347,6 @@ if __name__ == "__main__":
     #test_gmat_ekfs7()
     #test_gmat_ece7()
     #test_prediction_results()
-    #test_point_in_ellipse2()
+    test_point_in_ellipse()
     #test_mc_trial_logger()
-    test_mc_trial_prediction()
+    #test_mc_trial_prediction()

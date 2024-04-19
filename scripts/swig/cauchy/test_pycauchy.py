@@ -588,8 +588,8 @@ def test_2state_smoothing():
 if __name__ == "__main__":
     #test_1state_lti()
     #test_2state_cpdfs()
-    test_2state_lti_single_window()
-    #test_3state_lti_single_window()
+    #test_2state_lti_single_window()
+    test_3state_lti_single_window()
     #test_2state_lti_window_manager()
     #test_3state_lti_window_manager()
     #test_3state_marginal_cpdfs()

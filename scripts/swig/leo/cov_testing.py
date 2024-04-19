@@ -139,61 +139,194 @@ def test_along_cross_track_covariance_transformations():
     plt.show()
     foobar = 3
 
-def test_parametric_fit():
-    # Load Data 
-    dir_path = file_dir + "/pylog/gmat7/pred/" + "mcdata_gausstrials_25_1709746486.pickle"
-    print("Reading MC Data From: ", dir_path)
-    with open(dir_path, "rb") as handle:
-        mc_dic = pickle.load(handle)
-    # Obtain a trial
-    mc_trial = 0
-    xs,zs,ws,vs = mc_dic["sim_truth"][mc_trial]
-    xs_kf,Ps_kf = mc_dic["ekf_runs"][mc_trial]
+def cartesian2keplerian(x, is_units_km = True, with_print = False):
+    r = x[0:3].copy() # radius from earth center 
+    v = x[3:6].copy() # velocity of spacecraft
+    if not is_units_km:
+        r /= 1e3 # convert to kmeters
+        v /= 1e3 # convert to kmeters
+    rn = np.linalg.norm(r)
+    vn = np.linalg.norm(v)
+    mu = 3.9860044188e5 #km^3/(kg*s^2)
+    # Calculate Angular Momentum: h
+    h = np.cross(r,v)
+    hn = np.linalg.norm(h)
+    # Node vector (which points towards ascending node and the true anomoly)
+    n = np.cross( np.array([0,0,1.0]), h )
+    nn = np.linalg.norm(n)
+    # Eccentricity vector: evec
+    evec = ( (vn**2 - mu/rn) * r - (r @ v ) * v ) / mu 
+    # Eccentricity: e
+    e = np.linalg.norm(evec)
+    # Parabolic Orbit
+    if np.isclose(e, 1, rtol=0,atol=1e-6):
+        print("Warning, parabolic orbit has been detected! Not implemented!")
+        return None 
+    else:
+        # Specific mechanical energy: E
+        SME = vn**2/2 - mu/rn
+        # Semi major axis: a
+        a = -mu / (2*SME)
+        # Semi parameter: p
+        p = a*(1-e**2)
+        # Semi minor axis: b
+        b = a * (1-e**2)**0.5
+        # Apogee and Perigee 
+        apogee = a*(1+e)
+        perigee = a*(1-e)
+        # Orbit inclination angle: i 
+        i = np.arccos(h[2]/hn)
+        # Longitude of ascending node (or Right Ascension of Ascending Node - RAAN): Omega
+        if np.isclose(nn, 0, rtol=0, atol=1e-6):
+            Omega = "undefined for equitorial orbits"
+        else:
+            Omega = np.arccos(n[0]/nn)
+            if n[1] < 0:
+                Omega = 2*np.pi - Omega
+        # Circular Orbit 
+        if np.isclose(e, 0, rtol=0,atol=1e-6):
+            print("Circular orbit has been detected!") 
+            # True anomoly: nu
+            nu = "undefined for circular orbit"
+            # Eccentricity Anomoly: E
+            E = "undefined for circular orbit"
+            # argument of perigee: omega
+            omega = "undefined for circular orbit"
+            # Mean anomoly: M
+            M = "undefined for circular orbit"
+            # Longitude of perigee 
+            omega_tild = "undefined for circular orbit"
+            # True longitude of perigee
+            omega_tild_true = "undefined for circular orbit"
+            # Argument of latitude 
+            u = "undefined for circular orbit"
+            # True longitude
+            lam_true = "undefined for circular orbit"
 
-    # Fit line to a single orbit and plot fit and points
-    # Seems as though half orbit fit with 8th order is the best
-    fit_order = 8
-    Y = xs[0:44, 0:3]
-    ts = np.arange(Y.shape[0]) * (1.0*mc_dic["dt"])
-    ts /= ts[-1]
-    X = np.zeros((ts.size, fit_order+1))
-    for i in range(fit_order+1):
-        X[:,i] = ts**i
-    theta = np.linalg.inv(X.T @ X) @ X.T @ Y
-    Yest = X @ theta 
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
-    ax.scatter(Y[:,0], Y[:,1], Y[:,2], color='r')
-    ax.plot(Yest[:,0], Yest[:,1], Yest[:,2], color='b')
-    print("Max Residual is: ", np.max( np.sum((Y-Yest)**2,axis=1) ) )
-    # Now take later half of the orbit, reverse it
-    foobar=2
-    Y2 = xs[43:87, 0:3]
-    Y2 = np.flip(Y2, axis = 0)
-    ts = np.arange(Y2.shape[0]) * (1.0*mc_dic["dt"])
-    ts /= ts[-1]
-    X2 = np.zeros((ts.size, fit_order+1))
-    for i in range(fit_order+1):
-        X2[:,i] = ts**i
-    theta2 = np.linalg.inv(X2.T @ X2) @ X2.T @ Y2
-    Yest2 = X2 @ theta2
-    ax.scatter(Y2[:,0], Y2[:,1], Y2[:,2], color='k')
-    ax.plot(Yest2[:,0], Yest2[:,1], Yest2[:,2], color='g')
-    print("Max Residual is: ", np.max( np.sum((Y2-Yest2)**2,axis=1) ) )
+        # Elliptic orbit
+        else:
+            print("Elliptic orbit has been detected!") 
+            # True anomoly: nu
+            nu = np.arccos( (evec @ r) / (e*rn) )
+            if r @ v < 0:
+                nu = 2*np.pi - nu
+            # Eccentricity Anomoly: EA
+            E = 2 * np.arctan2(np.tan(nu/2) , np.sqrt( (1+e)/(1-e)) )
+            # Argument of perigee: omega
+            omega = np.arccos( (n @ evec) / (nn * e) )
+            if evec[2] < 0:
+                omega = 2*np.pi - omega
+            # Mean anomoly: M
+            M = E - e*np.sin(E)
+            # Longitude of perigee: omega_tild
+            if np.isclose(nn, 0, rtol=0, atol=1e-6):
+                omega_tild = "undefined for equitorial orbit"
+            else:
+                omega_tild = Omega + omega 
+            # True longitude of perigee: omega_tild_true
+            omega_tild_true = np.arccos( evec[0] / e)
+            if evec[1] < 0:
+                omega_tild_true = 2*np.pi - omega_tild_true
+            # Argument of latitude: u
+            if np.isclose(nn, 0, rtol=0, atol=1e-6):
+                u = "undefined for equitorial orbit"
+            else:
+                u = np.arccos( (n @ r) / (nn*rn) )
+                if r[2] < 0:
+                    u = 2*np.pi - u
+            # True longitude: lam_true
+            lam_true = np.arccos( r[0] / rn )
+            if r[1] < 0:
+                lam_true = 2*np.pi - lam_true
 
-    plt.figure()
-    diff = X @ (theta - theta2)
-    Ts = np.arange(diff.shape[0])
-    plt.subplot(3,1,1)
-    plt.plot(Ts, diff[:,0])
-    plt.subplot(3,1,2)
-    plt.plot(Ts, diff[:,1])
-    plt.subplot(3,1,3)
-    plt.plot(Ts, diff[:,2])
-    plt.show()
+    kepler_dic = {}
+    kepler_dic["evec"] = [evec, "eccentricity vector"]
+    kepler_dic["e"] = [e, "eccentricity"]
+    kepler_dic["n"] = [n, "node vector pointing towards ascending node / true anomoly"]
+    kepler_dic["SME"] = [SME, "Specific Mechanical Energy"]
+    kepler_dic["a"] = [a, "Semimajor axis"]
+    kepler_dic["b"] = [b, "Semiminor axis"]
+    kepler_dic["p"] = [p, "Semi-parameter"]
+    kepler_dic["E"] = [E, "Eccentric Anomoly"]
+    kepler_dic["apogee"] = [apogee, "farthest point to earth in orbit"]
+    kepler_dic["perigee"] = [perigee, "closest point to earth in orbit"]
+    kepler_dic["i"] = [i, "orbit inclination angle from plane of reference"]
+    kepler_dic["nu"] = [nu, "true anomoly"]
+    kepler_dic["omega"] = [omega, "argument of periapsis"]
+    kepler_dic["Omega"] = [Omega, "longitude of the ascending node, or Right Ascension of Ascending Node (RAAN)"]
+    kepler_dic["M"] = [M, "Mean anomoly"]
+    kepler_dic["omega_tild"] = [omega_tild, "Longitude of perigee"]
+    kepler_dic["omega_tild_true"] = [omega_tild_true, "True longitude of perigee"]
+    kepler_dic["u"] = [u, "Argument of latitude"]
+    kepler_dic["lam_true"] = [lam_true, "True longitude"]
+    kepler_dic["aeiOov"] = [ [a,e,i,Omega,omega,nu], kepler_dic["a"][1] + "; " + kepler_dic["e"][1] + "; " + kepler_dic["i"][1] + "; " + kepler_dic["Omega"][1] + "; " + kepler_dic["omega"][1] + "; " + kepler_dic["nu"][1] ]
+    if with_print:
+        print("Symbology Taken from 'Fundamentals of Astrodynamics and Applications'")
+        for k,v in kepler_dic.items():
+            print(k,":", v[0], "->", v[1]) 
+    return kepler_dic
 
-    foobar=2
+def convert_to_along_cross_radial_track(xkf_preds, Pkf_preds, xs, start_idx, with_plot = True):
+    es_track = [] 
+    Ps_track = []
+    Rs_track = []
+    for xhat,Phat,xt in zip(xkf_preds,Pkf_preds,xs[start_idx:,:]):
+        et, Pt, R = get_cross_along_radial_errors_cov(xhat, Phat[0:3,0:3], xt)
+        es_track.append(et)
+        Ps_track.append(Pt)
+        Rs_track.append(R)
+    es_track = np.array(es_track)
+    Ps_track = np.array(Ps_track)
+    Rs_track = np.array(Rs_track)
+    if with_plot:
+        sig_bound = np.array([np.diag(_P)**0.5 for _P in Ps_track])
+        Ts = np.arange(xs.shape[0])
+        plt.figure()
+        plt.suptitle("Predictor Along Track, Cross Track, Radial Track Errors vs 1-Sigma Bound")
+        plt.subplot(3,1,1)
+        plt.plot(Ts[start_idx:], es_track[:, 0], 'g--')
+        plt.plot(Ts[start_idx:], sig_bound[:, 0], 'm--')
+        plt.plot(Ts[start_idx:], -sig_bound[:, 0], 'm--')
+        plt.subplot(3,1,2)
+        plt.plot(Ts[start_idx:], es_track[:, 1], 'g--')
+        plt.plot(Ts[start_idx:], sig_bound[:, 1], 'm--')
+        plt.plot(Ts[start_idx:], -sig_bound[:, 1], 'm--')
+        plt.subplot(3,1,3)
+        plt.plot(Ts[start_idx:], es_track[:, 2], 'g--')
+        plt.plot(Ts[start_idx:], sig_bound[:, 2], 'm--')
+        plt.plot(Ts[start_idx:], -sig_bound[:, 2], 'm--')
+        plt.show()
+        foobar=2
+    return es_track, Ps_track, Rs_track
 
+def position_quantiles(quantiles, qs, xs_kf, Ps_kf, xs, start_idx, with_plot = True):
+    trial_filter_hits = np.zeros(qs.size)
+    min_n = np.min([xs_kf.shape[1], xs.shape[1]])
+    assert min_n >= 3
+    N = xs.shape[0]
+    for i in range(start_idx, N):
+        x_kf = xs_kf[i-start_idx]
+        P_kf = Ps_kf[i-start_idx]
+        e_kf = (xs[i, 0:min_n] - x_kf[0:min_n])[0:3]
+        Pinv = np.linalg.inv(P_kf[0:3, 0:3])
+        score = e_kf.T @ Pinv @ e_kf
+        hits = score < qs
+        #print("Score: {}, qs:{}".format(score, qs))
+        trial_filter_hits += hits
+    trial_filter_hits /= (N-start_idx)
+    print("Checking % Quantiles of:\n  ", quantiles)
+    print("Filter % Quantiles:\n  ", trial_filter_hits)
+    if with_plot:
+        xlabels = ["Q=" + str(q*100)+"%\n(Realized {})".format(np.round(trial_filter_hits[i]*100,2)) for i,q in enumerate(quantiles)]
+        bar_colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'tab:brown']
+        plt.figure()
+        plt.title(r"Trial Realization Error Quantiles of the Filtered Position Covariance $P_k$" + "\n" + r"Computed as $R_Q=\frac{\sum_{k=1}^N\mathbb{1}(s_k \leq s_{Q})}{N}, \quad s_k = e^T_k P^{-1}_k e_k,\quad e_k = x^k_{1:3} - \hat{x}^k_{1:3}$")
+        plt.ylabel("Trial Realization Quantiles Percentages " + r"$100*R_Q$")
+        plt.bar(xlabels, trial_filter_hits*100, color=bar_colors)
+        plt.xlabel("Total Filtering Steps in Realization={}, dt={} sec between steps".format(N, 60))
+        plt.show()
+        foobar = 2
+    return trial_filter_hits
 
 def test_convex_proc_noise_fit():
     from test_gmat_leo7 import FermiSatelliteModel
@@ -211,10 +344,11 @@ def test_convex_proc_noise_fit():
     fermiSat.create_model(with_jacchia=True, with_SRP=True)
     fermiSat.set_solve_for("Cd", mc_dic["sas_Cd"], mc_dic["std_Cd"], mc_dic["tau_Cd"], alpha=mc_dic["sas_alpha"])
 
-    # Get Chi-Squared Stats for 1 state
-    n_pred_states = 1
+    # Get Chi-Squared Stats for 1 state, 3 states 
+    n_pred_states = 3
     quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
-    qs = np.array([chi2.ppf(q, n_pred_states) for q in quantiles]) # quantile scores
+    qs1 = np.array([chi2.ppf(q, 1) for q in quantiles]) # quantile scores
+    qs3 = np.array([chi2.ppf(q, 3) for q in quantiles]) # quantile scores
 
     # Get sim length and set start index 
     N = mc_dic["sim_truth"][0][0].shape[0]
@@ -222,13 +356,6 @@ def test_convex_proc_noise_fit():
     mc_trials = mc_dic["trials"]
 
     # Get array of prediction steps vs chi squared bucket counts
-    sim_steps = N-start_idx
-    ellipsoid_trial_hits = np.zeros( (sim_steps, qs.size) )
-    ellipsoid_hits = np.zeros(qs.size)
-    ellipsoid_trial_scores = np.zeros(sim_steps)
-    ellipsoid_scores = np.zeros(sim_steps)
-    # Monte Carlo Stats
-    eIs = np.zeros((mc_trials, sim_steps, n_pred_states))
     Ts = np.arange(N) #* mc_dic["dt"]
     print("Loaded Data From: ", dir_path)
     # For each trial, 
@@ -255,57 +382,41 @@ def test_convex_proc_noise_fit():
                 P_kf = Phi @ P_kf @ Phi.T
             xkf_preds.append(x_kf[0:6])
             Pkf_preds.append(P_kf[0:3, 0:3])
-        es_track = [] 
-        Ps_track = []
-        Rs_track = []
-        for xhat,Phat,xt in zip(xkf_preds,Pkf_preds,xs[start_idx:,:]):
-            et, Pt, R = get_cross_along_radial_errors_cov(xhat, Phat[0:3,0:3], xt)
-            es_track.append(et)
-            Ps_track.append(Pt)
-            Rs_track.append(R)
-        es_track = np.array(es_track)
-        Ps_track = np.array(Ps_track)
-        Rs_track = np.array(Rs_track)
-        sig_bound = np.array([np.diag(_P)**0.5 for _P in Ps_track])
-        plt.figure()
-        plt.suptitle("Predictor Along Track, Cross Track, Radial Track Errors vs 1-Sigma Bound")
-        plt.subplot(3,1,1)
-        plt.plot(Ts[start_idx:], es_track[:, 0], 'g--')
-        plt.plot(Ts[start_idx:], sig_bound[:, 0], 'm--')
-        plt.plot(Ts[start_idx:], -sig_bound[:, 0], 'm--')
-        plt.subplot(3,1,2)
-        plt.plot(Ts[start_idx:], es_track[:, 1], 'g--')
-        plt.plot(Ts[start_idx:], sig_bound[:, 1], 'm--')
-        plt.plot(Ts[start_idx:], -sig_bound[:, 1], 'm--')
-        plt.subplot(3,1,3)
-        plt.plot(Ts[start_idx:], es_track[:, 2], 'g--')
-        plt.plot(Ts[start_idx:], sig_bound[:, 2], 'm--')
-        plt.plot(Ts[start_idx:], -sig_bound[:, 2], 'm--')
-        plt.show()
-        foobar=2
-
+        xkf_preds = np.array(xkf_preds)
+        Pkf_preds = np.array(Pkf_preds)
+        
+        #position_quantiles(quantiles, qs3, xkf_preds, Pkf_preds, xs, start_idx, with_plot = True)
+        es_track, Ps_track, Rs_track = convert_to_along_cross_radial_track(xkf_preds, Pkf_preds, xs, start_idx, with_plot = False)
+        
         # Setup convex optimization problem in along track direction
-        from_end = 3000 # Only optimize over start_idx to N minus from_end steps
-        s = qs[0]
+        from_end = 5000 # Only optimize over start_idx to N minus from_end steps
+        s = qs1[1]
+        track_sigmas = np.zeros(3)
         dt = mc_dic["dt"]
-        sigma2 = cp.Variable(1)
-        constr_list = [sigma2 >= 0] 
-        for idx in range(start_idx+1, N-from_end):
-            i = idx - start_idx
-            Ptt = Ps_track[i][0,0]
-            ett = es_track[i][0]
-            constr_list.append(sigma2 >= ett**2/(i*s*dt) - Ptt/(i*dt)) 
-        prob = cp.Problem(cp.Minimize(sigma2), constr_list)
-        prob.solve()
-        # Print result.
-        print("\nThe optimal value is", prob.value)
-        print("Optimal solution x is")
-        print(sigma2.value)
-        foobar=2
-        sigma2 = sigma2.value
-        # Now we can recompute the variance bounds using this additive found bound 
-        Ps_track[:,0,0] += np.arange(0,N-start_idx) * dt * sigma2
+        for j in range(3):
+            sigma2 = cp.Variable(1)
+            constr_list = [sigma2 >= 0] 
+            for idx in range(start_idx+1, N-from_end):
+                i = idx - start_idx
+                Ptt = Ps_track[i][j,j] * 1e6
+                ett = es_track[i][j] * 1e3
+                constr_list.append(sigma2 >=  (ett**2/(i*s*dt) - Ptt/(i*dt)) ) 
+            prob = cp.Problem(cp.Minimize(sigma2), constr_list)
+            prob.solve()
+            # Print result.
+            print("\nThe optimal value for j={} is {}".format(j,prob.value))
+            print("Optimal solution for j={} is {}".format(j, sigma2.value))
+            print(sigma2.value)
+            track_sigmas[j] = sigma2.value
+        track_sigmas = np.clip(track_sigmas, 0, np.inf)
+        track_sigmas /= 1e6
+
+        # Compute old variance bound 
+        sig_bound = np.array([np.diag(_P)**0.5 for _P in Ps_track])
+        # Now we can recompute the new variance bounds using this additive found bound 
+        Ps_track = np.array([_P + np.diag(track_sigmas)*i*dt for i,_P in enumerate(Ps_track)])
         sig_bound2 = np.array([np.diag(_P)**0.5 for _P in Ps_track])
+        
         plt.figure()
         plt.suptitle("Corrected Predictor Along Track, Cross Track, Radial Track Errors vs 1-Sigma Bound")
         plt.subplot(3,1,1)
@@ -318,10 +429,14 @@ def test_convex_proc_noise_fit():
         plt.plot(Ts[start_idx:], es_track[:, 1], 'g--')
         plt.plot(Ts[start_idx:], sig_bound[:, 1], 'm--')
         plt.plot(Ts[start_idx:], -sig_bound[:, 1], 'm--')
+        plt.plot(Ts[start_idx:], sig_bound2[:, 1], 'r--')
+        plt.plot(Ts[start_idx:], -sig_bound2[:, 1], 'r--')
         plt.subplot(3,1,3)
         plt.plot(Ts[start_idx:], es_track[:, 2], 'g--')
         plt.plot(Ts[start_idx:], sig_bound[:, 2], 'm--')
         plt.plot(Ts[start_idx:], -sig_bound[:, 2], 'm--')
+        plt.plot(Ts[start_idx:], sig_bound2[:, 2], 'r--')
+        plt.plot(Ts[start_idx:], -sig_bound2[:, 2], 'r--')
         plt.show()
         foobar=2
 
@@ -329,7 +444,7 @@ def test_convex_proc_noise_fit():
         sig_bound = np.array([np.diag(_P)**0.5 for _P in Ps])
         es = xs[start_idx:, :6] - xkf_preds
         plt.figure()
-        plt.suptitle("Corrected Predictor Along Track, Cross Track, Radial Track Errors vs 1-Sigma Bound")
+        plt.suptitle("Corrected Predictor Errors vs 1-Sigma Bound")
         plt.subplot(3,1,1)
         plt.plot(Ts[start_idx:], es[:, 0], 'g--')
         plt.plot(Ts[start_idx:], sig_bound[:, 0], 'm--')
@@ -343,11 +458,15 @@ def test_convex_proc_noise_fit():
         plt.plot(Ts[start_idx:], sig_bound[:, 2], 'm--')
         plt.plot(Ts[start_idx:], -sig_bound[:, 2], 'm--')
         plt.show()
+        position_quantiles(quantiles, qs3, xkf_preds, Ps, xs, start_idx, with_plot = True)
+        foobar=2
 
-
-
+def test_kepler():
+    x = np.array([6524.834, 6862.875, 6448.296, 4.901327, 5.533756, -1.976341])
+    cartesian2keplerian(x, is_units_km = True, with_print = True)
 
 if __name__ == '__main__':
     #test_along_cross_track_covariance_transformations()
     #test_parametric_fit()
-    test_convex_proc_noise_fit()
+    #test_convex_proc_noise_fit()
+    test_kepler()

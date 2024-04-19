@@ -262,8 +262,8 @@ void test_cauchy_four_state_two_pnoise()
                         0.0, 0.0, 0.0, 1.0};
   double Gamma[n*pncc] = {0.1,0.0,  
                           0.3,0.0,  
-                          -0.2, 0.0,  
-                          0.0, 1.0};
+                          0.2, 0.0,  
+                          0.0, -1.0};
   double H[n] = {0.4165285461783826, -0.60, -1.0, 1.0};
   double beta[pncc] = {0.1, 0.001};
   double gamma[p] = {0.2};
@@ -299,11 +299,11 @@ int main()
     printf("Size of Cauchy Term is %lu\n", sizeof(CauchyTerm));
     printf("Size of Cauchy Estimator is %lu\n", sizeof(CauchyEstimator));
     //test_cauchy_1_state_moshe();
-    test_cauchy_2_state_moshe();
+    //test_cauchy_2_state_moshe();
     //test_cauchy_3_state_moshe();
     //test_cauchy_4_state_moshe();
     //test_cauchy_3_state_moshe_3msmts();
     //test_cauchy_5_state_moshe();
-    //test_cauchy_four_state_two_pnoise();
+    test_cauchy_four_state_two_pnoise();
     return 0;
 }

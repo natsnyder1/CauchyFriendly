@@ -474,7 +474,7 @@ def test_python_debug_window_manager():
     leo = leo_satellite_7state(leo7_alt, leo7_A, leo7_m, leo7_gps_std_dev, leo7_dt)
 
     # Log or Load Setting
-    LOAD_RESULTS_AND_EXIT = False
+    LOAD_RESULTS_AND_EXIT = True
     WITH_LOG = False
     assert(not (LOAD_RESULTS_AND_EXIT and WITH_LOG))
 
@@ -483,10 +483,10 @@ def test_python_debug_window_manager():
     WITH_SAS_DENSITY = True
     WITH_ADDED_DENSITY_JUMPS = True
     WITH_PLOT_MARG_DENSITY = False
-    reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF"]
-    reinit_method = reinit_methods[0]
+    reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF", "diag_boosted"]
+    reinit_method = reinit_methods[6]
     prop_steps = 300 # Number of time steps to run sim
-    num_windows = 3 # Number of Cauchy Windows
+    num_windows = 5 # Number of Cauchy Windows
     ekf_scale = 1 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
@@ -661,6 +661,15 @@ def test_python_debug_window_manager():
             _A0 = cauchyEsts[best_idx]._Phi.copy().reshape((7,7)).T # np.eye(5)
             _p0 = p0.copy() #np.sqrt(np.diag(Ps_kf[k+1]))
             win_moms[idx_min].append( cauchyEsts[idx_min].reset_with_last_measurement(zk[2], _A0, _p0, b0, xhat) )
+        elif(reinit_method == "diag_boosted"):
+            _xbar = cauchyEsts[best_idx]._xbar[14:]
+            _dz = zk[2] - _xbar[2]
+            _dx = xhat - _xbar
+            _P = Phat + np.diag(np.ones(7)*1.0)
+            _H = np.zeros((3,7))
+            _H[0:3,0:3] = np.eye(3)
+            _A0, _p0, _b0 = ce.speyers_window_init(_dx, _P, _H[2,:], gamma[2], _dz)
+            win_moms[idx_min].append( cauchyEsts[idx_min].reset_with_last_measurement(zk[2], _A0, _p0, b0, _xbar) )
         elif("H2" in reinit_method):
             # Both H channels concatenated
             _H = np.array([1.0, 1.0, 1.0, 0, 0, 0, 0])
