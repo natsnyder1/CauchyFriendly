@@ -1,6 +1,10 @@
-% File: simulate_gaussian_ltiv_system.m
+% file : test_function.m 
+% this test function is an alternate version of simulate_gaussian_ltiv_system that is only used for testing
 
-function [xs, zs, ws, vs] = simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, V, with_zeroth_step_msmt, dynamics_update_callback, other_params)
+function [xs, zs, ws, vs] = test_function(num_steps, x0_truth, us, Phi, B, Gamma, W, H, V, with_zeroth_step_msmt, dynamics_update_callback, other_params)
+    data = load('random_noise_vectors.mat');
+    ws = data.ws;
+    vs = data.vs;
     if nargin < 10
         with_zeroth_step_msmt = true;
     end
@@ -37,20 +41,15 @@ function [xs, zs, ws, vs] = simulate_gaussian_ltiv_system(num_steps, x0_truth, u
     assert(~isempty(Gamma));
     assert(~isempty(W));
     Gamma = reshape(Gamma, numel(x0_truth), size(W,1));
-    v_zero_vec = zeros(size(V,1), 1);
-    w_zero_vec = zeros(size(W,1), 1);
     xk = x0_truth(:); % Force column vector
     
     xs = xk; % Initialize with the first state
     zs = []; % Initialize measurement history
-    ws = []; % Initialize process noise history
-    vs = []; % Initialize measurement noise history
     
     if with_zeroth_step_msmt
-        v0 = v_zero_vec + chol(V)' * randn(size(V, 1), 1);
+        v0 = vs(:, 1); % Use the first column (Python vs[:, 0] equivalent)
         z0 = H * xk + v0;
-        zs = z0; % Add initial measurement
-        vs = v0; % Add initial measurement noise
+        zs = [zs, z0];
     end
     
     for i = 1:num_steps
@@ -58,16 +57,14 @@ function [xs, zs, ws, vs] = simulate_gaussian_ltiv_system(num_steps, x0_truth, u
             dynamics_update_callback(Phi, B, Gamma, H, W, V, i - 1, other_params);
         end
         uk = us(i,:)';
-        wk = w_zero_vec + chol(W)' * randn(size(W, 1), 1);
+        wk = ws(:, i); % Use the preloaded process noise
         xk = Phi * xk + B * uk + Gamma * wk;
         
         xs = [xs xk]; % Concatenate to states matrix
-        ws = [ws wk]; % Concatenate to process noise matrix
-        
-        vk = v_zero_vec + chol(V)' * randn(size(V, 1), 1);
+        vk = vs(:, i); 
         zk = H * xk + vk;
         
         zs = [zs zk]; % Concatenate to measurement matrix
-        vs = [vs vk]; % Concatenate to measurement noise matrix
+
     end
 end
