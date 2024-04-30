@@ -9,72 +9,7 @@ from mpl_toolkits.mplot3d.proj3d import proj_transform
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 file_dir = os.path.dirname(os.path.abspath(__file__))
 import cvxpy as cp
-from scipy.stats import chi2 
-
-
-class Arrow3D(FancyArrowPatch):
-
-    def __init__(self, x, y, z, dx, dy, dz, *args, **kwargs):
-        super().__init__((0, 0), (0, 0), *args, **kwargs)
-        self._xyz = (x, y, z)
-        self._dxdydz = (dx, dy, dz)
-
-    def draw(self, renderer):
-        x1, y1, z1 = self._xyz
-        dx, dy, dz = self._dxdydz
-        x2, y2, z2 = (x1 + dx, y1 + dy, z1 + dz)
-
-        xs, ys, zs = proj_transform((x1, x2), (y1, y2), (z1, z2), self.axes.M)
-        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
-        super().draw(renderer)
-        
-    def do_3d_projection(self, renderer=None):
-        x1, y1, z1 = self._xyz
-        dx, dy, dz = self._dxdydz
-        x2, y2, z2 = (x1 + dx, y1 + dy, z1 + dz)
-
-        xs, ys, zs = proj_transform((x1, x2), (y1, y2), (z1, z2), self.axes.M)
-        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
-        return np.min(zs) 
-
-def _arrow3D(ax, x, y, z, dx, dy, dz, *args, **kwargs):
-    '''Add an 3d arrow to an `Axes3D` instance.'''
-
-    arrow = Arrow3D(x, y, z, dx, dy, dz, *args, **kwargs)
-    ax.add_artist(arrow)
-
-setattr(Axes3D, 'arrow3D', _arrow3D)
-
-def euler_angles_to_rotation_matrix(yaw, pitch, roll):
-    cosY = np.cos(yaw)
-    sinY = np.sin(yaw)
-    cosP = np.cos(pitch)
-    sinP = np.sin(pitch)
-    cosR = np.cos(roll)
-    sinR = np.sin(roll)
-    R = np.array([[ cosP*cosY, cosP*sinY, -sinP],
-                  [-cosR*sinY + cosY*sinP*sinR, cosR*cosY + sinP*sinR*sinY, cosP*sinR],
-                  [ cosR*cosY*sinP + sinR*sinY, cosR*sinP*sinY - cosY*sinR, cosP*cosR]])
-    return R
-
-def create_unit_sphere(yaw_increment, angle_increment):
-    num_ang_incrs = int(np.pi / angle_increment + 1)
-    num_yaw_incrs = int(2*np.pi / yaw_increment + 1)
-    angs = np.linspace(0,np.pi, num_ang_incrs)
-    yaws = np.linspace(0,2*np.pi, num_yaw_incrs)
-    plane_points = np.array([ (np.cos(y), np.sin(y), 0) for y in yaws])
-
-    points = plane_points.copy()
-    # Roll rotation
-    for ang in angs[1:-1]:
-        R = euler_angles_to_rotation_matrix(0, 0, ang)
-        points = np.vstack((points, plane_points @ R)) # (R.T @ plane_points[i,:].T)
-    
-    # Roll rotation
-    for ang in angs[1:-1]:
-        R = euler_angles_to_rotation_matrix(0, ang, 0)
-        points = np.vstack((points, plane_points @ R)) # (R.T @ plane_points[i,:].T)
-    return points 
+import pc_prediction as pc 
 
 def get_cross_along_radial_errors_cov(xhat, Phat, xt):
     # position and velocity 3-vector components
@@ -116,7 +51,7 @@ def test_along_cross_track_covariance_transformations():
     et = xt - x_kf
     D, V = np.linalg.eig(P_kf[0:3,0:3])
     E1 = V @ np.diag(D)**0.5
-    unitsphere = create_unit_sphere(15 * np.pi/180, 15 * np.pi/180)
+    unitsphere = pc.create_unit_sphere(15 * np.pi/180, 15 * np.pi/180)
     ellipse_points = (E1 @ unitsphere.T).T
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
@@ -347,8 +282,8 @@ def test_convex_proc_noise_fit():
     # Get Chi-Squared Stats for 1 state, 3 states 
     n_pred_states = 3
     quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
-    qs1 = np.array([chi2.ppf(q, 1) for q in quantiles]) # quantile scores
-    qs3 = np.array([chi2.ppf(q, 3) for q in quantiles]) # quantile scores
+    qs1 = np.array([pc.chi2.ppf(q, 1) for q in quantiles]) # quantile scores
+    qs3 = np.array([pc.chi2.ppf(q, 3) for q in quantiles]) # quantile scores
 
     # Get sim length and set start index 
     N = mc_dic["sim_truth"][0][0].shape[0]
@@ -466,7 +401,7 @@ def test_kepler():
     cartesian2keplerian(x, is_units_km = True, with_print = True)
 
 if __name__ == '__main__':
-    #test_along_cross_track_covariance_transformations()
+    test_along_cross_track_covariance_transformations()
     #test_parametric_fit()
     #test_convex_proc_noise_fit()
-    test_kepler()
+    #test_kepler()

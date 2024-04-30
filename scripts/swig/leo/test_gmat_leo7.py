@@ -507,6 +507,13 @@ class FermiSatelliteModel():
         xk = np.zeros(6 + num_sf)
         return np.array(self.gator.GetState() + self.solve_for_states)
 
+    def get_state6_derivatives(self):
+        pstate = self.gator.GetState() #sat.GetState().GetState()
+        self.fm.GetDerivatives(pstate, dt=self.dt, order=1) #, dt=dt) #, dt=dt, order=1) #, t, 2, -1)
+        fdot = self.fm.GetDerivativeArray()
+        dx_dt = np.array(fdot[0:6])
+        return dx_dt
+
     # Set Other Estimation Variables
     def set_solve_for(self, field = "Cd", dist="gauss", scale = -1, tau = -1, alpha = None):
         assert self.is_model_constructed
@@ -590,8 +597,8 @@ class FermiSatelliteModel():
                 # If with added density jumps is toggled
                 if with_density_jumps:
                     j = self.solve_for_fields.index("Cd")
-                    if i == 1200:
-                        wk[6+j] = 4.5
+                    if i == 800:
+                        wk[6+j] = 6.5
                         self.solve_for_states[j] += wk[6+j]
                         new_nom_val = self.solve_for_nominals[j] * (1 + self.solve_for_states[j])
                         self.sat.SetField(self.solve_for_fields[j], new_nom_val)
@@ -869,7 +876,7 @@ def test_gmat_ekf7():
     x0 /= 1e3 # kilometers
     std_gps_noise = 7.5 / 1e3 # kilometers
     dt = 60 
-    num_orbits = 10
+    num_orbits = 1
     # Process Noise Model
     W = leo6_process_noise_model(dt)
     # Create Satellite Model 
@@ -1324,8 +1331,9 @@ def plot_all_windows(win_moms, xs_true, e_hats_kf, one_sigs_kf, best_idx, idx_mi
     plt.show()
     plt.close('all')
 
-def get_cross_along_radial_errors_cov(xhat, Phat, xt):
+def _legacy_get_cross_along_radial_trans(xhat):
     # position and velocity 3-vector components
+    # I think this one is slighlty worng
     rh = xhat[0:3]
     rhn = np.linalg.norm(rh)
     vh = xhat[3:6]
@@ -1334,7 +1342,25 @@ def get_cross_along_radial_errors_cov(xhat, Phat, xt):
     uv = vh / vhn # x-axis - along track
     ur = rh / rhn # z-axis - radial
     uc = np.cross(ur, uv) # y-axis - cross track direction is radial direction cross_prod along track direction
-    R = np.vstack((uv,uc,ur))
+    uc /= np.linalg.norm(uc)
+    R = np.vstack( (uv,uc,ur) )
+
+def get_cross_along_radial_errors_cov(xhat, Phat, xt):
+    # position and velocity 3-vector components
+    rh = xhat[0:3]
+    vh = xhat[3:6]
+    rhn = np.linalg.norm(rh)
+    vhn = np.linalg.norm(vh)
+    # Radial Direction -- direction of position vector
+    ur = rh / rhn # z-axis
+    # Cross Track -- in the direction of the angular momentum vector (P cross V)
+    uc = np.cross(rh, vh) # y-axis - cross track direction is radial direction cross_prod along track direction
+    uc /= np.linalg.norm(uc)
+    # Along Track -- will be coincident with the velocity vector for a perfectly circular orbit.    
+    ua = np.cross(uc,ur)
+    ua /= np.linalg.norm(ua)
+    # Along, Cross, Radial
+    R = np.vstack( (ua,uc,ur) )
 
     # Error w.r.t input coordinate frame 
     e = xt[0:3] - xhat[0:3]
@@ -1342,7 +1368,6 @@ def get_cross_along_radial_errors_cov(xhat, Phat, xt):
     e_track = R @ e
     # Error Covariance w.r.t track frame
     P_track = R @ Phat @ R.T 
-
     return e_track, P_track, R
 
 def test_gmat_ece7():
@@ -1924,7 +1949,7 @@ def test_mc_trial_logger():
     H = np.hstack((np.eye(3), np.zeros((3,n-3))))
     for trial in range(mc_trials):
         print("Trial {}/{}".format(trial+1, mc_trials))
-        xs, zs, ws, vs = fermiSat.simulate(num_orbits, W=None, with_density_jumps=False)
+        xs, zs, ws, vs = fermiSat.simulate(num_orbits, W=None, with_density_jumps=True)
         mc_dic["sim_truth"].append((xs,zs,ws,vs))
 
         # Setup Kalman Filter
@@ -2063,7 +2088,7 @@ def test_mc_trial_logger():
 
 def test_mc_trial_prediction():
     # Load Data 
-    dir_path = file_dir + "/pylog/gmat7/pred/" + "mcdata_gausstrials_2_1709759984.pickle"
+    dir_path = file_dir + "/pylog/gmat7/pred/" + "mcdata_sastrials_2_1713828844.pickle"
     print("Reading MC Data From: ", dir_path)
     with open(dir_path, "rb") as handle:
         mc_dic = pickle.load(handle)
@@ -2191,8 +2216,8 @@ def test_mc_trial_prediction():
         xkf_preds = [] 
         Pkf_preds = [] 
         ellipsoid_trial_scores *= 0
-        Wn *= 0
-        Wn[0,0] = 1e-5
+        #Wn *= 0
+        #Wn[0,0] = 1e-5
         for idx in range(start_idx, N):
             # Propagate State and Covariance
             if idx != start_idx:
@@ -2335,7 +2360,6 @@ def test_mc_trial_prediction():
     foobar=2
 
 
-
 if __name__ == "__main__":
     #tut1_simulating_an_orbit()
     #fermi_sat_prop()
@@ -2347,6 +2371,6 @@ if __name__ == "__main__":
     #test_gmat_ekfs7()
     #test_gmat_ece7()
     #test_prediction_results()
-    test_point_in_ellipse()
+    #test_point_in_ellipse()
     #test_mc_trial_logger()
-    #test_mc_trial_prediction()
+    test_mc_trial_prediction()
