@@ -63,17 +63,11 @@ print("\nPython Shapes:\nxs_kf:", xs_kf_py.shape, "\nPs_kf:", Ps_kf_py.shape, "\
 print("\nMatlab Shapes:\nxs_kf:", xs_kf_matlab.shape, "\nPs_kf:", Ps_kf_matlab.shape, "\n")
 print("Note that the Python Shapes in this test have been transposed, because numpy arrays are row-major and matlab arrays are column-major\n")
 
-# print("xs_kf_py: ", xs_kf_py)
-# print("\nxs_kf_matlab: ", xs_kf_matlab)
-# print("\nPs_kf_py: ", Ps_kf_py)
-# print("\nPs_kf_matlab: ", Ps_kf_matlab)
-
 # Compare outputs
-assert np.allclose(xs_kf_py, xs_kf_matlab, rtol=1e-1, atol=1e-2)
-assert np.allclose(Ps_kf_py, Ps_kf_matlab, rtol=1e-1, atol=1e-2)
+assert np.allclose(xs_kf_py, xs_kf_matlab)
+assert np.allclose(Ps_kf_py, Ps_kf_matlab)
 
-print("Outputs from Python and MATLAB versions match.")
-print("The tolerance in these tests is 1e-2 due to differences in floating point arithmetic in matlab and python\n")
+print("Outputs from Python and MATLAB versions match.\n")
 
 scipy.io.savemat('kalman_filter_outputs.mat', {
     'xs_kf_py': xs_kf_py.T,

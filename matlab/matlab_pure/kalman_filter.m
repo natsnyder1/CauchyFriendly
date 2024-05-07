@@ -11,9 +11,9 @@ function [xhat, P, r, K] = kalman_filter(x, u, msmt, P, Phi, B, Gam, H, W, V)
     
     % Propagate Dynamics
     xbar = Phi * x + B * u;
-    
+   
     % A Priori Covariance Matrix
-    M = Phi * P * Phi' + Gam * W * Gam';
+    M = Phi * P * Phi' + Gam' * W * Gam;
     
     % Update Kalman Gain
     K = M * H' / (H * M * H' + V);
