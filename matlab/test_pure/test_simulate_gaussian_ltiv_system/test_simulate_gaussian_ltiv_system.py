@@ -70,9 +70,7 @@ def simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, 
 
     return xs, zs, ws, vs
 
-def run_python_version():
-    # Load random initial state from .mat file
-    
+def run_python_simulation():
     
     # Define input parameters
     Phi = np.array([ [0.9, 0.1], [-0.2, 1.1] ])
@@ -97,7 +95,7 @@ def run_python_version():
     
     return xs_py, zs_py, ws_py, vs_py
 
-def run_matlab_version():
+def run_matlab_simulation():
     # Construct the MATLAB command to execute the script with the full MATLAB path
     matlab_executable = "/Applications/MATLAB_R2024a.app/bin/matlab"
     matlab_script_path = 'test_simulate_gaussian_ltiv_system.m'
@@ -120,8 +118,11 @@ def run_matlab_version():
     return xs_matlab, zs_matlab, ws_matlab, vs_matlab
 
 # Run both versions
-xs_py, zs_py, ws_py, vs_py = run_python_version()
-xs_matlab, zs_matlab, ws_matlab, vs_matlab = run_matlab_version()
+xs_py, zs_py, ws_py, vs_py = run_python_simulation()
+xs_matlab, zs_matlab, ws_matlab, vs_matlab = run_matlab_simulation()
+
+if os.path.exists('random_noise_vectors.mat'):
+    os.remove('random_noise_vectors.mat')
 
 print("\nPython Shapes:\nState Hist Shape:", xs_py.shape, "\nMeasurement Hist Shape:", zs_py.shape, "\nProcess Noise Hist Shape:",ws_py.shape, "\nMeasurement Noise Hist Shape:", vs_py.shape, "\n")
 print("Matlab Shapes:\nState Hist Shape:", xs_matlab.shape, "\nMeasurement Hist Shape:", zs_matlab.shape, "\nProcess Noise Hist Shape:",ws_matlab.shape, "\nMeasurement Noise Hist Shape:", vs_matlab.shape, "\n")
@@ -134,3 +135,14 @@ assert np.allclose(ws_py, ws_matlab)
 assert np.allclose(vs_py, vs_matlab)
 
 print("Outputs from Python and MATLAB versions match.\n")
+
+# Save outputs to a separate file that can be used by other functions
+scipy.io.savemat('gaussian_simulation_outputs.mat', {
+    'xs_py': xs_py.T,
+    'zs_py': zs_py.T,
+    'ws_py': ws_py.T,
+    'vs_py': vs_py.T,
+    'xs_matlab': xs_matlab,
+    'zs_matlab': zs_matlab,
+    'ws_matlab': ws_matlab,
+    'vs_matlab': vs_matlab})
