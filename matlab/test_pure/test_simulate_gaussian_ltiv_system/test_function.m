@@ -61,7 +61,11 @@ function [xs, zs, ws, vs] = test_function(num_steps, x0_truth, us, Phi, B, Gamma
         xk = Phi * xk + B * uk + Gamma * wk;
         
         xs = [xs xk]; % Concatenate to states matrix
-        vk = vs(:, i); 
+        if with_zeroth_step_msmt
+            vk = vs(:, i+1); 
+        else
+            vk = vs(:, i); 
+        end
         zk = H * xk + vk;
         
         zs = [zs zk]; % Concatenate to measurement matrix
