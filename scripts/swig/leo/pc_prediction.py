@@ -6,7 +6,12 @@ import matplotlib
 matplotlib.use('TkAgg',force=True)
 from mpl_toolkits.mplot3d.proj3d import proj_transform
 from mpl_toolkits.mplot3d.axes3d import Axes3D
+from datetime import datetime 
+from datetime import timedelta 
 from scipy.stats import chi2  
+import copy 
+import gmat_sat as gsat 
+
 
 # Fancy Arrow Patch for MPL
 class Arrow3D(FancyArrowPatch):
@@ -154,6 +159,7 @@ def _quintic_poly_fit_and_eval(troot, r, drdt, d2rdt2):
         dcord += troot**(i-1) * poly_coefs[i] * i
     return cord, dcord
 
+# Method from alfanso book
 def closest_approach_info(tks, prim_tup, sec_tup):
     # Unpack the projected position, velocity and acceleration of the primary satellite
     p_pks, p_vks, p_aks = prim_tup 
@@ -176,12 +182,14 @@ def closest_approach_info(tks, prim_tup, sec_tup):
     # 2.) closest approach time localized on interval [i,i+1] in range [0,1]
     # 3.) closest approach time "t_c" in seconds
     # 4.) position of primary at closest approach "pp_c"
-    # 5.) position of secondary at closest approach "sp_c"
+    # 5.) velocity of primary at closest approach "pv_c"
+    # 6.) position of secondary at closest approach "sp_c"
+    # 7.) velocity of secondary at closest approach "sv_c"
 
     if i_star == 0:
-        return i_star, 0, tks[i_star], p_pks[i_star], s_pks[i_star]
+        return i_star, 0, tks[i_star], p_pks[i_star], p_vks[i_star], s_pks[i_star], s_vks[i_star],
     elif i_star == tks.size-1:
-        return i_star, 1, tks[i_star], p_pks[i_star], s_pks[i_star]
+        return i_star, 1, tks[i_star], p_pks[i_star], p_vks[i_star], s_pks[i_star], s_vks[i_star],
     else:
         idxs = [i_star-1,i_star,i_star+1]
         # Form relative differences and the derivatives on the idxs interval -- eqns 14-16
@@ -229,10 +237,167 @@ def closest_approach_info(tks, prim_tup, sec_tup):
         # 2.) closest approach time localized on interval [i,i+1] in range [0,1]
         # 3.) closest approach time "t_c" in seconds
         # 4.) position of primary at closest approach "pp_c"
-        # 5.) position of secondary at closest approach "sp_c"
+        # 5.) velocity of primary at closest approach "pv_c"
+        # 6.) position of secondary at closest approach "sp_c"
+        # 7.) velocity of secondary at closest approach "sv_c"
         return i, troot, t_c, pp_c, pv_c, sp_c, sv_c
 
-def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc, scales = (0.0,0.0,0.0), plot_var_3D=False, plot_var_2D=True, indiv_var=True, mc_runs_prim = None, mc_runs_sec = None):
+# This seems to work really nicely, converging to the limit of gmats step
+def iterative_time_closest_approach(dt, _t0, prim_tup, sec_tup, start_idx = 0, its = -1, with_plot=True):
+    # For now this function assumes an integer time step
+    assert(int(dt) == dt)
+    assert(dt > 0)
+    # Initial iteration
+    p_pks,p_vks,p_aks = copy.deepcopy(prim_tup)
+    s_pks,s_vks,s_aks = copy.deepcopy(sec_tup)
+    t0 = copy.deepcopy(_t0)
+    tks = np.arange(p_pks.shape[0]) * dt
+    # Find the index of closest position between the two vehicles
+    i = np.argmin( np.sum( (s_pks[start_idx:,:] - p_pks[start_idx:,:])**2, axis=1) ) # eq 13
+    i += start_idx
+    if (i == start_idx) or (i == s_pks[start_idx:,:].shape[0]):
+        print("Index range is bad! Use the norm plotter to select a more appropriate index range!")
+        return None,None,None,None,None,None,None
+    
+    # Idea is just invoke propagator smartly until last round. FIX PAST HERE
+    
+    # Left hand side of interval
+    _dt = dt
+    i_star_lhs = i
+    t_lhs = tks[i]
+    i -= 1 # start here and go two in front at new dt
+
+    if with_plot:
+        fig = plt.figure() 
+        ax = fig.gca(projection='3d')
+        plt.title("LEO Primary (red) vs. Secondary (blue) trajectory over time")
+        ax.scatter(p_pks[start_idx:i+2,0], p_pks[start_idx:i+2,1], p_pks[start_idx:i+2,2], color = 'r')
+        ax.scatter(s_pks[start_idx:i+2,0], s_pks[start_idx:i+2,1], s_pks[start_idx:i+2,2], color = 'b')
+        ax.set_xlabel("x-axis (km)")
+        ax.set_ylabel("y-axis (km)")
+        ax.set_zlabel("z-axis (km)")
+        # Plot relative difference in position
+        fig2 = plt.figure()
+        plt.title("Norm of Position Difference between Primary and Secondary")
+        plt.plot(tks[start_idx:i+2], np.linalg.norm(p_pks[start_idx:i+2]-s_pks[start_idx:i+2], axis=1))
+        plt.xlabel("Time (sec)")
+        plt.ylabel("2-norm of position difference (km)")
+        plt.show()
+        foobar=5
+
+    
+    dts = [10,1,0.1,0.01,0.001]
+    substeps = [int(2*dt/dts[0]),20,20,20,20]
+    it_idx = 0 
+    while dts[it_idx] > dt:
+        it_idx += 1
+    assert (dt % dts[it_idx]) == 0
+    its = 5 if its == -1 else its 
+    for it in range(it_idx, its):
+        x0_prim = np.concatenate( (p_pks[i],p_vks[i]) )
+        x0_sec  = np.concatenate( (s_pks[i],s_vks[i]) )
+        dt = dts[it]
+        t0 = t0 + timedelta( seconds = tks[i] )
+        tks = tks[i] + np.arange(substeps[it]+1) * dt
+        
+        # Now run the primary over the subinterval i to i+1
+        fermiSat = gsat.FermiSatelliteModel(t0, x0_prim, dt)
+        fermiSat.create_model(with_jacchia=True, with_SRP=True)
+        p_pks = [] # Primary Pos 3-Vec
+        p_vks = [] # Primary Vel 3-Vec
+        p_aks = [] # Primary Acc 3-Vec
+        # Propagate Primary and Store
+        xk = x0_prim.copy()
+        for i in range(substeps[it]+1):
+            dxk_dt = fermiSat.get_state6_derivatives() 
+            p_pks.append(xk[0:3])
+            p_vks.append(xk[3:6])
+            p_aks.append(dxk_dt[3:6])
+            xk = fermiSat.step()
+        p_pks = np.array(p_pks)
+        p_vks = np.array(p_vks)
+        p_aks = np.array(p_aks)
+        fermiSat.clear_model()
+
+        # Create Satellite Model for Secondary
+        fermiSat = gsat.FermiSatelliteModel(t0, x0_sec, dt)
+        fermiSat.create_model(with_jacchia=True, with_SRP=True)
+        s_pks = [] # Secondary Pos 3-Vec
+        s_vks = [] # Secondary Vel 3-Vec
+        s_aks = [] # Secondary Acc 3-Vec
+        # Propagate Secondary and Store
+        xk = x0_sec.copy()
+        for i in range(substeps[it]+1):
+            dxk_dt = fermiSat.get_state6_derivatives() 
+            s_pks.append(xk[0:3])
+            s_vks.append(xk[3:6])
+            s_aks.append(dxk_dt[3:6])
+            xk = fermiSat.step()
+        s_pks = np.array(s_pks)
+        s_vks = np.array(s_vks)
+        s_aks = np.array(s_aks)
+        fermiSat.clear_model()
+
+        if it < 4:
+            i = np.argmin( np.sum( (s_pks - p_pks)**2, axis=1) ) - 1
+        else:
+            # Now re-run the closest approach routine
+            i, troot, t_c, pp_c, pv_c, sp_c, sv_c = closest_approach_info(tks, (p_pks,p_vks,p_aks), (s_pks,s_vks,s_aks))
+
+            print("Iteration: ", it + 1, " (timestamp)")
+            print("Step dt: ", dt, "(sec)")
+            print("Tc: {} (sec), Idx of Tc: {}".format(t_c, i) )
+            print("Primary at Tc: ", pp_c, "(km)")
+            print("Secondary at Tc: ", sp_c, "(km)")
+            print("Pos Diff is: ", pp_c-sp_c, "(km)")
+            print("Pos Norm is: ", 1000*np.linalg.norm(pp_c-sp_c), "(m)")
+
+        if with_plot:
+            # Black points give found interval, # green point are +/- 1 buffers
+            fig = plt.figure() 
+            ax = fig.gca(projection='3d')
+            plt.title("Leo Trajectory over Time")
+            ax.scatter(p_pks[:i+2,0], p_pks[:i+2,1], p_pks[:i+2,2], color = 'r')
+            ax.scatter(s_pks[:i+2,0], s_pks[:i+2,1], s_pks[:i+2,2], color = 'b')
+            ax.scatter(p_pks[i,0], p_pks[i,1], p_pks[i,2], color = 'k')
+            ax.scatter(p_pks[i+1,0], p_pks[i+1,1], p_pks[i+1,2], color = 'k')
+            ax.scatter(s_pks[i,0], s_pks[i,1], s_pks[i,2], color = 'k')
+            ax.scatter(s_pks[i+1,0], s_pks[i+1,1], s_pks[i+1,2], color = 'k')
+            ax.set_xlabel("x-axis (km)")
+            ax.set_ylabel("y-axis (km)")
+            ax.set_zlabel("z-axis (km)")
+            
+            dist_norm = np.linalg.norm(p_pks[:i+5]-s_pks[:i+5], axis=1)
+            fig2 = plt.figure()
+            plt.title("Norm of Position Difference between Primary and Secondary")
+            plt.plot(tks[:i+5], dist_norm)
+            plt.scatter(tks[i-1], dist_norm[i-1], color='g')
+            plt.scatter(tks[i], dist_norm[i], color='k')
+            plt.scatter(tks[i+1], dist_norm[i+1], color='k')
+            plt.scatter(tks[i+2], dist_norm[i+2], color='g')
+            plt.xlabel("Time (sec)")
+            plt.ylabel("2-norm of position difference (km)")
+            plt.show()
+            foobar=3
+    
+    if( t_c < t_lhs ):
+        t_lhs -= _dt 
+        i_star_lhs -= 1
+    # i_star_lhs -> The nominal propagation index to stop at 
+    # t_lhs -> The time at the nominal propagation index 
+    # t_c -> The final time of closest approach 
+    # pp_c -> The position of the primary at closest approach 
+    # pv_c -> The velocity of the primary at closest approach 
+    # sp_c -> The position of the secondary at closest approach
+    # sv_c -> The velocity of the secondary at closest approach 
+    return i_star_lhs, t_lhs, t_c, pp_c, pv_c, sp_c, sv_c
+
+def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc, 
+    scales = (0.0,0.0,0.0), 
+    plot_var_3D=False, plot_var_2D=True, indiv_var=True, 
+    mc_runs_prim = None, mc_runs_sec = None, 
+    s_mce_Ptc = None, p_mce_Ptc = None):
+    
     #scales = (0.0,0.000001,0.0) # for plot_var_3D
     fig = plt.figure() 
     ax = fig.gca(projection='3d') #fig.add_subplot(projection='3d')
@@ -345,7 +510,7 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc, scales = (0.0,0.0,0.0), 
         aorth2 = np.atleast_2d( ep_aproj_orth1[1] )
         us1 = t1s * aorth1 + t2s * aorth2 #- ep_bproj
         ellipse_points_proj1 = (E1 @ us1.T).T + ep_p1
-        leg_2dvar = 'PrimSatProj2DVar' if indiv_var else 'PrimSecSatProj2DVar'
+        leg_2dvar = 'PrimSatProj2DVar' if indiv_var else 'PrimSecComboSatProj2DVar'
         ax.plot(ellipse_points_proj1[:,0], ellipse_points_proj1[:,1], ellipse_points_proj1[:,2], color = 'r', label = leg_2dvar)
         if indiv_var:
             D2, U2 = np.linalg.eig(P2)
@@ -361,6 +526,40 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc, scales = (0.0,0.0,0.0), 
             leg_2dvar = 'SecSatProj2DVar'
             ax.plot(ellipse_points_proj2[:,0], ellipse_points_proj2[:,1], ellipse_points_proj2[:,2], color = 'b', label = leg_2dvar)
 
+        if p_mce_Ptc is not None:
+            assert(s_mce_Ptc is not None)
+            q70 = quantiles[0]
+            s3_mce = chi2.ppf(q70, 3)
+            P1_mce = p_mce_Ptc[0:3,0:3].copy()
+            P2_mce = s_mce_Ptc[0:3,0:3].copy()
+            if not indiv_var:
+                P1_mce += P2_mce
+            D1, U1 = np.linalg.eig(P1_mce)
+            E1 = U1 @ np.diag(D1 * s3_mce)**0.5 # Ellipse is the matrix square root of covariance
+            ep_aproj1 = ep_a.T @ E1 
+            #ep_bproj = np.linalg.inv(E1) @ (ep_p1 - ep_c)
+            _,_,ep_aproj_orth1 = np.linalg.svd(ep_aproj1.reshape((1,3)))
+            ep_aproj_orth1 = ep_aproj_orth1[1:]
+            aorth1 = np.atleast_2d( ep_aproj_orth1[0] )
+            aorth2 = np.atleast_2d( ep_aproj_orth1[1] )
+            us1 = t1s * aorth1 + t2s * aorth2 #- ep_bproj
+            ellipse_points_proj1 = (E1 @ us1.T).T + ep_p1
+            leg_2dvar = 'MCEPrimSatProj2DVar' if indiv_var else 'MCEPrimSecComboSatProj2DVar'
+            ax.plot(ellipse_points_proj1[:,0], ellipse_points_proj1[:,1], ellipse_points_proj1[:,2], color = 'tab:purple', label = leg_2dvar)
+            if indiv_var:
+                D2, U2 = np.linalg.eig(P2_mce)
+                E2 = U2 @ np.diag(D2 * s3_mce)**0.5 # Ellipse is the matrix square root of covariance
+                ep_aproj2 = ep_a.T @ E2 
+                _,_,ep_aproj_orth2 = np.linalg.svd(ep_aproj2.reshape((1,3)))
+                ep_aproj_orth2 = ep_aproj_orth2[1:]
+                aorth1 = np.atleast_2d( ep_aproj_orth2[0] )
+                aorth2 = np.atleast_2d( ep_aproj_orth2[1] )
+                us2 = t1s * aorth1 + t2s * aorth2 #- ep_bproj
+                ellipse_points_proj2 = (E2 @ us2.T).T + ep_p2
+                leg_2dvar = 'SecSatProj2DVar'
+                ax.plot(ellipse_points_proj2[:,0], ellipse_points_proj2[:,1], ellipse_points_proj2[:,2], color = 'tab:cyan', label = leg_2dvar)
+            
+            
     # Should be a list of points of realizations
     if mc_runs_prim is not None:
         add_leg = True
@@ -427,36 +626,499 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc, scales = (0.0,0.0,0.0), 
     plt.show()
     foobar = 5
 
-def _draw_2d_projected_encounter_plane(rp, rP, rT, mc_prim, mc_sec):
+def draw_2d_projected_encounter_plane(quantile_kf,
+    s_xtc, p_xtc, s_Ptc, p_Ptc, 
+    mc_prim = None, mc_sec = None, 
+    quantile_mce = None, s_mce_Ptc = None, p_mce_Ptc = None, 
+    mc_sec_sample_tcas = None, mc_prim_sample_tcas = None):
+    
+    # Create relative quantities
+    p_p = p_xtc[0:3] # position vector of primary 
+    s_p = s_xtc[0:3] # position vector of secondary 
+    rp = s_xtc[0:3] - p_xtc[0:3] # relative position vector
+    rv = s_xtc[3:6] - p_xtc[3:6] # relative velocity vector
+    # Transformation into (for now) coordinates orthogonal to the relative vel. vec
+    _,_,T = np.linalg.svd(rv.reshape((1,3)))
+    # Get expected location for the transformed (projected onto 2D plane) relative pos
+    T2D = T[1:, :]
+    rp2D = T2D @ rp # expected relative 2D position
+    rP2D = T2D @ (s_Ptc[0:3,0:3] + p_Ptc[0:3,0:3]) @ T2D.T # expected relative 2D covariance
+    # Encounter plane ep_a^T @ x = ep_b
+    ep_c = (p_p + s_p) / 2.0
+    ep_a = rv # normal to the encounter hyperplane is the relative vel vec direction
+    ep_b = ep_a @ ep_c # offset 
+    
     # Now plot the q_chosen covariance ellipsoids of the primary/secondary sat
-    quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
-    q_chosen = quantiles[-1]
-    s2 = chi2.ppf(q_chosen, 2) # s3 is the value for which e^T @ P_2DProj^-1 @ e == s2 
+    #quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
+    #q_chosen = quantiles[-1]
+    assert quantile_kf < 1
+    s2 = chi2.ppf(quantile_kf, 2) # s3 is the value for which e^T @ P_2DProj^-1 @ e == s2 
     t1s = np.atleast_2d( np.array([ np.sin(2*np.pi*t) for t in np.linspace(0,1,100)]) ).T
     t2s = np.atleast_2d( np.array([ np.cos(2*np.pi*t) for t in np.linspace(0,1,100)]) ).T
     unit_circle = np.hstack((t1s,t2s))
-    D, U = np.linalg.eig(rP)
+    D, U = np.linalg.eig(rP2D)
     E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
+    ell_points = (E @ unit_circle.T).T + rp2D 
     fig = plt.figure()
-    ell_points = (E @ unit_circle.T).T + rp 
-    plt.title("MC Relative Positions of Secondary vs Primary on (the expected) Encounter Plane")
-    plt.plot(ell_points[:,0], ell_points[:,1], color='r', label='99.99\% Proj 2D Covariance Ellipsoid')
-    plt.scatter(rp[0], rp[1], color='r', label=r'Expected relative position $r^{k+N|k}=\mathbb{E}[p_s^{k+N|k} - p^{k+N|k}_p]$')
-    plt.xlabel("Cross-Track Direction")
-    plt.ylabel("Radial-Track Direction")
-    leg_mc = None
-    for mcp,mcs in zip(mc_prim, mc_sec):
-        mcr = mcs[0:3] - mcp[0:3]
-        proj_mc = rT @ mcr 
-        if leg_mc is None:
-            leg_mc = True
-            plt.scatter(proj_mc[0], proj_mc[1], color='m', label = 'MC realizations of relative positions')
-        else:
-            plt.scatter(proj_mc[0], proj_mc[1], color='m')
-    plt.show() 
+    plt.title("MC of Prim/Sec Positions at TCA, first projected onto \n(the expected) encounter plane, then made relative (sec - prim)")
+    plt.plot(ell_points[:,0], ell_points[:,1], color='r', label='99.99% Proj 2D Cov. Ellipse for KF')
+    plt.scatter(rp2D[0], rp2D[1], color='r', label='Expected relative projected position')
+    plt.xlabel("Rel Vel Vec Orthog Direction 1 (km)")
+    plt.ylabel("Rel Vel Vec Orthog Direction 2 (km)")
+
+    # Now plot MCE if provided 
+    if p_mce_Ptc is not None:
+        assert s_mce_Ptc is not None
+        mce_rP2D = T2D @ (s_mce_Ptc[0:3,0:3] + p_mce_Ptc[0:3,0:3]) @ T2D.T # expected relative 2D covariance
+        assert quantile_mce is not None
+        assert quantile_mce < 1
+        s2 = chi2.ppf(quantile_mce, 2)
+        D, U = np.linalg.eig(mce_rP2D)
+        E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
+        ell_points = (E @ unit_circle.T).T + rp2D 
+        plt.plot(ell_points[:,0], ell_points[:,1], color='g', label='70% Proj 2D Cov. Ellipse for MCE')
+
+    # Plot Monte Carlo points enamating from x0 projected onto the encounter plane, if not None
+    if (mc_prim is not None) and (mc_sec is not None):
+        assert len(mc_prim) == len(mc_sec)
+        proj_mcs = []
+        for mcp, mcs in zip(mc_prim, mc_sec):
+            # Project prim onto encounter plane 
+            p1 = mcp[0:3]
+            v1 = mcp[3:6]
+            t1 = (ep_b - ep_a @ p1) / (ep_a @ v1)
+            ep_p1 = p1 + t1 * v1
+            # project sec onto encounter plane 
+            p2 = mcs[0:3]
+            v2 = mcs[3:6]
+            t2 = (ep_b - ep_a @ p2) / (ep_a @ v2)
+            ep_p2 = p2 + t2 * v2
+            # subtract, project down
+            mcr = ep_p2 - ep_p1
+            proj_mc = T2D @ mcr
+            proj_mcs.append(proj_mc)
+        proj_mcs = np.array(proj_mcs)    
+        plt.scatter(proj_mcs[0,0], proj_mcs[0,1], color='m', label = 'MC real. of (rel.) proj. pos. onto EP at TCA from x0')
+        plt.scatter(proj_mcs[1:,0], proj_mcs[1:,1], color='m')
+
+    # Plot Monte Carlo points enamating from N(x0,P0) projected onto the encounter plane, if not None
+    if (mc_sec_sample_tcas is not None) and (mc_prim_sample_tcas is not None):
+        assert len(mc_sec_sample_tcas) == len(mc_prim_sample_tcas)
+        proj_mcs = []
+        for mcp, mcs in zip(mc_prim_sample_tcas, mc_sec_sample_tcas):
+            # Project prim onto encounter plane 
+            p1 = mcp[0:3]
+            v1 = mcp[3:6]
+            t1 = (ep_b - ep_a @ p1) / (ep_a @ v1)
+            ep_p1 = p1 + t1 * v1
+            # project sec onto encounter plane 
+            p2 = mcs[0:3]
+            v2 = mcs[3:6]
+            t2 = (ep_b - ep_a @ p2) / (ep_a @ v2)
+            ep_p2 = p2 + t2 * v2
+            # subtract, project down
+            mcr = ep_p2 - ep_p1
+            proj_mc = T2D @ mcr
+            proj_mcs.append(proj_mc)
+        proj_mcs = np.array(proj_mcs)
+        plt.scatter(proj_mcs[0,0], proj_mcs[0,1], color='g', label = 'MC real. of (rel.) proj. pos. onto EP at TCA from x0 sampled')
+        plt.scatter(proj_mcs[1:,0], proj_mcs[1:,1], color='g')
+    plt.legend().set_draggable(True)
+    plt.show()
     foobar=5
 
-def draw_2d_projected_encounter_plane_v2(s_xtc, p_xtc, s_Ptc, p_Ptc, mc_prim, mc_sec, with_ep_proj=True):
+def analyze_3d_statistics(quantile_kf, quantile_mce,
+    s_xtc, p_xtc, s_Ptc, p_Ptc,
+    s_mce_Ptc, p_mce_Ptc, 
+    mc_prim_tcas, mc_sec_tcas,
+    mc_sec_sample_tcas, mc_prim_sample_tcas):
+    
+    s3_quant_kf = chi2.ppf(quantile_kf, 3)
+    s3_quant_mce = chi2.ppf(quantile_mce, 3)
+
+    # KF and MCE Points
+    x1 = p_xtc[0:3]
+    v1 = p_xtc[3:6]
+    sv1 = v1 / np.linalg.norm(v1)
+    Pkf1 = p_Ptc[0:3,0:3]
+    Pkf1_I = np.linalg.inv(Pkf1)
+    Pce1 = p_mce_Ptc[0:3,0:3]
+    Pce1_I = np.linalg.inv(Pce1)
+    x2 = s_xtc[0:3]
+    v2 = s_xtc[3:6]
+    sv2 = v2 / np.linalg.norm(v2)
+    Pkf2 = s_Ptc[0:3,0:3]
+    Pkf2_I = np.linalg.inv(Pkf2)
+    Pce2 = s_mce_Ptc[0:3,0:3]
+    Pce2_I = np.linalg.inv(Pce2)
+    # Monte Carlo points emanating from x0
+    mc_prim_x0s = np.array(mc_prim_tcas)[:,0:3] if mc_prim_tcas is not None else None
+    mc_sec_x0s = np.array(mc_sec_tcas)[:,0:3] if mc_sec_tcas is not None else None
+    # Monte Carlo points sampled from x0,P0_kf
+    mc_prim_sampled = np.array(mc_prim_sample_tcas)[:,0:3] if mc_prim_sample_tcas is not None else None
+    mc_sec_sampled = np.array(mc_sec_sample_tcas)[:,0:3] if mc_sec_sample_tcas is not None else None
+
+    # =============
+    # First subplot -- KF of PRIM
+    # =============
+    # set up the axes for the first plot
+    fig = plt.figure() 
+    ax11 = fig.gca(projection='3d') 
+    # Plot The KF Covariance Ellipsoid 
+    D, U = np.linalg.eig(Pkf1)
+    E = U @ np.diag(D * s3_quant_kf)**0.5 # Ellipse is the matrix square root of covariance
+    #unitsphere = create_unit_sphere(15 * np.pi/180, 15 * np.pi/180)
+    unitsphere = _create_unit_sphere()
+    ellipse_points = (E @ unitsphere).squeeze(-1) + x1
+    ax11.plot(x1[0],x1[1],x1[2], color='r', label='KF Primary Satellite ' + str(100*quantile_kf) + "% Ellipse")
+    ax11.plot_surface(*ellipse_points.transpose(2, 0, 1), rstride=4, cstride=4, color='r', alpha=0.35)
+    ax11.arrow3D(x1[0], x1[1], x1[2], sv1[0], sv1[1], sv1[2], arrowstyle="-|>", mutation_scale=20, lw=3, color='b', label='Primary satellite velocity vector direction')
+    
+    mc_points = np.zeros((0,3))
+    with_mc_points = False
+    kf_counts = 0
+    len_points = 0
+    if mc_prim_x0s is not None:
+        with_mc_points = True
+        ax11.scatter(mc_prim_x0s[:,0], mc_prim_x0s[:,1], mc_prim_x0s[:,2], color='m', label='MC realizations forced by SaS=1.3 atms. density changes, I.C is x0')
+        mc_points = np.vstack((mc_points, mc_prim_x0s)) 
+    if mc_prim_sampled is not None:
+        with_mc_points = True
+        ax11.scatter(mc_prim_sampled[:,0], mc_prim_sampled[:,1], mc_prim_sampled[:,2], color='g', label='MC realizations forced by SaS=1.3 atms. density changes, I.C is N(x0,P0_kf)')
+        mc_points = np.vstack((mc_points,mc_prim_sampled)) 
+    if with_mc_points:
+        min_bounds = x1 - np.min(mc_points, axis = 0)
+        max_bounds = np.max(mc_points, axis = 0) - x1
+        eq_bounds = np.max( np.vstack((min_bounds,max_bounds)), axis = 0 )
+        ax11.set_xbound(x1[0]-eq_bounds[0], x1[0]+eq_bounds[0])
+        ax11.set_ybound(x1[1]-eq_bounds[1], x1[1]+eq_bounds[1])
+        ax11.set_zbound(x1[2]-eq_bounds[2], x1[2]+eq_bounds[2])
+        len_points = mc_points.shape[0]
+        for mcp in mc_points:
+            is_in_kf_prim = (mcp-x1) @ Pkf1_I @ (mcp-x1) < s3_quant_mce
+            kf_counts += is_in_kf_prim
+    ax11.set_title('KF 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the 7-day Forward Projected Primary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(kf_counts, len_points) )
+    ax11.set_xlabel("x-axis (km)")
+    ax11.set_ylabel("y-axis (km)")
+    ax11.set_zlabel("z-axis (km)")
+    leg = ax11.legend()
+    leg.set_draggable(state=True)
+    plt.show()
+
+    # =============
+    # Second subplot -- KF of SEC
+    # =============
+    # set up the axes for the first plot
+    fig = plt.figure() 
+    ax12 = fig.gca(projection='3d') 
+    ax12.set_title('KF of Sec Sat')
+    # Plot The KF Covariance Ellipsoid 
+    D, U = np.linalg.eig(Pkf2)
+    E = U @ np.diag(D * s3_quant_kf)**0.5 # Ellipse is the matrix square root of covariance
+    #unitsphere = create_unit_sphere(15 * np.pi/180, 15 * np.pi/180)
+    unitsphere = _create_unit_sphere()
+    ellipse_points = (E @ unitsphere).squeeze(-1) + x2
+    ax12.plot(x2[0],x2[1],x2[2], color='r', label='KF Secondary Satellite ' + str(100*quantile_kf) + "% Ellipse")
+    ax12.plot_surface(*ellipse_points.transpose(2, 0, 1), rstride=4, cstride=4, color='r', alpha=0.35)
+    ax12.arrow3D(x2[0], x2[1], x2[2], sv2[0], sv2[1], sv2[2], arrowstyle="-|>", mutation_scale=20, lw=3, color='b', label='Secondary satellite velocity vector direction')
+    
+    mc_points = np.zeros((0,3))
+    with_mc_points = False
+    kf_counts = 0
+    len_points = 0
+    if mc_sec_x0s is not None:
+        with_mc_points = True
+        ax12.scatter(mc_sec_x0s[:,0], mc_sec_x0s[:,1], mc_sec_x0s[:,2], color='m',label='MC realizations forced by SaS=1.3 atms. density changes, I.C is x0')
+        mc_points = np.vstack((mc_points, mc_sec_x0s)) 
+    if mc_sec_sampled is not None:
+        with_mc_points = True
+        ax12.scatter(mc_sec_sampled[:,0], mc_sec_sampled[:,1], mc_sec_sampled[:,2], color='g', label='MC realizations forced by SaS=1.3 atms. density changes, I.C is N(x0,P0_kf)')
+        mc_points = np.vstack((mc_points, mc_sec_sampled)) 
+    if with_mc_points:
+        min_bounds = x2 - np.min(mc_points, axis = 0)
+        max_bounds = np.max(mc_points, axis = 0) - x2
+        eq_bounds = np.max( np.vstack((min_bounds,max_bounds)), axis = 0 )
+        ax12.set_xbound(x2[0]-eq_bounds[0], x2[0]+eq_bounds[0])
+        ax12.set_ybound(x2[1]-eq_bounds[1], x2[1]+eq_bounds[1])
+        ax12.set_zbound(x2[2]-eq_bounds[2], x2[2]+eq_bounds[2])
+        len_points = mc_points.shape[0]
+        for mcp in mc_points:
+            is_in_kf_sec = (mcp-x2) @ Pkf2_I @ (mcp-x2) < s3_quant_mce
+            kf_counts += is_in_kf_sec
+    ax12.set_title('KF 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the 7-day Forward Projected Secondary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(kf_counts, len_points) )
+    leg = ax12.legend()
+    ax12.set_xlabel("x-axis (km)")
+    ax12.set_ylabel("y-axis (km)")
+    ax12.set_zlabel("z-axis (km)")
+    leg.set_draggable(state=True)
+    plt.show()
+
+    # =============
+    # Third subplot -- MCE of PRIM
+    # =============
+    # set up the axes for the first plot
+    fig = plt.figure() 
+    ax21 = fig.gca(projection='3d') 
+    ax21.set_title('MCE of Prim Sat')
+    # Plot The MCE Covariance Ellipsoid 
+    D, U = np.linalg.eig(Pce1)
+    E = U @ np.diag(D * s3_quant_kf)**0.5 # Ellipse is the matrix square root of covariance
+    #unitsphere = create_unit_sphere(15 * np.pi/180, 15 * np.pi/180)
+    unitsphere = _create_unit_sphere()
+    ellipse_points = (E @ unitsphere).squeeze(-1) + x1
+    ax21.plot(x1[0],x1[1],x1[2], color='r', label='MCE Primary Satellite ' + str(100*quantile_mce) + "% Ellipse")
+    ax21.plot_surface(*ellipse_points.transpose(2, 0, 1), rstride=4, cstride=4, color='r', alpha=0.35)
+    ax21.arrow3D(x1[0], x1[1], x1[2], sv1[0], sv1[1], sv1[2], arrowstyle="-|>", mutation_scale=20, lw=3, color='b', label='Primary satellite velocity vector direction')
+    
+    mc_points = np.zeros((0,3))
+    with_mc_points = False
+    mce_counts = 0
+    len_points = 0
+    if mc_prim_x0s is not None:
+        with_mc_points = True
+        ax21.scatter(mc_prim_x0s[:,0], mc_prim_x0s[:,1], mc_prim_x0s[:,2], color='m',label='MC realizations forced by SaS=1.3 atms. density changes. I.C is x0')
+        mc_points = np.vstack((mc_points,mc_prim_x0s)) 
+    if mc_prim_sampled is not None:
+        with_mc_points = True
+        ax21.scatter(mc_prim_sampled[:,0], mc_prim_sampled[:,1], mc_prim_sampled[:,2], color='g',label='MC realizations forced by SaS=1.3 atms. density changes, I.C is N(x0,P0_kf)')
+        mc_points = np.vstack((mc_points,mc_prim_sampled)) 
+    if with_mc_points:
+        min_bounds = x1 - np.min(mc_points, axis = 0)
+        max_bounds = np.max(mc_points, axis = 0) - x1
+        eq_bounds = np.max( np.vstack((min_bounds,max_bounds)), axis = 0 )
+        ax21.set_xbound(x1[0]-eq_bounds[0], x1[0]+eq_bounds[0])
+        ax21.set_ybound(x1[1]-eq_bounds[1], x1[1]+eq_bounds[1])
+        ax21.set_zbound(x1[2]-eq_bounds[2], x1[2]+eq_bounds[2])
+        len_points = mc_points.shape[0]
+        for mcp in mc_points:
+            is_in_mce_prim = (mcp-x1) @ Pce1_I @ (mcp-x1) < s3_quant_mce
+            mce_counts += is_in_mce_prim
+    ax21.set_title('MCE 3D Position Covariance ' + str(quantile_mce*100) + "% Ellipsoid for the 7-day Forward Projected Primary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(mce_counts, len_points) )
+    ax21.set_xlabel("x-axis (km)")
+    ax21.set_ylabel("y-axis (km)")
+    ax21.set_zlabel("z-axis (km)")
+    leg = ax21.legend()
+    leg.set_draggable(state=True)
+    plt.show()
+
+    # =============
+    # Fourth subplot -- MCE of SEC
+    # =============
+    # set up the axes for the first plot
+    fig = plt.figure() 
+    ax22 = fig.gca(projection='3d') 
+    # Plot The MCE Covariance Ellipsoid 
+    D, U = np.linalg.eig(Pce2)
+    E = U @ np.diag(D * s3_quant_kf)**0.5 # Ellipse is the matrix square root of covariance
+    #unitsphere = create_unit_sphere(15 * np.pi/180, 15 * np.pi/180)
+    unitsphere = _create_unit_sphere()
+    ellipse_points = (E @ unitsphere).squeeze(-1) + x2
+    ax22.plot(x2[0],x2[1],x2[2], color='r', label='MCE Secondary Satellite ' + str(100*quantile_mce) + "% Ellipse")
+    ax22.plot_surface(*ellipse_points.transpose(2, 0, 1), rstride=4, cstride=4, color='r', alpha=0.35)
+    ax22.arrow3D(x2[0], x2[1], x2[2], sv2[0], sv2[1], sv2[2], arrowstyle="-|>", mutation_scale=20, lw=3, color='b', label='Secondary satellite velocity vector direction')
+    
+    mc_points = np.zeros((0,3))
+    with_mc_points = False
+    mce_counts = 0
+    len_points = 0
+    if mc_sec_x0s:
+        with_mc_points = True
+        ax22.scatter(mc_sec_x0s[:,0], mc_sec_x0s[:,1], mc_sec_x0s[:,2], color='m',label='MC realizations forced by SaS=1.3 atms. density changes, I.C is x0')
+        mc_points = np.vstack((mc_points,mc_sec_x0s))
+    if mc_sec_sampled is not None:
+        with_mc_points = True
+        ax22.scatter(mc_sec_sampled[:,0], mc_sec_sampled[:,1], mc_sec_sampled[:,2], color='g',label='MC realizations forced by SaS=1.3 atms. density changes, I.C is N(x0,P0_kf)')
+        mc_points = np.vstack((mc_points,mc_sec_sampled))
+    if with_mc_points:
+        mc_points = np.vstack((mc_sec_x0s,mc_sec_sampled)) 
+        min_bounds = x2 - np.min(mc_points, axis = 0)
+        max_bounds = np.max(mc_points, axis = 0) - x2
+        eq_bounds = np.max( np.vstack((min_bounds,max_bounds)), axis = 0 )
+        ax22.set_xbound(x2[0]-eq_bounds[0], x2[0]+eq_bounds[0])
+        ax22.set_ybound(x2[1]-eq_bounds[1], x2[1]+eq_bounds[1])
+        ax22.set_zbound(x2[2]-eq_bounds[2], x2[2]+eq_bounds[2])
+        len_points = mc_points.shape[0]
+        for mcp in mc_points:
+            is_in_mce_sec = (mcp-x2) @ Pce2_I @ (mcp-x2) < s3_quant_mce
+            mce_counts += is_in_mce_sec
+    ax22.set_title('MCE 3D Position Covariance ' + str(quantile_mce*100) + "% Ellipsoid for the 7-day Forward Projected Secondary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(mce_counts, mc_points.shape[0]) )
+    ax22.set_xlabel("x-axis (km)")
+    ax22.set_ylabel("y-axis (km)")
+    ax22.set_zlabel("z-axis (km)")
+    leg = ax22.legend()
+    leg.set_draggable(state=True)
+    plt.show()
+    foobar = 3
+
+
+'''
+def old_iterative_time_closest_approach(dt, _t0, prim_tup, sec_tup, start_idx = 0, its = -1, with_plot=True):
+    # For now this function assumes an integer time step
+    assert(int(dt) == dt)
+    # Initial iteration
+    p_pks,p_vks,p_aks = copy.deepcopy(prim_tup)
+    s_pks,s_vks,s_aks = copy.deepcopy(sec_tup)
+    t0 = copy.deepcopy(_t0)
+    tks = np.arange(p_pks.shape[0]) * dt
+    i, troot, t_c, pp_c, pv_c, sp_c, sv_c = closest_approach_info(tks[start_idx:], 
+        (p_pks[start_idx:,:],p_vks[start_idx:,:],p_aks[start_idx:,:]), 
+        (s_pks[start_idx:,:],s_vks[start_idx:,:],s_aks[start_idx:,:]))
+    i += start_idx
+    # Left hand side of interval
+    i_star_lhs = i
+    t_lhs = tks[i]
+
+    if with_plot:
+        fig = plt.figure() 
+        ax = fig.gca(projection='3d')
+        plt.title("LEO Primary (red) vs. Secondary (blue) trajectory over time")
+        ax.scatter(p_pks[start_idx:i+2,0], p_pks[start_idx:i+2,1], p_pks[start_idx:i+2,2], color = 'r')
+        ax.scatter(s_pks[start_idx:i+2,0], s_pks[start_idx:i+2,1], s_pks[start_idx:i+2,2], color = 'b')
+        ax.set_xlabel("x-axis (km)")
+        ax.set_ylabel("y-axis (km)")
+        ax.set_zlabel("z-axis (km)")
+        # Plot relative difference in position
+        fig2 = plt.figure()
+        plt.title("Norm of Position Difference between Primary and Secondary")
+        plt.plot(tks[start_idx:i+2], np.linalg.norm(p_pks[start_idx:i+2]-s_pks[start_idx:i+2], axis=1))
+        plt.xlabel("Time (sec)")
+        plt.ylabel("2-norm of position difference (km)")
+        plt.show()
+
+    print("Iteration: 1")
+    print("t0: ", t0, "(timestamp)")
+    print("Step dt: ", dt, "(sec)")
+    print("Tc: {} (sec), Idx of Tc: {}".format(t_c, i) )
+    print("Primary at Tc: ", pp_c, "(km)")
+    print("Secondary at Tc: ", sp_c, "(km)")
+    print("Pos Diff is: ", pp_c-sp_c, "(km)")
+    print("Pos Norm is: ", 1000*np.linalg.norm(pp_c-sp_c), "(m)")
+
+    # Now we know minimum is somewhere over [i,i+1]
+    # Know the start time is now t0 + tks[i]
+    substeps = [int(dt),30,30,30]
+    its = len(substeps) if its == -1 else its
+    for it in range(its):
+        if it == 0:
+            x0_prim = np.concatenate( (p_pks[i],p_vks[i]) )
+            x0_sec  = np.concatenate( (s_pks[i],s_vks[i]) )
+            t0 = t0 + timedelta( seconds = tks[i] )
+            dt = dt / substeps[it]
+            tks = tks[i] + np.arange(substeps[it]+1) * dt
+        else:
+            if (i > 0) and (i+2 < (substeps[it-1]+1) ):
+                j = i-1
+                scale = 3
+            elif i == 0:
+                print("Hit LOWER BOUNDARY i == 0")
+                j = i 
+                scale = 2
+                substeps[it] = 20
+            elif (i+2) == (substeps[it-1]+1):
+                print("Hit UPPER BOUNDARY i+2 ==",i+2)
+                j = i-1
+                scale = 2
+                substeps[it] = 20
+            x0_prim = np.concatenate( (p_pks[j],p_vks[j]) )
+            x0_sec  = np.concatenate( (s_pks[j],s_vks[j]) )
+            t0 = t0 + timedelta( seconds = tks[j] )
+            dt = scale*dt / substeps[it]
+            tks = tks[j] + np.arange(substeps[it]+1) * dt
+        
+        # Now run the primary over the subinterval i to i+1
+        fermiSat = gsat.FermiSatelliteModel(t0, x0_prim, dt)
+        fermiSat.create_model(with_jacchia=True, with_SRP=True)
+        p_pks = [] # Primary Pos 3-Vec
+        p_vks = [] # Primary Vel 3-Vec
+        p_aks = [] # Primary Acc 3-Vec
+        # Propagate Primary and Store
+        xk = x0_prim.copy()
+        for i in range(substeps[it]+1):
+            dxk_dt = fermiSat.get_state6_derivatives() 
+            p_pks.append(xk[0:3])
+            p_vks.append(xk[3:6])
+            p_aks.append(dxk_dt[3:6])
+            xk = fermiSat.step()
+        p_pks = np.array(p_pks)
+        p_vks = np.array(p_vks)
+        p_aks = np.array(p_aks)
+        fermiSat.clear_model()
+
+        # Create Satellite Model for Secondary
+        fermiSat = gsat.FermiSatelliteModel(t0, x0_sec, dt)
+        fermiSat.create_model(with_jacchia=True, with_SRP=True)
+        s_pks = [] # Secondary Pos 3-Vec
+        s_vks = [] # Secondary Vel 3-Vec
+        s_aks = [] # Secondary Acc 3-Vec
+        # Propagate Secondary and Store
+        xk = x0_sec.copy()
+        for i in range(substeps[it]+1):
+            dxk_dt = fermiSat.get_state6_derivatives() 
+            s_pks.append(xk[0:3])
+            s_vks.append(xk[3:6])
+            s_aks.append(dxk_dt[3:6])
+            xk = fermiSat.step()
+        s_pks = np.array(s_pks)
+        s_vks = np.array(s_vks)
+        s_aks = np.array(s_aks)
+        fermiSat.clear_model()
+
+        # Now re-run the closest approach routine
+        i, troot, t_c, pp_c, pv_c, sp_c, sv_c = closest_approach_info(tks, (p_pks,p_vks,p_aks), (s_pks,s_vks,s_aks))
+
+        print("Iteration: ", it + 2, " (timestamp)")
+        print("Step dt: ", dt, "(sec)")
+        print("Tc: {} (sec), Idx of Tc: {}".format(t_c, i) )
+        print("Primary at Tc: ", pp_c, "(km)")
+        print("Secondary at Tc: ", sp_c, "(km)")
+        print("Pos Diff is: ", pp_c-sp_c, "(km)")
+        print("Pos Norm is: ", 1000*np.linalg.norm(pp_c-sp_c), "(m)")
+
+        if with_plot:
+            # Black points give found interval, # green point are +/- 1 buffers
+            fig = plt.figure() 
+            ax = fig.gca(projection='3d')
+            plt.title("Leo Trajectory over Time")
+            ax.scatter(p_pks[:i+2,0], p_pks[:i+2,1], p_pks[:i+2,2], color = 'r')
+            ax.scatter(s_pks[:i+2,0], s_pks[:i+2,1], s_pks[:i+2,2], color = 'b')
+            ax.scatter(p_pks[i,0], p_pks[i,1], p_pks[i,2], color = 'k')
+            ax.scatter(s_pks[i,0], s_pks[i,1], s_pks[i,2], color = 'k')
+            if (i+1) < s_pks.shape[0]:
+                ax.scatter(p_pks[i+1,0], p_pks[i+1,1], p_pks[i+1,2], color = 'k')
+                ax.scatter(s_pks[i+1,0], s_pks[i+1,1], s_pks[i+1,2], color = 'k')
+            ax.set_xlabel("x-axis (km)")
+            ax.set_ylabel("y-axis (km)")
+            ax.set_zlabel("z-axis (km)")
+            
+            dist_norm = np.linalg.norm(p_pks[:i+5]-s_pks[:i+5], axis=1)
+            fig2 = plt.figure()
+            plt.title("Norm of Position Difference between Primary and Secondary")
+            plt.plot(tks[:i+5], dist_norm)
+            plt.scatter(tks[i-1], dist_norm[i-1], color='g')
+            plt.scatter(tks[i], dist_norm[i], color='k')
+            if (i+1) < s_pks.shape[0]:
+                plt.scatter(tks[i+1], dist_norm[i+1], color='k')
+            if (i+2) < s_pks.shape[0]:
+                plt.scatter(tks[i+2], dist_norm[i+2], color='g')
+            plt.xlabel("Time (sec)")
+            plt.ylabel("2-norm of position difference (km)")
+            plt.show()
+            foobar=3
+
+
+    
+    # i_star_lhs -> The nominal propagation index to stop at 
+    # t_lhs -> The time at the nominal propagation index 
+    # t_c -> The final time of closest approach 
+    # pp_c -> The position of the primary at closest approach 
+    # pv_c -> The velocity of the primary at closest approach 
+    # sp_c -> The position of the secondary at closest approach
+    # sv_c -> The velocity of the secondary at closest approach 
+    return i_star_lhs, t_lhs, t_c, pp_c, pv_c, sp_c, sv_c
+
+
+
+def old_draw_2d_projected_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc, mc_prim, mc_sec, with_ep_proj=True):
     # Create relative quantities
     p_p = p_xtc[0:3] # position vector of primary 
     s_p = s_xtc[0:3] # position vector of secondary 
@@ -511,3 +1173,5 @@ def draw_2d_projected_encounter_plane_v2(s_xtc, p_xtc, s_Ptc, p_Ptc, mc_prim, mc
             plt.scatter(proj_mc[0], proj_mc[1], color='m')
     plt.show()
     foobar=5
+
+'''
