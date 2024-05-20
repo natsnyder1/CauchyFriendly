@@ -32,6 +32,10 @@ def leo6_process_noise_model2(dt):
 global_leo = None
 INITIAL_H = False
 
+#mce_naive_p0 = np.array([1,1,1, 0.001,0.001,0.001, 0.001])
+mce_naive_p0 = np.array([.1,.1,.1,.001,.001,.001,0.01])
+#mce_naive_p0 = np.array([.01,.01,.01,.01,.01,.01,.01])
+
 def ece_dynamics_update_callback(c_duc):
     pyduc = ce.Py_CauchyDynamicsUpdateContainer(c_duc)
     # Set Phi and Gamma
@@ -76,7 +80,7 @@ def ece_extended_msmt_update_callback(c_duc):
         H[2,1] = 1
         H[2,2] = 1
         global global_leo 
-        gam = global_leo.gps_std_dev * 1000 * (1.0/1.3898)
+        gam = global_leo.gamma0[2]
         gamma = np.array([gam, gam, 3*gam])
         pyduc.cset_gamma(gamma)
     else:
@@ -155,6 +159,49 @@ def plot_all_windows(win_moms, xs_true, e_hats_kf, one_sigs_kf, best_idx, idx_mi
     plt.show()
     plt.close('all')
 
+def plot_against_kf(mce_msmt_idxs, xs, xs_kf, Ps_kf, xs_mce, Ps_mce, xs_avg_mce, Ps_avg_mce, kf_dt, mce_dt, sig = 1, title_prefix = ''):
+    true_x_mce = xs[mce_msmt_idxs]
+    true_x_kf = xs[mce_msmt_idxs[0]:]
+
+    xt_kf = xs_kf[mce_msmt_idxs[0]:]
+    Pt_kf = Ps_kf[mce_msmt_idxs[0]:]
+
+    sig_kf = np.array([np.diag(P)**0.5 for P in Pt_kf]) * sig
+    sig_mce = np.array([np.diag(P)**0.5 for P in Ps_mce]) * sig
+    sig_avg_mce = np.array([np.diag(P)**0.5 for P in Ps_avg_mce]) * sig
+
+    es_kf = true_x_kf - xt_kf
+    es_mce = true_x_mce - xs_mce
+    es_avg_mce = true_x_mce - xs_avg_mce
+
+    kf_msmt_idxs = np.arange(mce_msmt_idxs[0], mce_msmt_idxs[-1]+1, 1)
+    N = xs.shape[1]
+
+    plt.figure()
+    plt.suptitle(title_prefix + " Estimation Errors Vs {}-Sigma Bounds\nKF (g/m) vs MCE (b/r) vs Weighted Avg MCE (b--/r--)".format(sig))
+    ylabels = ['Pos X (km)', 'Pos Y (km)', 'Pos Z (km)', 'Position Z (km)', 'Vel X (km/s)', 'Vel Y (km/s)', 'Vel Z (km/s)', 'Change Dens']
+    for i in range(N):
+        plt.subplot(N, 1, i+1)
+        # Kalman Filter
+        plt.plot(kf_msmt_idxs, es_kf[:,i], 'g')
+        plt.scatter(kf_msmt_idxs, es_kf[:,i], color='g')
+        plt.plot(kf_msmt_idxs, sig_kf[:,i], 'm')
+        plt.plot(kf_msmt_idxs, -sig_kf[:,i], 'm')
+        # MCE
+        plt.plot(mce_msmt_idxs, es_mce[:,i], 'b')
+        plt.scatter(mce_msmt_idxs, es_mce[:,i], color='b')
+        plt.plot(mce_msmt_idxs, sig_mce[:,i], 'r')
+        plt.plot(mce_msmt_idxs, -sig_mce[:,i], 'r')
+        # Weighted Avg MCE 
+        plt.plot(mce_msmt_idxs, es_avg_mce[:,i], 'b--')
+        plt.scatter(mce_msmt_idxs, es_avg_mce[:,i], color='b', linestyle='dashed')
+        plt.plot(mce_msmt_idxs, sig_avg_mce[:,i], 'r--')
+        plt.plot(mce_msmt_idxs, -sig_avg_mce[:,i], 'r--')
+        plt.ylabel(ylabels[i])
+    plt.xlabel('Time Step k (KF dt={}, MCE dt={})'.format(kf_dt, mce_dt))
+    plt.show()
+    foobar=2
+    
 def reinitialize_func_speyer(cauchyEsts, zk, best_idx, idx_min, step_k, other_params):
     # using speyer's start method
     speyer_restart_idx = -1
@@ -163,10 +210,13 @@ def reinitialize_func_speyer(cauchyEsts, zk, best_idx, idx_min, step_k, other_pa
 def reinitialize_func_init_cond(cauchyEsts, zk, best_idx, idx_min, step_k, other_params):
     xhat, Phat = cauchyEsts[best_idx].get_last_mean_cov()
     _A0 = cauchyEsts[best_idx]._Phi.copy().reshape((7,7)).T # np.eye(5)
-    _p0 = np.array([1,1,1, 0.001,0.001,0.001, 0.001])
+    global mce_naive_p0
+    _p0 = mce_naive_p0.copy()
     _b0 = np.zeros(7)
+    #cauchyEsts[idx_min].reset(_A0, _p0, _b0, xhat)
+    #cauchyEsts[idx_min].step(zk)
     cauchyEsts[idx_min].reset_with_last_measurement(zk[2], _A0, _p0, _b0, xhat)
-
+    
 def reinitialize_func_H_summation(cauchyEsts, zk, best_idx, idx_min, step_k, other_params):
     assert other_params is not None
     # Both H channels concatenated
@@ -176,18 +226,19 @@ def reinitialize_func_H_summation(cauchyEsts, zk, best_idx, idx_min, step_k, oth
     _xbar = cauchyEsts[best_idx]._xbar[14:]
     _dz = (zk[0] + zk[1] + zk[2]) - (_xbar[0] + _xbar[1] + _xbar[2])
     _dx = xhat - _xbar
-
+    _P = Phat.copy()
+    #'''
     Ps_kf = other_params
     P_kf = Ps_kf[step_k].copy() # The KF is in km^2 and we are in m^2
     P_kf[0:6,0:6] * 1000**2
-    _P = Phat.copy()
     ratios = np.ones(6)
     for i in range(6):
         pkf = P_kf[i,i] * 1000**2
         pce = Phat[i,i]
         ratios[i] = pkf/pce
         if( ratios[i] > 1):
-            _P[i,i] *= ratios[i]
+            _P[i,i] *= ratios[i] * 4
+    #'''
     # Reset
     _A0, _p0, _b0 = ce.speyers_window_init(_dx, _P, _H, _gamma, _dz)
     global INITIAL_H
@@ -199,7 +250,7 @@ def reinitialize_func_H_summation(cauchyEsts, zk, best_idx, idx_min, step_k, oth
 
 class GmatMCE():
 
-    def __init__(self, num_windows, t0, x0, dt, A0, p0, b0, beta, gamma, Cd_dist="gauss", win_reinitialize_func=None, win_reinitialize_params=None, debug_print = True, mce_print = False):
+    def __init__(self, num_windows, t0, x0, dt, A0, p0, b0, beta, gamma, Cd_dist="gauss", std_Cd = 0.0013, tau_Cd = 21600, win_reinitialize_func=None, win_reinitialize_params=None, debug_print = True, mce_print = False):
         # Print Out Some Info 
         print("Note that the MCE uses meters for the state and measurements, and not KM")
         Cd_dist = Cd_dist.lower()
@@ -217,9 +268,11 @@ class GmatMCE():
         _x0[0:6] /= 1000 # meters to km
         global_leo = FermiSatelliteModel(t0, _x0[0:6], dt) 
         global_leo.create_model(with_jacchia=True, with_SRP=True)
-        global_leo.set_solve_for(field="Cd", dist=Cd_dist, scale=0.0013, tau=21600, alpha=2.0 if Cd_dist == "gauss" else 1.3)
+        global_leo.set_solve_for(field="Cd", dist=Cd_dist, scale=std_Cd, tau=tau_Cd, alpha=2.0 if Cd_dist == "gauss" else 1.3)
         global_leo.reset_state(_x0, 0)
         ce.set_tr_search_idxs_ordering([5,4,6,3,2,1,0])
+        global_leo.gamma0 = gamma.copy() 
+        global_leo.beta0 = beta.copy() 
         
         # Setup Windows
         self.cauchyEsts = [ce.PyCauchyEstimator("nonlin", num_windows, mce_print) for _ in range(num_windows)]

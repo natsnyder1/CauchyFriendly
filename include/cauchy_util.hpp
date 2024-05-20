@@ -1783,7 +1783,7 @@ int covariance_checker(C_COMPLEX_TYPE* covariance, const int d, const int win_nu
   LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', d, cov_work, d, cov_eigs);
   for(int i = 0; i < d; i++)
   {
-    if(cov_eigs[i] < 0)
+    if(cov_eigs[i] < COV_EIGENVALUE_TOLERANCE)
       cov_error_flags |= (1<<COV_ERROR_FLAGS_INVALID_EIGENVALUES);
   }
   if(with_warnings && (cov_error_flags & (1<<COV_ERROR_FLAGS_INVALID_EIGENVALUES) ))

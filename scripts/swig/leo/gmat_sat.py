@@ -23,7 +23,7 @@ MonthDic2 = {v:k for k,v in MonthDic.items()}
 
 # Initial state given in distance units kilometers
 class FermiSatelliteModel():
-    def __init__(self, t0, x0, dt):
+    def __init__(self, t0, x0, dt, gmat_print = True):
         if type(t0) == str:
             self.t0 = t0
         elif type(t0) == datetime:
@@ -34,6 +34,7 @@ class FermiSatelliteModel():
             exit(1)
         self.x0 = x0.copy()
         self.dt = dt 
+        self.gmat_print = gmat_print
         # Solve for list 
         self.solve_for_states = [] 
         self.solve_for_taus = []
@@ -80,10 +81,12 @@ class FermiSatelliteModel():
         #sat.SetField("SolveFors", 'CartesianState, FogmCd, FogmAtmosDensityScaleFactor')
         self.fueltank = gmat.Construct("ChemicalTank", "FuelTank")
         self.fueltank.SetField("FuelMass", 359.9) #FuelMass = 359.9
-        self.fueltank.Help()
+        if self.gmat_print:
+            self.fueltank.Help()
         self.sat.SetField("Tanks", "FuelTank") # ??? does this add the fueltank to satellite?
-        self.sat.Help()
-        print(self.sat.GetGeneratingString(0))
+        if self.gmat_print:
+            self.sat.Help()
+            print(self.sat.GetGeneratingString(0))
 
         # Not sure if this is necessary
         #cordSysFermi = gmat.Construct("CoordinateSystem", "FermiVNB")
@@ -131,8 +134,10 @@ class FermiSatelliteModel():
             self.fm.AddForce(self.jrdrag)
         if with_SRP:
             self.fm.AddForce(self.srp)
-        self.fm.Help()
-        print(self.fm.GetGeneratingString(0))
+        
+        if self.gmat_print:
+            self.fm.Help()
+            print(self.fm.GetGeneratingString(0))
 
         # Build Integrator
         self.gator = gmat.Construct("RungeKutta89", "Gator")

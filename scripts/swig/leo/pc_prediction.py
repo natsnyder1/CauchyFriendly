@@ -11,7 +11,7 @@ from datetime import timedelta
 from scipy.stats import chi2  
 import copy 
 import gmat_sat as gsat 
-
+import pickle
 
 # Fancy Arrow Patch for MPL
 class Arrow3D(FancyArrowPatch):
@@ -301,7 +301,7 @@ def iterative_time_closest_approach(dt, _t0, prim_tup, sec_tup, start_idx = 0, i
         tks = tks[i] + np.arange(substeps[it]+1) * dt
         
         # Now run the primary over the subinterval i to i+1
-        fermiSat = gsat.FermiSatelliteModel(t0, x0_prim, dt)
+        fermiSat = gsat.FermiSatelliteModel(t0, x0_prim, dt, gmat_print=False)
         fermiSat.create_model(with_jacchia=True, with_SRP=True)
         p_pks = [] # Primary Pos 3-Vec
         p_vks = [] # Primary Vel 3-Vec
@@ -320,7 +320,7 @@ def iterative_time_closest_approach(dt, _t0, prim_tup, sec_tup, start_idx = 0, i
         fermiSat.clear_model()
 
         # Create Satellite Model for Secondary
-        fermiSat = gsat.FermiSatelliteModel(t0, x0_sec, dt)
+        fermiSat = gsat.FermiSatelliteModel(t0, x0_sec, dt, gmat_print=False)
         fermiSat.create_model(with_jacchia=True, with_SRP=True)
         s_pks = [] # Secondary Pos 3-Vec
         s_vks = [] # Secondary Vel 3-Vec
@@ -397,7 +397,7 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc,
     plot_var_3D=False, plot_var_2D=True, indiv_var=True, 
     mc_runs_prim = None, mc_runs_sec = None, 
     s_mce_Ptc = None, p_mce_Ptc = None):
-    
+
     #scales = (0.0,0.000001,0.0) # for plot_var_3D
     fig = plt.figure() 
     ax = fig.gca(projection='3d') #fig.add_subplot(projection='3d')
@@ -661,7 +661,7 @@ def draw_2d_projected_encounter_plane(quantile_kf,
     ell_points = (E @ unit_circle.T).T + rp2D 
     fig = plt.figure()
     plt.title("MC of Prim/Sec Positions at TCA, first projected onto \n(the expected) encounter plane, then made relative (sec - prim)")
-    plt.plot(ell_points[:,0], ell_points[:,1], color='r', label='99.99% Proj 2D Cov. Ellipse for KF')
+    plt.plot(ell_points[:,0], ell_points[:,1], color='r', label='{}% Proj 2D Cov. Ellipse for KF'.format(quantile_kf*100))
     plt.scatter(rp2D[0], rp2D[1], color='r', label='Expected relative projected position')
     plt.xlabel("Rel Vel Vec Orthog Direction 1 (km)")
     plt.ylabel("Rel Vel Vec Orthog Direction 2 (km)")
@@ -676,7 +676,7 @@ def draw_2d_projected_encounter_plane(quantile_kf,
         D, U = np.linalg.eig(mce_rP2D)
         E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
         ell_points = (E @ unit_circle.T).T + rp2D 
-        plt.plot(ell_points[:,0], ell_points[:,1], color='g', label='70% Proj 2D Cov. Ellipse for MCE')
+        plt.plot(ell_points[:,0], ell_points[:,1], color='g', label='{}% Proj 2D Cov. Ellipse for MCE'.format(quantile_mce*100))
 
     # Plot Monte Carlo points enamating from x0 projected onto the encounter plane, if not None
     if (mc_prim is not None) and (mc_sec is not None):
@@ -731,7 +731,10 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
     s_xtc, p_xtc, s_Ptc, p_Ptc,
     s_mce_Ptc, p_mce_Ptc, 
     mc_prim_tcas, mc_sec_tcas,
-    mc_sec_sample_tcas, mc_prim_sample_tcas):
+    mc_sec_sample_tcas, mc_prim_sample_tcas, 
+    plot_title = None,
+    scale_vel_prim = 1.0,
+    scale_vel_sec = 1.0):
     
     s3_quant_kf = chi2.ppf(quantile_kf, 3)
     s3_quant_mce = chi2.ppf(quantile_mce, 3)
@@ -739,14 +742,14 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
     # KF and MCE Points
     x1 = p_xtc[0:3]
     v1 = p_xtc[3:6]
-    sv1 = v1 / np.linalg.norm(v1)
+    sv1 = v1 / np.linalg.norm(v1) * scale_vel_prim
     Pkf1 = p_Ptc[0:3,0:3]
     Pkf1_I = np.linalg.inv(Pkf1)
     Pce1 = p_mce_Ptc[0:3,0:3]
     Pce1_I = np.linalg.inv(Pce1)
     x2 = s_xtc[0:3]
     v2 = s_xtc[3:6]
-    sv2 = v2 / np.linalg.norm(v2)
+    sv2 = v2 / np.linalg.norm(v2) * scale_vel_sec
     Pkf2 = s_Ptc[0:3,0:3]
     Pkf2_I = np.linalg.inv(Pkf2)
     Pce2 = s_mce_Ptc[0:3,0:3]
@@ -797,7 +800,10 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
         for mcp in mc_points:
             is_in_kf_prim = (mcp-x1) @ Pkf1_I @ (mcp-x1) < s3_quant_mce
             kf_counts += is_in_kf_prim
-    ax11.set_title('KF 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the 7-day Forward Projected Primary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(kf_counts, len_points) )
+    if plot_title is None:
+        ax11.set_title('KF 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the 7-day Forward Projected Primary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(kf_counts, len_points) )
+    else:
+        ax11.set_title('KF 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the Primary Satellite\n" + plot_title )
     ax11.set_xlabel("x-axis (km)")
     ax11.set_ylabel("y-axis (km)")
     ax11.set_zlabel("z-axis (km)")
@@ -845,7 +851,10 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
         for mcp in mc_points:
             is_in_kf_sec = (mcp-x2) @ Pkf2_I @ (mcp-x2) < s3_quant_mce
             kf_counts += is_in_kf_sec
-    ax12.set_title('KF 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the 7-day Forward Projected Secondary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(kf_counts, len_points) )
+    if plot_title is None:
+        ax12.set_title('KF 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the 7-day Forward Projected Secondary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(kf_counts, len_points) )
+    else:
+        ax12.set_title('KF 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the Secondary Satellite\n" + plot_title )
     leg = ax12.legend()
     ax12.set_xlabel("x-axis (km)")
     ax12.set_ylabel("y-axis (km)")
@@ -893,7 +902,10 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
         for mcp in mc_points:
             is_in_mce_prim = (mcp-x1) @ Pce1_I @ (mcp-x1) < s3_quant_mce
             mce_counts += is_in_mce_prim
-    ax21.set_title('MCE 3D Position Covariance ' + str(quantile_mce*100) + "% Ellipsoid for the 7-day Forward Projected Primary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(mce_counts, len_points) )
+    if plot_title is None:
+        ax21.set_title('MCE 3D Position Covariance ' + str(quantile_mce*100) + "% Ellipsoid for the 7-day Forward Projected Primary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(mce_counts, len_points) )
+    else:
+        ax21.set_title('MCE 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the Primary Satellite\n" + plot_title )
     ax21.set_xlabel("x-axis (km)")
     ax21.set_ylabel("y-axis (km)")
     ax21.set_zlabel("z-axis (km)")
@@ -941,7 +953,10 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
         for mcp in mc_points:
             is_in_mce_sec = (mcp-x2) @ Pce2_I @ (mcp-x2) < s3_quant_mce
             mce_counts += is_in_mce_sec
-    ax22.set_title('MCE 3D Position Covariance ' + str(quantile_mce*100) + "% Ellipsoid for the 7-day Forward Projected Secondary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(mce_counts, mc_points.shape[0]) )
+    if plot_title is None:
+        ax22.set_title('MCE 3D Position Covariance ' + str(quantile_mce*100) + "% Ellipsoid for the 7-day Forward Projected Secondary Satellite\n Plotted against monte carlo realizations of satellite location (green/magenta)\n# Points inside Ellipsoid={}/{} points total".format(mce_counts, mc_points.shape[0]) )
+    else:
+        ax22.set_title('MCE 3D Position Covariance ' + str(quantile_kf*100) + "% Ellipsoid for the Secondary Satellite\n" + plot_title)
     ax22.set_xlabel("x-axis (km)")
     ax22.set_ylabel("y-axis (km)")
     ax22.set_zlabel("z-axis (km)")
@@ -951,227 +966,246 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
     foobar = 3
 
 
-'''
-def old_iterative_time_closest_approach(dt, _t0, prim_tup, sec_tup, start_idx = 0, its = -1, with_plot=True):
-    # For now this function assumes an integer time step
-    assert(int(dt) == dt)
-    # Initial iteration
-    p_pks,p_vks,p_aks = copy.deepcopy(prim_tup)
-    s_pks,s_vks,s_aks = copy.deepcopy(sec_tup)
-    t0 = copy.deepcopy(_t0)
-    tks = np.arange(p_pks.shape[0]) * dt
-    i, troot, t_c, pp_c, pv_c, sp_c, sv_c = closest_approach_info(tks[start_idx:], 
-        (p_pks[start_idx:,:],p_vks[start_idx:,:],p_aks[start_idx:,:]), 
-        (s_pks[start_idx:,:],s_vks[start_idx:,:],s_aks[start_idx:,:]))
-    i += start_idx
-    # Left hand side of interval
-    i_star_lhs = i
-    t_lhs = tks[i]
+def simulate_then_run_ekf(t0, x0, P0_kf, filt_dt, sas_Cd, std_Cd, tau_Cd, sas_alpha, filt_orbits, std_gps_noise, with_density_jumps, STM_order, Wn, H, V):
+    # Create Satellite Model of Primary Satellite
+    fermiSat = gsat.FermiSatelliteModel(t0, x0[0:6].copy(), filt_dt, gmat_print = False)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
 
-    if with_plot:
-        fig = plt.figure() 
-        ax = fig.gca(projection='3d')
-        plt.title("LEO Primary (red) vs. Secondary (blue) trajectory over time")
-        ax.scatter(p_pks[start_idx:i+2,0], p_pks[start_idx:i+2,1], p_pks[start_idx:i+2,2], color = 'r')
-        ax.scatter(s_pks[start_idx:i+2,0], s_pks[start_idx:i+2,1], s_pks[start_idx:i+2,2], color = 'b')
-        ax.set_xlabel("x-axis (km)")
-        ax.set_ylabel("y-axis (km)")
-        ax.set_zlabel("z-axis (km)")
-        # Plot relative difference in position
-        fig2 = plt.figure()
-        plt.title("Norm of Position Difference between Primary and Secondary")
-        plt.plot(tks[start_idx:i+2], np.linalg.norm(p_pks[start_idx:i+2]-s_pks[start_idx:i+2], axis=1))
-        plt.xlabel("Time (sec)")
-        plt.ylabel("2-norm of position difference (km)")
-        plt.show()
+    # Simulate Primary, Setup its Kalman Filter, and Run
+    xs, zs, ws, vs = fermiSat.simulate(filt_orbits, std_gps_noise, W=None, with_density_jumps=with_density_jumps)
+    x_kf = np.random.multivariate_normal(xs[0], P0_kf)
+    x_kf[6] = 0
+    P_kf = P0_kf.copy()
+    fermiSat.reset_state(x_kf, 0)
+    xs_kf = [x_kf.copy()]
+    Ps_kf = [P0_kf.copy()]
+    N = zs.shape[0]
+    I7 = np.eye(7)
+    for i in range(1, N):
+        # Time Prop
+        Phi_k = fermiSat.get_transition_matrix(STM_order)
+        P_kf = Phi_k @ P_kf @ Phi_k.T + Wn
+        x_kf = fermiSat.step() 
+        # Measurement Update
+        K = np.linalg.solve(H @ P_kf @ H.T + V, H @ P_kf).T #P_kf @ H.T @ np.linalg.inv(H @ P_kf @ H.T + V)
+        zbar = H @ x_kf
+        zk = zs[i]
+        r = zk - zbar 
+        print("Norm residual: ", np.linalg.norm(r), " Norm State Diff:", np.linalg.norm(xs[i] - x_kf))
+        x_kf = x_kf + K @ r 
+        # Make sure changes in Cd/Cr are within bounds
+        x_kf[6:] = np.clip(x_kf[6:], -0.98, np.inf)
+        fermiSat.reset_state(x_kf, i) #/1000)
+        P_kf = (I7 - K @ H) @ P_kf @ (I7 - K @ H).T + K @ V @ K.T 
+        # Log
+        xs_kf.append(x_kf.copy())
+        Ps_kf.append(P_kf.copy())
+    xs_kf = np.array(xs_kf)
+    Ps_kf = np.array(Ps_kf)
+    fermiSat.clear_model()
+    return (xs.copy(), zs.copy(), ws.copy(), vs.copy()), (xs_kf.copy(), Ps_kf.copy())
 
-    print("Iteration: 1")
-    print("t0: ", t0, "(timestamp)")
-    print("Step dt: ", dt, "(sec)")
-    print("Tc: {} (sec), Idx of Tc: {}".format(t_c, i) )
-    print("Primary at Tc: ", pp_c, "(km)")
-    print("Secondary at Tc: ", sp_c, "(km)")
-    print("Pos Diff is: ", pp_c-sp_c, "(km)")
-    print("Pos Norm is: ", 1000*np.linalg.norm(pp_c-sp_c), "(m)")
+def sat_prediction(t0_pred, xpred, Ppred, pred_dt, pred_steps, sas_Cd, std_Cd, tau_Cd, sas_alpha):
+    fermiSat = gsat.FermiSatelliteModel(t0_pred, xpred[0:6], pred_dt, gmat_print = False)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+    fermiSat.reset_state(xpred, 0)
+    pks = [] # Primary Pos 3-Vec
+    vks = [] # Primary Vel 3-Vec
+    cdks = [] # Primary change in atms. drag
+    aks = [] # Primary Acc 3-Vec
+    Pks = [] # Primary Covariance 
+    # Propagate Primary and Store
+    xk = xpred.copy()
+    Pk = Ppred.copy() if Ppred is not None else None
+    for i in range(pred_steps):
+        dxk_dt = fermiSat.get_state6_derivatives() 
+        pks.append(xk[0:3])
+        vks.append(xk[3:6])
+        cdks.append(xk[6])
+        aks.append(dxk_dt[3:6])
+        if Pk is not None:
+            Pks.append(Pk)
+            Phik = fermiSat.get_transition_matrix(taylor_order=3)
+            Pk = Phik @ Pk @ Phik.T
+        xk = fermiSat.step()
+    if Pk is not None:
+        Pks.append(Pk)
+    dxk_dt = fermiSat.get_state6_derivatives() 
+    pks.append(xk[0:3])
+    vks.append(xk[3:6])
+    cdks.append(xk[6])
+    aks.append(dxk_dt[3:6])
+    fermiSat.clear_model()
 
-    # Now we know minimum is somewhere over [i,i+1]
-    # Know the start time is now t0 + tks[i]
-    substeps = [int(dt),30,30,30]
-    its = len(substeps) if its == -1 else its
-    for it in range(its):
-        if it == 0:
-            x0_prim = np.concatenate( (p_pks[i],p_vks[i]) )
-            x0_sec  = np.concatenate( (s_pks[i],s_vks[i]) )
-            t0 = t0 + timedelta( seconds = tks[i] )
-            dt = dt / substeps[it]
-            tks = tks[i] + np.arange(substeps[it]+1) * dt
-        else:
-            if (i > 0) and (i+2 < (substeps[it-1]+1) ):
-                j = i-1
-                scale = 3
-            elif i == 0:
-                print("Hit LOWER BOUNDARY i == 0")
-                j = i 
-                scale = 2
-                substeps[it] = 20
-            elif (i+2) == (substeps[it-1]+1):
-                print("Hit UPPER BOUNDARY i+2 ==",i+2)
-                j = i-1
-                scale = 2
-                substeps[it] = 20
-            x0_prim = np.concatenate( (p_pks[j],p_vks[j]) )
-            x0_sec  = np.concatenate( (s_pks[j],s_vks[j]) )
-            t0 = t0 + timedelta( seconds = tks[j] )
-            dt = scale*dt / substeps[it]
-            tks = tks[j] + np.arange(substeps[it]+1) * dt
-        
-        # Now run the primary over the subinterval i to i+1
-        fermiSat = gsat.FermiSatelliteModel(t0, x0_prim, dt)
-        fermiSat.create_model(with_jacchia=True, with_SRP=True)
-        p_pks = [] # Primary Pos 3-Vec
-        p_vks = [] # Primary Vel 3-Vec
-        p_aks = [] # Primary Acc 3-Vec
-        # Propagate Primary and Store
-        xk = x0_prim.copy()
-        for i in range(substeps[it]+1):
-            dxk_dt = fermiSat.get_state6_derivatives() 
-            p_pks.append(xk[0:3])
-            p_vks.append(xk[3:6])
-            p_aks.append(dxk_dt[3:6])
-            xk = fermiSat.step()
-        p_pks = np.array(p_pks)
-        p_vks = np.array(p_vks)
-        p_aks = np.array(p_aks)
-        fermiSat.clear_model()
+    pks = np.array(pks)
+    vks = np.array(vks)
+    aks = np.array(aks)
+    if Pk is not None:
+        Pks = np.array(Pks)
+        return pks, vks, cdks, aks, Pks
+    else:
+        return pks, vks, cdks, aks
 
-        # Create Satellite Model for Secondary
-        fermiSat = gsat.FermiSatelliteModel(t0, x0_sec, dt)
-        fermiSat.create_model(with_jacchia=True, with_SRP=True)
-        s_pks = [] # Secondary Pos 3-Vec
-        s_vks = [] # Secondary Vel 3-Vec
-        s_aks = [] # Secondary Acc 3-Vec
-        # Propagate Secondary and Store
-        xk = x0_sec.copy()
-        for i in range(substeps[it]+1):
-            dxk_dt = fermiSat.get_state6_derivatives() 
-            s_pks.append(xk[0:3])
-            s_vks.append(xk[3:6])
-            s_aks.append(dxk_dt[3:6])
-            xk = fermiSat.step()
-        s_pks = np.array(s_pks)
-        s_vks = np.array(s_vks)
-        s_aks = np.array(s_aks)
-        fermiSat.clear_model()
+def find_tca_and_prim_sec_stats(t0_pred, start_idx, end_idx, pred_dt, p_pks, p_vks, p_aks, p_cdks, p_Pks, s_pks, s_vks, s_aks, s_cdks, s_Pks, sas_Cd, std_Cd, tau_Cd, sas_alpha, with_pred_plots):
+    # GMAT iterative closest time of approach
+    i_star_lhs, t_lhs, t_c, pp_c, pv_c, sp_c, sv_c = iterative_time_closest_approach(
+        pred_dt, t0_pred, 
+        (p_pks[:end_idx],p_vks[:end_idx],p_aks[:end_idx]), 
+        (s_pks[:end_idx],s_vks[:end_idx],s_aks[:end_idx]), 
+        start_idx = start_idx,
+        with_plot=with_pred_plots
+        )
 
-        # Now re-run the closest approach routine
-        i, troot, t_c, pp_c, pv_c, sp_c, sv_c = closest_approach_info(tks, (p_pks,p_vks,p_aks), (s_pks,s_vks,s_aks))
+    # Step both the primary covariance and secondary covariance to the time of closest approach 
+    xlhs_prim = np.concatenate(( p_pks[i_star_lhs], p_vks[i_star_lhs], np.array([p_cdks[i_star_lhs]]) ))
+    fermiSat = gsat.FermiSatelliteModel( t0_pred + timedelta(seconds = t_lhs), xlhs_prim[0:6], t_c - t_lhs, gmat_print = False)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+    fermiSat.reset_state(xlhs_prim, 0)
+    p_Phi = fermiSat.get_transition_matrix(taylor_order=3)
+    p_Ptc = p_Phi @ p_Pks[i_star_lhs] @ p_Phi.T
+    p_xtc = fermiSat.step()
+    print("XPrim at TCA: ", p_xtc[0:3])
+    print("Pos Diff XPrim at TCA (meters): ", 1000*(pp_c - p_xtc[0:3]) )
+    print("Vel Diff XPrim at TCA (meters/sec): ", 1000*(pv_c - p_xtc[3:6]) )
+    fermiSat.clear_model()
+    p_xtc[0:3] = pp_c.copy()
+    p_xtc[3:6] = pv_c.copy()
 
-        print("Iteration: ", it + 2, " (timestamp)")
-        print("Step dt: ", dt, "(sec)")
-        print("Tc: {} (sec), Idx of Tc: {}".format(t_c, i) )
-        print("Primary at Tc: ", pp_c, "(km)")
-        print("Secondary at Tc: ", sp_c, "(km)")
-        print("Pos Diff is: ", pp_c-sp_c, "(km)")
-        print("Pos Norm is: ", 1000*np.linalg.norm(pp_c-sp_c), "(m)")
+    # Propagate the Secondary Covariance to Point of Closest Approach 
+    xlhs_sec = np.concatenate((s_pks[i_star_lhs],s_vks[i_star_lhs], np.array([s_cdks[i_star_lhs]]) ))
+    fermiSat = gsat.FermiSatelliteModel(t0_pred + timedelta(seconds = t_lhs), xlhs_sec[0:6], t_c - t_lhs, gmat_print = False)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+    fermiSat.reset_state(xlhs_sec, 0)
+    s_Phi = fermiSat.get_transition_matrix(taylor_order=3)
+    s_Ptc = s_Phi @ s_Pks[i_star_lhs] @ s_Phi.T
+    s_xtc = fermiSat.step()
+    print("XSec at TCA: ", s_xtc[0:3])
+    print("Pos Diff XSec at TCA (meters): ", 1000*(sp_c - s_xtc[0:3]) )
+    print("Vel Diff XSec at TCA (meters/sec): ", 1000*(sv_c - s_xtc[3:6]) )
+    fermiSat.clear_model()
+    s_xtc[0:3] = sp_c.copy()
+    s_xtc[3:6] = sv_c.copy()
 
-        if with_plot:
-            # Black points give found interval, # green point are +/- 1 buffers
-            fig = plt.figure() 
-            ax = fig.gca(projection='3d')
-            plt.title("Leo Trajectory over Time")
-            ax.scatter(p_pks[:i+2,0], p_pks[:i+2,1], p_pks[:i+2,2], color = 'r')
-            ax.scatter(s_pks[:i+2,0], s_pks[:i+2,1], s_pks[:i+2,2], color = 'b')
-            ax.scatter(p_pks[i,0], p_pks[i,1], p_pks[i,2], color = 'k')
-            ax.scatter(s_pks[i,0], s_pks[i,1], s_pks[i,2], color = 'k')
-            if (i+1) < s_pks.shape[0]:
-                ax.scatter(p_pks[i+1,0], p_pks[i+1,1], p_pks[i+1,2], color = 'k')
-                ax.scatter(s_pks[i+1,0], s_pks[i+1,1], s_pks[i+1,2], color = 'k')
-            ax.set_xlabel("x-axis (km)")
-            ax.set_ylabel("y-axis (km)")
-            ax.set_zlabel("z-axis (km)")
+    return (i_star_lhs, t_lhs, t_c, pp_c, pv_c, sp_c, sv_c), (p_xtc, p_Ptc), (s_xtc, s_Ptc)
+
+def step_sat_stats_to_tca(t0_pred, xpred0, Ppred0, pred_dt, i_star_lhs, t_lhs, t_c, sas_Cd, std_Cd, tau_Cd, sas_alpha, STM_order):
+    # Here, for this experiment at least, we do not care yet about the "uncertainty" at the end of filtration.
+    # That is, we assume, like above for the KF, the filtration error is zero 
+    # Take the MCE Covariance and propagate it to the expected TCA like we did before with the KF
+    fermiSat = gsat.FermiSatelliteModel(t0_pred, xpred0[0:6].copy(), pred_dt, gmat_print = False)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+    fermiSat.reset_state(xpred0, 0) # do not wish to use Cauchy's estimate of the density
+    Pk = Ppred0.copy()
+    xk = xpred0.copy()
+    for i in range(i_star_lhs):
+        Phik = fermiSat.get_transition_matrix(taylor_order=STM_order)
+        Pk = Phik @ Pk @ Phik.T
+        xk = fermiSat.step()
+    fermiSat.clear_model()
+    # Now, adjust the time step and propagate the primary covariance exactly to time of closest approach 
+    fermiSat = gsat.FermiSatelliteModel( t0_pred + timedelta(seconds = t_lhs), xk[0:6], t_c - t_lhs, gmat_print = False)
+    fermiSat.create_model(with_jacchia=True, with_SRP=True)
+    fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+    fermiSat.reset_state(xk, 0)
+    p_Phi = fermiSat.get_transition_matrix(taylor_order=3)
+    Pk = p_Phi @ Pk @ p_Phi.T
+    xk = fermiSat.step()
+    fermiSat.clear_model()
+    return xk, Pk
+
+def log_mc_trials(mc_trials, with_mc_from_x0, t0_pred, pred_dt, p_xpred0, p_Ppred0, s_xpred0, s_Ppred0, sas_Cd, std_Cd, tau_Cd, sas_alpha, std_gps_noise, i_star_lhs, t_c, t_lhs, cache_dic, fpath):
+    print("Logging {} MC Trials".format(mc_trials))
+    sub_trials_per_log = 5
+    mc_count = 0
+    prim_count = 0 
+    sec_count = 0
+    new_mc_runs_prim = []
+    new_mc_runs_sec = []
+    while mc_count < mc_trials: 
+        inner_loop = mc_trials if mc_trials < sub_trials_per_log else sub_trials_per_log
+        if (inner_loop + mc_count) > mc_trials:
+            inner_loop = mc_trials - mc_count
+        # Simulate a new atms. density realization under the current atms. distribution starting at primary at end of filtration. 
+        print("Running MC for Primary:")
+        inner_mc_runs_prim = []
+        for mc_it in range(inner_loop):
+            print( "Primary trial {}/{}:".format(prim_count+1, mc_trials) )
+            if with_mc_from_x0:
+                p_xpred = p_xpred0.copy()
+            else:
+                p_xpred = np.zeros(7)
+                p_xpred[0:6] = np.random.multivariate_normal(p_xpred[0:6], p_Ppred0[0:6,0:6])
+            fermiSat = gsat.FermiSatelliteModel(t0_pred, p_xpred[0:6].copy(), pred_dt, gmat_print = False)
+            fermiSat.create_model(with_jacchia=True, with_SRP=True)
+            fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+            fermiSat.reset_state(p_xpred, 0)
+            xs, _, ws, _ = fermiSat.simulate(None, std_gps_noise, W=None, with_density_jumps = False, num_steps = i_star_lhs)
+            fermiSat.clear_model()
+            fermiSat = gsat.FermiSatelliteModel(t0_pred, xs[-1][0:6].copy(), t_c - t_lhs, gmat_print = False)
+            fermiSat.create_model(with_jacchia=True, with_SRP=True)
+            fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+            fermiSat.reset_state(xs[-1].copy(), 0)
+            xmc = fermiSat.step()
+            inner_mc_runs_prim.append(xmc.copy())
+            fermiSat.clear_model()
+            prim_count += 1
+    
+        print("Running MC for Secondary:")
+        inner_mc_runs_sec = []
+        for mc_it in range(inner_loop):
+            print( "Secondary trial {}/{}:".format(sec_count+1, mc_trials) )
+            if with_mc_from_x0:
+                s_xpred = s_xpred0.copy()
+            else:
+                s_xpred = np.zeros(7)
+                s_xpred[0:6] = np.random.multivariate_normal(s_xpred0[0:6], s_Ppred0[0:6,0:6])
+            fermiSat = gsat.FermiSatelliteModel(t0_pred, s_xpred[0:6], pred_dt, gmat_print = False)
+            fermiSat.create_model(with_jacchia=True, with_SRP=True)
+            fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+            fermiSat.reset_state(s_xpred, 0)
+            xs, _, ws, _ = fermiSat.simulate(None, std_gps_noise, W=None, with_density_jumps = False, num_steps = i_star_lhs)
+            fermiSat.clear_model()
+            fermiSat = gsat.FermiSatelliteModel(t0_pred, xs[-1][0:6].copy(), t_c - t_lhs, gmat_print = False)
+            fermiSat.create_model(with_jacchia=True, with_SRP=True)
+            fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+            fermiSat.reset_state(xs[-1].copy(), 0)
+            xmc = fermiSat.step()
+            inner_mc_runs_sec.append(xmc.copy())
+            fermiSat.clear_model()
+            sec_count += 1
+        new_mc_runs_prim += inner_mc_runs_prim 
+        new_mc_runs_sec += inner_mc_runs_sec
+        mc_count += inner_loop
+
+        print("Caching {} runs, total done is {}, total left is {}".format(inner_loop, mc_count, mc_trials - mc_count) )
+        if with_mc_from_x0:
+            if cache_dic['mc_prim_tcas'] is None:
+                cache_dic['mc_prim_tcas'] = inner_mc_runs_prim
+            else:
+                cache_dic['mc_prim_tcas'] += inner_mc_runs_prim
             
-            dist_norm = np.linalg.norm(p_pks[:i+5]-s_pks[:i+5], axis=1)
-            fig2 = plt.figure()
-            plt.title("Norm of Position Difference between Primary and Secondary")
-            plt.plot(tks[:i+5], dist_norm)
-            plt.scatter(tks[i-1], dist_norm[i-1], color='g')
-            plt.scatter(tks[i], dist_norm[i], color='k')
-            if (i+1) < s_pks.shape[0]:
-                plt.scatter(tks[i+1], dist_norm[i+1], color='k')
-            if (i+2) < s_pks.shape[0]:
-                plt.scatter(tks[i+2], dist_norm[i+2], color='g')
-            plt.xlabel("Time (sec)")
-            plt.ylabel("2-norm of position difference (km)")
-            plt.show()
-            foobar=3
-
-
-    
-    # i_star_lhs -> The nominal propagation index to stop at 
-    # t_lhs -> The time at the nominal propagation index 
-    # t_c -> The final time of closest approach 
-    # pp_c -> The position of the primary at closest approach 
-    # pv_c -> The velocity of the primary at closest approach 
-    # sp_c -> The position of the secondary at closest approach
-    # sv_c -> The velocity of the secondary at closest approach 
-    return i_star_lhs, t_lhs, t_c, pp_c, pv_c, sp_c, sv_c
-
-
-
-def old_draw_2d_projected_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc, mc_prim, mc_sec, with_ep_proj=True):
-    # Create relative quantities
-    p_p = p_xtc[0:3] # position vector of primary 
-    s_p = s_xtc[0:3] # position vector of secondary 
-    rp = s_xtc[0:3] - p_xtc[0:3] # relative position vector
-    # Transformation into along, cross and radial track coordinates 
-    T = get_along_cross_radial_transformation(s_xtc)
-    # Get expected location for the cross and radial track directions only 
-    T2D = T[1:, :]
-    rp2D = T2D @ rp # expected relative 2D position for cross and radial track directions
-    rP2D = T2D @ (s_Ptc[0:3,0:3] + p_Ptc[0:3,0:3]) @ T2D.T # expected relative 2D covariance
-    # Encounter plane ep_a^T @ x = ep_b
-    ep_c = (p_p + s_p) / 2.0
-    ep_a = T[0] # normal to the encounter hyperplane is the along track direction
-    ep_b = ep_a @ ep_c # offset 
-    
-    # Now plot the q_chosen covariance ellipsoids of the primary/secondary sat
-    quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
-    q_chosen = quantiles[-1]
-    s2 = chi2.ppf(q_chosen, 2) # s3 is the value for which e^T @ P_2DProj^-1 @ e == s2 
-    t1s = np.atleast_2d( np.array([ np.sin(2*np.pi*t) for t in np.linspace(0,1,100)]) ).T
-    t2s = np.atleast_2d( np.array([ np.cos(2*np.pi*t) for t in np.linspace(0,1,100)]) ).T
-    unit_circle = np.hstack((t1s,t2s))
-    D, U = np.linalg.eig(rP2D)
-    E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
-    fig = plt.figure()
-    ell_points = (E @ unit_circle.T).T + rp2D 
-    plt.title("MC of Prim/Sec Positions at TCA, first projected onto \n(the expected) encounter plane, then made relative (sec - prim)")
-    plt.plot(ell_points[:,0], ell_points[:,1], color='r', label='99.99\% Proj 2D Covariance Ellipsoid')
-    plt.scatter(rp2D[0], rp2D[1], color='r', label=r'Expected projected and relative position $r^{k+N|k}=\mathbb{E}[p_s^{k+N|k} - p^{k+N|k}_p]$')
-    plt.xlabel("Cross-Track Direction (km)")
-    plt.ylabel("Radial-Track Direction (km)")
-
-    leg_mc = None
-    for mcp,mcs in zip(mc_prim, mc_sec):
-        # Project prim onto encounter plane 
-        p1 = mcp[0:3]
-        v1 = mcp[3:6]
-        t1 = (ep_b - ep_a @ p1) / (ep_a @ v1)
-        ep_p1 = p1 + t1 * v1
-        # project sec onto encounter plane 
-        p2 = mcs[0:3]
-        v2 = mcs[3:6]
-        t2 = (ep_b - ep_a @ p2) / (ep_a @ v2)
-        ep_p2 = p2 + t2 * v2
-        # subtract, project down
-        mcr = ep_p2 - ep_p1
-        proj_mc = T2D @ mcr
-        if leg_mc is None:
-            leg_mc = True
-            plt.scatter(proj_mc[0], proj_mc[1], color='m', label = 'MC real. of (rel.) proj. pos. onto EP at TCA')
+            if cache_dic['mc_sec_tcas'] is None:
+                cache_dic['mc_sec_tcas'] = inner_mc_runs_sec
+            else:
+                cache_dic['mc_sec_tcas'] += inner_mc_runs_sec
         else:
-            plt.scatter(proj_mc[0], proj_mc[1], color='m')
-    plt.show()
-    foobar=5
-
-'''
+            if cache_dic['mc_prim_sample_tcas'] is None:
+                cache_dic['mc_prim_sample_tcas'] = inner_mc_runs_prim
+            else:
+                cache_dic['mc_prim_sample_tcas'] += inner_mc_runs_prim
+            
+            if cache_dic['mc_sec_sample_tcas'] is None:
+                cache_dic['mc_sec_sample_tcas'] = inner_mc_runs_sec
+            else:
+                cache_dic['mc_sec_sample_tcas'] += inner_mc_runs_sec
+        with open(fpath, "wb") as handle:
+            pickle.dump(cache_dic, handle)
+        print("Stored data to:", fpath)
+        
+    print("Logged ", len(new_mc_runs_prim), " total new Primary MC runs")
+    print("Logged ", len(new_mc_runs_sec), " total new Secondary MC runs")

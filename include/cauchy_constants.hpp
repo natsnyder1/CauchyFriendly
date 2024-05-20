@@ -30,7 +30,7 @@ const int CP_STORAGE_ALLOC_METHOD = 0; // 0: malloc, 1: calloc 2: page touching 
 // Gtable-Settings
 const uint8_t kByteEmpty = 0xff;
 const uint32_t kEmpty = 0xffffffff;
-const bool WITH_TERM_APPROXIMATION = false;
+const bool WITH_TERM_APPROXIMATION = true;
 const double TERM_APPROXIMATION_EPS = 1e-16;
 const bool WITH_WARNINGS = false; // Used to flag when something may be fishy
 const bool WITH_GB_TABLE_REALLOC = true;
@@ -78,7 +78,7 @@ const int COV_ERROR_FLAGS_INVALID_I2R_RATIO = 2;
 const int COV_ERROR_FLAGS_INVALID_IMAGINARY_VALUE = 3;
 
 // Numeric Covariance eigenvalue smallness tolerance
-const double COV_EIGENVALUE_TOLERANCE = -1e-10; // Should be positive
+const double COV_EIGENVALUE_TOLERANCE = -1e-5; // Should be positive
 
 // Numeric Moment Error Flag Bits
 const int ERROR_FZ_NEGATIVE = 9;
