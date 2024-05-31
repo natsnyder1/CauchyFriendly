@@ -56,21 +56,19 @@ def run_matlab_kalman():
 xs_kf_py, Ps_kf_py = run_python_kalman()
 xs_kf_matlab, Ps_kf_matlab = run_matlab_kalman()
 
-xs_kf_py = xs_kf_py.T
-Ps_kf_py = Ps_kf_py.T
-
 print("\nPython Shapes:\nxs_kf:", xs_kf_py.shape, "\nPs_kf:", Ps_kf_py.shape, "\n")
 print("\nMatlab Shapes:\nxs_kf:", xs_kf_matlab.shape, "\nPs_kf:", Ps_kf_matlab.shape, "\n")
-print("Note that the Python Shapes in this test have been transposed, because numpy arrays are row-major and matlab arrays are column-major\n")
 
 # Compare outputs
+print("Running asserts...")
 assert np.allclose(xs_kf_py, xs_kf_matlab)
 assert np.allclose(Ps_kf_py, Ps_kf_matlab)
+
 
 print("Outputs from Python and MATLAB versions match.\n")
 
 scipy.io.savemat('kalman_filter_outputs.mat', {
-    'xs_kf_py': xs_kf_py.T,
-    'Ps_kf_py': Ps_kf_py.T,
+    'xs_kf_py': xs_kf_py,
+    'Ps_kf_py': Ps_kf_py,
     'xs_kf_matlab': xs_kf_matlab,
-    'Ps_kf_matlab': Ps_kf_matlab.T})
+    'Ps_kf_matlab': Ps_kf_matlab})

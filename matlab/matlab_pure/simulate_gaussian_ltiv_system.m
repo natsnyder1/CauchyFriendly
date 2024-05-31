@@ -39,7 +39,7 @@ function [xs, zs, ws, vs] = simulate_gaussian_ltiv_system(num_steps, x0_truth, u
     Gamma = reshape(Gamma, numel(x0_truth), size(W,1));
     v_zero_vec = zeros(size(V,1), 1);
     w_zero_vec = zeros(size(W,1), 1);
-    xk = x0_truth(:); % Force column vector
+    xk = x0_truth;
     
     xs = xk; % Initialize with the first state
     zs = []; % Initialize measurement history
@@ -70,4 +70,9 @@ function [xs, zs, ws, vs] = simulate_gaussian_ltiv_system(num_steps, x0_truth, u
         zs = [zs zk]; % Concatenate to measurement matrix
         vs = [vs vk]; % Concatenate to measurement noise matrix
     end
+
+    xs = xs';
+    zs = zs';
+    ws = ws';
+    vs = vs';
 end

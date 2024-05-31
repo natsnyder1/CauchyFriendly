@@ -41,7 +41,7 @@ function [xs, zs, ws, vs] = test_function(num_steps, x0_truth, us, Phi, B, Gamma
     assert(~isempty(Gamma));
     assert(~isempty(W));
     Gamma = reshape(Gamma, numel(x0_truth), size(W,1));
-    xk = x0_truth(:); % Force column vector
+    xk = x0_truth;
     
     xs = xk; % Initialize with the first state
     zs = []; % Initialize measurement history
@@ -71,4 +71,8 @@ function [xs, zs, ws, vs] = test_function(num_steps, x0_truth, us, Phi, B, Gamma
         zs = [zs zk]; % Concatenate to measurement matrix
 
     end
+    xs = xs';
+    zs = zs';
+    ws = ws';
+    vs = vs';
 end

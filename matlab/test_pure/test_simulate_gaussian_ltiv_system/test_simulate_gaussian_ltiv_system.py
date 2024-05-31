@@ -124,14 +124,19 @@ def run_matlab_simulation():
 xs_py, zs_py, ws_py, vs_py = run_python_simulation()
 xs_matlab, zs_matlab, ws_matlab, vs_matlab = run_matlab_simulation()
 
+xs_py = xs_py.T
+zs_py = zs_py.T
+ws_py = ws_py.T
+vs_py = vs_py.T
+
 if os.path.exists('random_noise_vectors.mat'):
     os.remove('random_noise_vectors.mat')
 
 print("\nPython Shapes:\nState Hist Shape:", xs_py.shape, "\nMeasurement Hist Shape:", zs_py.shape, "\nProcess Noise Hist Shape:",ws_py.shape, "\nMeasurement Noise Hist Shape:", vs_py.shape, "\n")
 print("Matlab Shapes:\nState Hist Shape:", xs_matlab.shape, "\nMeasurement Hist Shape:", zs_matlab.shape, "\nProcess Noise Hist Shape:",ws_matlab.shape, "\nMeasurement Noise Hist Shape:", vs_matlab.shape, "\n")
-print("Note that the Python Shapes in this test have been transposed, because numpy arrays are row-major and matlab arrays are column-major\n")
-# Compare outputs
 
+# Compare outputs
+print("Running asserts...")
 assert np.allclose(xs_py, xs_matlab)
 assert np.allclose(zs_py, zs_matlab)
 assert np.allclose(ws_py, ws_matlab)
@@ -141,10 +146,10 @@ print("Outputs from Python and MATLAB versions match.\n")
 
 # Save outputs to a separate file that can be used by other functions
 scipy.io.savemat('gaussian_simulation_outputs.mat', {
-    'xs_py': xs_py.T,
-    'zs_py': zs_py.T,
-    'ws_py': ws_py.T,
-    'vs_py': vs_py.T,
+    'xs_py': xs_py,
+    'zs_py': zs_py,
+    'ws_py': ws_py,
+    'vs_py': vs_py,
     'xs_matlab': xs_matlab,
     'zs_matlab': zs_matlab,
     'ws_matlab': ws_matlab,
