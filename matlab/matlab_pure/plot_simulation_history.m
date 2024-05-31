@@ -17,105 +17,153 @@ function plot_simulation_history(cauchy_moment_info, simulation_history, kf_hist
     with_sim = ~isempty(simulation_history);
     with_kf = ~isempty(kf_history);
     with_ce = ~isempty(cauchy_moment_info);
-    
+
     if with_sim
         n = size(simulation_history{1}, 2);
-        T = 0:size(simulation_history{2}, 1)-1;
+        T = 0:(size(simulation_history{2}, 1)-1);
     elseif with_kf
         n = size(kf_history{1}, 2);
-        T = 0:size(kf_history{1}, 1)-1;
+        T = 0:(size(kf_history{1}, 1)-1);
     elseif with_ce
         n = numel(cauchy_moment_info.x{1});
-        T = 0:numel(cauchy_moment_info.x)-1;
-        if with_cauchy_delay
-            T = T + with_cauchy_delay;
-        end
+        T = 0:(length(cauchy_moment_info.x) - 1 + with_cauchy_delay);
     else
         fprintf('Must provide simulation data, kalman filter data or cauchy estimator data!\nExiting function with no plotting (Nothing Given!)\n');
         return;
     end
-    
-    % Simulation history
+
     if with_sim
         true_states = simulation_history{1};
         msmts = simulation_history{2};
         proc_noises = simulation_history{3};
         msmt_noises = simulation_history{4};
     end
-    
-    % Cauchy Estimator
+
     if with_ce
-        means = cell2mat(cauchy_moment_info.x);
-        covars = cell2mat(cauchy_moment_info.P);
-        cerr_norm_factors = cell2mat(cauchy_moment_info.cerr_fz);
-        cerr_means = cell2mat(cauchy_moment_info.cerr_x);
-        cerr_covars = cell2mat(cauchy_moment_info.cerr_P);
+        means = cat(1, cauchy_moment_info.x{:});
+        covars = cat(1, cauchy_moment_info.P{:});
+        cerr_norm_factors = cat(1, cauchy_moment_info.cerr_fz{:});
+        cerr_means = cat(1, cauchy_moment_info.cerr_x{:});
+        cerr_covars = cat(1, cauchy_moment_info.cerr_P{:});
         n = size(means, 2);
     end
-    
-    % Kalman filter
+
     if with_kf
         kf_cond_means = kf_history{1};
         kf_cond_covars = kf_history{2};
     end
-    
-    % Check array lengths, cauchy_delay, partial plot parameters
-    cd = 0;
+
     if with_ce
         cd = with_cauchy_delay;
-        %plot_len variable has been introduced so that runs which fail can still be partially plotted
-        plot_len = size(covars, 1) + cd;
-        if ~with_partial_plot && with_cauchy_delay && plot_len ~= numel(T)
-            fprintf('[ERROR]: covars.shape[0] + with_cauchy_delay != T.size. You have mismatch in array lengths\n');
-            fprintf('Cauchy Covars size: '); disp(size(covars));
-            fprintf('with_cauchy_delay: %d\n', with_cauchy_delay);
-            fprintf('T size: %d\n', numel(T));
-            fprintf('Please fix appropriately!\n');
-            assert(false);
-        elseif (with_partial_plot || with_cauchy_delay) && plot_len > numel(T)
-            fprintf('[ERROR]: covars.shape[0] + with_cauchy_delay > T.size. You have mismatch in array lengths\n');
-            fprintf('Cauchy Covars size: '); disp(size(covars));
-            fprintf('with_cauchy_delay: %d\n', with_cauchy_delay);
-            fprintf('T size: %d\n', numel(T));
-            fprintf('Please fix appropriately!\n');
-            assert(false);
-        elseif (size(covars, 1) + cd) ~= numel(T)
-            fprintf('[ERROR]: covars.shape[0] + with_cauchy_delay != T.size. You have mismatch in array lengths\n');
-            fprintf('Cauchy Covars size: '); disp(size(covars));
-            fprintf('with_cauchy_delay: %d\n', with_cauchy_delay);
-            fprintf('T size: %d\n', numel(T));
-            fprintf('Please toggle on ''p'' option for partial plotting or set ''d'' to lag cauchy estimator appropriately\n');
-            assert(false);
+        if ~with_partial_plot && with_cauchy_delay
+            plot_len = size(covars, 1) + cd;
+            assert(plot_len == numel(T), 'Mismatch in array lengths');
+        elseif with_partial_plot || with_cauchy_delay
+            plot_len = size(covars, 1) + cd;
+            assert(plot_len <= numel(T), 'Mismatch in array lengths');
         else
+            assert(size(covars, 1) + cd == numel(T), 'Mismatch in array lengths');
             plot_len = numel(T);
         end
     else
         plot_len = numel(T);
     end
-    
-    % 1.) Plot the true state history vs the conditional mean estimate  
-    % 2.) Plot the state error and one-sigma bound of the covariance 
-    % 3.) Plot the msmts, and the msmt and process noise 
-    % 4.) Plot the max complex error in the mean/covar and norm factor 
+
+
+
+    % Plot the true state history vs the conditional mean estimate
     figure;
-    hold on;
-    title('True States (r) vs Cauchy (b) vs Kalman (g--)');
+    if with_kf
+        sgtitle('True States (red) vs Cauchy (blue) vs Kalman (black--)');
+    else
+        sgtitle('True States (red) vs Cauchy Estimates (blue)');
+    end
     for i = 1:n
         subplot(n, 1, i);
         hold on;
+
         if with_sim
-            plot(T(1:plot_len), true_states(1:plot_len, i), 'r');
+            plot(T(1:plot_len), true_states(1:plot_len,i), 'r');
         end
         if with_ce
-            plot(T((cd+1):plot_len), means(:, i), 'b');
+            plot(T(cd+1:plot_len), means(:,i), 'b');
         end
         if with_kf
-            plot(T(1:plot_len), kf_cond_means(1:plot_len, i), 'g--');
+            plot(T(1:plot_len), kf_cond_means(1:plot_len,i), 'k--');
+        end
+        hold off;
+    end
+
+    % Plot the state error and one-sigma bound of the covariance
+    figure;
+    if with_kf
+        sgtitle('Cauchy 1-Sig (blue/red) vs Kalman 1-Sig (black-/purple-)');
+    else
+        sgtitle('State Error (b) vs One Sigma Bound (r)');
+    end
+    for i = 1:n
+        subplot(n, 1, i);
+        hold on;
+        if with_ce
+            plot(T(cd+1:plot_len), true_states(cd+1:plot_len,i) - means(:,i), 'b');
+            plot(T(cd+1:plot_len), scale*sqrt(covars(:,i,i)), 'r');
+            plot(T(cd+1:plot_len), -scale*sqrt(covars(:,i,i)), 'r');
+        end
+        if with_kf
+            plot(T(1:plot_len), true_states(1:plot_len,i) - kf_cond_means(1:plot_len,i), 'k--');
+            plot(T(1:plot_len), scale*sqrt(kf_cond_covars(1:plot_len,i,i)), 'm--');
+            plot(T(1:plot_len), -scale*sqrt(kf_cond_covars(1:plot_len,i,i)), 'm--');
+        end
+        hold off;
+    end
+
+    % Plot the measurements, and the measurement and process noise
+    if with_sim
+        line_types = {'-', '--', '-.', ':', '-', '--', '-.', ':'};
+        figure;
+        sgtitle('Msmts (purple), Msmt Noise (black), Proc Noise (blue)');
+        m = 3;
+        count = 1;
+
+        % Plot measurements (msmts)
+        subplot(m, 1, count);
+        hold on;
+        for i = 1:size(msmts, 2)
+            plot(T(1:plot_len), msmts(1:plot_len, i), strcat('m', line_types{i}));
+        end
+        hold off;
+        count = count + 1;
+        
+        % Plot measurement noise (msmt_noises)
+        subplot(m, 1, count);
+        hold on;
+        for i = 1:size(msmt_noises, 2)
+            plot(T(1:plot_len), msmt_noises(1:plot_len, i), strcat('k', line_types{i}));
+        end
+        hold off;
+        count = count + 1;
+        
+        % Plot process noise (proc_noises)
+        subplot(m, 1, count);
+        hold on;
+        for i = 1:size(proc_noises, 2)
+            plot(T(2:plot_len), proc_noises(1:plot_len-1, i), strcat('b', line_types{i}));
         end
         hold off;
     end
     
-    % More blocks similar to the first one would follow, dealing with plotting errors, covariances, measurements, etc.
-    
+    % Plot the max complex error in the mean/covariance and norm factor
+    if with_ce
+        figure;
+        sgtitle('Complex Errors (mean,covar,norm factor) in Semi-Log');
+        subplot(3, 1, 1);
+        semilogy(T(cd+1:plot_len), cerr_means, 'g');
+        
+        subplot(3, 1, 2);
+        semilogy(T(cd+1:plot_len), cerr_covars, 'g');
+        
+        subplot(3, 1, 3);
+        semilogy(T(cd+1:plot_len), cerr_norm_factors, 'g');
     end
     
+end
