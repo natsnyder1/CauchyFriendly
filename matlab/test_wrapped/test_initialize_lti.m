@@ -2,6 +2,8 @@
 % when building the cpp file, use the following command
 %% mex -g -I/path/to/cauchy/CauchyFriendly/scripts/swig/cauchy -I/path/to/lapack/include -L/path/to/lapack/lib -llapacke -llapack -lblas initialize_lti.cpp
 % replace t
+addpath('../mex_files');
+
 % Define correct matrices and vectors
 A0_correct = eye(2); % Identity matrix, square and full rank
 p0_correct = [0.16089135 0.16089135]; % Non-negative vector matching the size of A0
