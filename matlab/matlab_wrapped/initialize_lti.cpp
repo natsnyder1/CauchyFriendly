@@ -117,7 +117,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     double *data_gamma = mxGetPr(prhs[8]);
 
     // Assume some integers for the additional parameters required by pycauchy_initialize_lti
-    int num_steps = 3;   // Example value, replace with actual if needed
+    int num_steps = 2;   // Example value, replace with actual if needed
     int init_step = 0; // defaults to 0
     double dt = 0;      // Time step, example value
     bool debug_print = true;  // Debugging flag
