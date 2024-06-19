@@ -43,15 +43,15 @@ function [xs, zs, ws, vs] = test_function(num_steps, x0_truth, us, Phi, B, Gamma
     Gamma = reshape(Gamma, numel(x0_truth), size(W,1));
     xk = x0_truth;
     
-    xs = xk; % Initialize with the first state
+    xs = xk'; % Initialize with the first state
     zs = []; % Initialize measurement history
     
     if with_zeroth_step_msmt
         v0 = vs(:, 1); % Use the first column (Python vs[:, 0] equivalent)
-        z0 = H * xk + v0;
+        z0 = H' * xk + v0;
         zs = [zs, z0];
     end
-    
+
     for i = 1:num_steps
         if ~isempty(dynamics_update_callback)
             dynamics_update_callback(Phi, B, Gamma, H, W, V, i - 1, other_params);
@@ -59,20 +59,18 @@ function [xs, zs, ws, vs] = test_function(num_steps, x0_truth, us, Phi, B, Gamma
         uk = us(i,:)';
         wk = ws(:, i); % Use the preloaded process noise
         xk = Phi * xk + B * uk + Gamma * wk;
-        
-        xs = [xs xk]; % Concatenate to states matrix
+
+        xs = [xs; xk']; % Concatenate to states matrix
         if with_zeroth_step_msmt
             vk = vs(:, i+1); 
         else
             vk = vs(:, i); 
         end
-        zk = H * xk + vk;
+        zk = H' * xk + vk;
         
-        zs = [zs zk]; % Concatenate to measurement matrix
+        zs = [zs; zk]; % Concatenate to measurement matrix
 
     end
-    xs = xs';
-    zs = zs';
     ws = ws';
     vs = vs';
 end
