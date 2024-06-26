@@ -1,8 +1,8 @@
-% file: MatCauchyEstimator
+% file: MCauchyEstimator
 
-classdef MatCauchyEstimator < handle
+classdef MCauchyEstimator < handle
     properties
-        % MatCauchyEstimator
+        % MCauchyEstimator
         modes = {'lti', 'ltv', 'nonlin'}
         mode
         num_steps
@@ -13,13 +13,17 @@ classdef MatCauchyEstimator < handle
         cmcc
         p
         % call_step
-        moment_info = struct('x', {}, 'P', {}, 'cerr_x', {}, 'cerr_P', {}, 'fz', {}, 'cerr_fz', {}, 'err_code', {}) % Cell arrays instead of lists
+        moment_info = struct('x', zeros(0, 0), 'P', zeros(0, 0, 0), 'cerr_x', [], 'cerr_P', [], 'fz', [], 'cerr_fz', [], 'err_code', [])
         fz
         step_count = 0
         x
         P
         xbar
         zbar
+        cerr_fz
+        cerr_x
+        cerr_P
+        err_code
         % initialize_lti
         A0
         p0
@@ -30,7 +34,7 @@ classdef MatCauchyEstimator < handle
         B
         H
         gamma
-        matcauchy_handle
+        mcauchy_handle
         is_initialized = false
         % step
         msmts
@@ -38,14 +42,14 @@ classdef MatCauchyEstimator < handle
     end
     
     methods (Access = public)
-        function obj = MatCauchyEstimator(mode, num_steps, debug_print)
+        function obj = MCauchyEstimator(mode, num_steps, debug_print)
             if nargin < 3
                 debug_print = true;
             end
 
             mode = lower(mode);
             if ~ismember(mode, obj.modes)
-                fprintf('[Error MatCauchyEstimator:] chosen mode %s invalid. Please choose one of the following: {%s}\n', mode, strjoin(obj.modes, ', '));
+                fprintf('[Error MCauchyEstimator:] chosen mode %s invalid. Please choose one of the following: {%s}\n', mode, strjoin(obj.modes, ', '));
             else
                 obj.mode = mode;
                 fprintf('Set Cauchy Estimator Mode to: %s\n', obj.mode);
@@ -75,22 +79,22 @@ classdef MatCauchyEstimator < handle
             assert(size(Phi, 1) == size(Phi, 2) && size(Phi, 1) == n, 'Phi must be a square matrix and match dimensions with A0.');
             assert(rank(Phi) == n, 'Phi must have full rank.');
             assert(size(Gamma, 1) == n, 'Gamma must have the same number of rows as dimension of A0.');
-    
+        
             pncc = 0;
             if ~isempty(Gamma)
-                if ndims(Gamma) == 2
-                    assert(size(beta, 2) == size(Gamma, 2), 'Dimension mismatch between Gamma and beta.');
+                if ismatrix(Gamma)
+                    assert(numel(beta) == size(Gamma, 2), 'Dimension mismatch between Gamma and beta.');
                 else
-                    assert(length(beta) == 1, 'If Gamma is a vector, beta must be scalar.');
+                    assert(numel(beta) == 1, 'If Gamma is a vector, beta must be scalar.');
                 end
-                pncc = length(beta);
+                pncc = numel(beta);
             else
                 assert(isempty(beta), 'If Gamma is empty, beta must also be empty.');
             end
             
             cmcc = 0;
             if ~isempty(B)
-                if ndims(B) == 2
+                if ismatrix(B)
                     cmcc = size(B, 2);
                 else
                     cmcc = 1;
@@ -98,15 +102,17 @@ classdef MatCauchyEstimator < handle
                 assert(size(B, 1) == n, 'B must have the same number of rows as dimension of A0.');
             end
             
-            p = size(H, 1);
-            if size(H, 2) == 1
-                assert(length(gamma) == 1, 'If H is a vector, gamma must be scalar.');
+            if iscolumn(H) || isrow(H)
+                assert(numel(gamma) == 1, 'If H is a vector, gamma must be scalar.');
+                p = 1;
             else
-                assert(length(gamma) == p, 'Dimension mismatch between H and gamma.');
+                assert(size(H, 2) == n, 'Second dimension of H must match the dimension of A0.');
+                assert(numel(gamma) == size(H, 1), 'Dimension mismatch between H and gamma.');
+                p = size(H, 1);
             end
             
-            if any(abs(H * Gamma) < 1e-12, 'all')
-                warning('Warning MatCauchyEstimator: | H @ Gamma | < eps for some input / output channels. This may result in undefined moments!');
+            if any(abs(H' * Gamma) < 1e-12, 'all')
+                warning('Warning MCauchyEstimator: | H'' * Gamma | < eps for some input / output channels. This may result in undefined moments!');
             end
             
             obj.n = n;
@@ -148,18 +154,18 @@ classdef MatCauchyEstimator < handle
             if strcmp(obj.mode, 'lti')
                 [~, ~, ~, ~, ~, ~, ...
                 obj.fz, obj.x, obj.P, ...
-                obj.moment_info.cerr_fz, obj.moment_info.cerr_x, obj.moment_info.cerr_P, obj.moment_info.err_code] = ...
-                    matcauchy_single_step_ltiv(obj.matcauchy_handle, msmts, controls);
+                obj.cerr_fz, obj.cerr_x, obj.cerr_P, obj.err_code] = ...
+                    mcauchy_step(obj.mcauchy_handle, msmts, controls);
             elseif strcmp(obj.mode, 'ltv')
                 [obj.Phi, obj.Gamma, obj.B, obj.H, obj.beta, obj.gamma, ...
                 obj.fz, obj.x, obj.P, ...
-                obj.moment_info.cerr_fz, obj.moment_info.cerr_x, obj.moment_info.cerr_P, obj.moment_info.err_code] = ...
-                    matcauchy_single_step_ltiv(obj.matcauchy_handle, msmts, controls);
+                obj.cerr_fz, obj.cerr_x, obj.cerr_P, obj.err_code] = ...
+                    mcauchy_single_step_ltiv(obj.mcauchy_handle, msmts, controls);
             else
                 [obj.Phi, obj.Gamma, obj.B, obj.H, obj.beta, obj.gamma, ...
                 obj.fz, obj.x, obj.P, obj.xbar, obj.zbar, ...
-                obj.moment_info.cerr_fz, obj.moment_info.cerr_x, obj.moment_info.cerr_P, obj.moment_info.err_code] = ...
-                    matcauchy_single_step_nonlin(obj.matcauchy_handle, msmts, controls, obj.step_count ~= 0);
+                obj.cerr_fz, obj.cerr_x, obj.cerr_P, obj.err_code] = ...
+                    mcauchy_single_step_nonlin(obj.mcauchy_handle, msmts, controls, obj.step_count ~= 0);
             end
         
             if full_info
@@ -176,19 +182,31 @@ classdef MatCauchyEstimator < handle
         
             fz = obj.fz(end);
             x = obj.x(end-obj.n+1:end);
-            P = reshape(obj.P(end-obj.n^2+1:end), obj.n, obj.n);
-            cerr_fz = obj.moment_info.cerr_fz(end);
-            cerr_x = obj.moment_info.cerr_x(end);
-            cerr_P = obj.moment_info.cerr_P(end);
-            err_code = obj.moment_info.err_code(end);
-        
-            obj.moment_info.fz(end+1) = fz;
-            obj.moment_info.x(end+1) = {x};
-            obj.moment_info.P(end+1) = {P};
-            obj.moment_info.cerr_x(end+1) = cerr_x;
-            obj.morning_info.cerr_P(end+1) = {cerr_P};
-            obj.moment_info.cerr_fz(end+1) = cerr_fz;
-            obj.moment_info.err_code(end+1) = err_code;
+            P = reshape(obj.P((end-obj.n^2+1):end), obj.n, obj.n);
+            cerr_fz = obj.cerr_fz(end);
+            cerr_x = obj.cerr_x(end);
+            cerr_P = obj.cerr_P(end);
+            err_code = obj.err_code(end);
+            
+            if size(obj.moment_info.fz, 1) == 0
+                obj.moment_info.fz = fz;
+                obj.moment_info.x = reshape(x, [1 size(x)]);
+                obj.moment_info.P = reshape(P, [1 size(P)]);
+                obj.moment_info.cerr_x = cerr_x;
+                obj.moment_info.cerr_P = cerr_P;
+                obj.moment_info.cerr_fz = cerr_fz;
+                obj.moment_info.err_code = err_code;
+            else 
+                obj.moment_info.fz = cat(1,obj.moment_info.fz, fz);
+                obj.moment_info.x = cat(1, obj.moment_info.x, reshape(x, [1 size(x)]));
+                obj.moment_info.P = cat(1, obj.moment_info.P, reshape(P, [1 size(P)]));
+                obj.moment_info.cerr_x = cat(1,obj.moment_info.cerr_x, cerr_x);
+                obj.moment_info.cerr_P = cat(1,obj.moment_info.cerr_P, cerr_P);
+                obj.moment_info.cerr_fz = cat(1,obj.moment_info.cerr_fz, cerr_fz);
+                obj.moment_info.err_code = cat(1,obj.moment_info.err_code, err_code);
+            end
+            
+            
         
             obj.step_count = obj.step_count + 1;
         end
@@ -200,6 +218,13 @@ classdef MatCauchyEstimator < handle
                          'You must call initialize_%s ... or reset the mode altogether!\n'], obj.mode, obj.mode);
                 disp('LTI initialization not successful!');
                 return;
+            end
+
+            if (nargin < 12)
+                dt = 0;
+            end
+            if (nargin < 11)
+                init_step = 0;
             end
             
             obj.ndim_input_checker(A0, p0, b0, Phi, B, Gamma, beta, H, gamma);
@@ -228,10 +253,10 @@ classdef MatCauchyEstimator < handle
             init_step = int32(init_step);
             dt = double(dt);
             
-            % Instantiate and initialize the matcauchy object
-            obj.matcauchy_handle = matcauchy();
-            obj.matcauchy_handle.initialize_lti(obj.A0, obj.p0, obj.b0, obj.Phi, obj.B, obj.Gamma, ...
-                                                obj.beta, obj.H, obj.gamma, init_step, dt);
+            % Instantiate and initialize the mcauchy object
+            % FIX THIS LINE
+            obj.mcauchy_handle = minitialize_lti(obj.num_steps, obj.A0, obj.p0, obj.b0, obj.Phi, obj.Gamma, obj.B, ...
+                                                obj.beta, obj.H, obj.gamma, dt, init_step, obj.debug_print);
             obj.is_initialized = true;
     
             fprintf('LTI initialization successful! You can use the step(msmts, controls) method to run the estimator now!\n');
@@ -240,7 +265,7 @@ classdef MatCauchyEstimator < handle
         end
 
 
-        function result = step(obj, msmts, controls, full_info)
+        function [xk, Pk] = step(obj, msmts, controls, full_info)
             if nargin < 3
                 controls = []; % Default value if controls are not provided
             end
@@ -253,14 +278,16 @@ classdef MatCauchyEstimator < handle
             if ~obj.is_initialized
                 fprintf("Estimator is not initialized yet. Mode set to %s. Please call method initialize_%s before running step()!\n", obj.mode, obj.mode);
                 fprintf("Not stepping! Please call correct method / fix mode!\n");
-                result = [];
+                xk = [];
+                Pk = [];
                 return;
             end
             
             if obj.step_count == obj.num_steps
                 fprintf("[Error:] Cannot step estimator again, you have already stepped the estimator the initialized number of steps\n");
                 fprintf("Not stepping! Please shut estimator down or reset it!\n");
-                result = [];
+                xk = [];
+                Pk = [];
                 return;
             end
             
@@ -268,7 +295,7 @@ classdef MatCauchyEstimator < handle
             obj.msmts = msmts; % In MATLAB, no need to explicitly copy
             obj.controls = controls;
             
-            result = obj.call_step(msmts, controls, full_info);
+            [xk, Pk] = obj.call_step(msmts, controls, full_info);
         end
 
 
@@ -306,14 +333,14 @@ classdef MatCauchyEstimator < handle
             reinit_gamma = obj.gamma(msmt_idx+1);
 
             if ~strcmp(obj.mode, "nonlin")
-                A0 = obj.matcauchy_handle.get_reinitialization_statistics(reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma);
+                A0 = obj.mcauchy_handle.get_reinitialization_statistics(reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma);
                 A0 = reshape(A0, [obj.n, obj.n]);
             else
                 reinit_xbar = obj.xbar((msmt_idx*obj.n)+1:(msmt_idx+1)*obj.n);
                 reinit_zbar = obj.zbar(msmt_idx+1);
                 dx = reinit_xhat - reinit_xbar;
                 dz = reinit_msmt - reinit_zbar;
-                [A0, p0, b0] = obj.matcauchy_handle.get_reinitialization_statistics(dz, dx, reinit_Phat, reinit_H, reinit_gamma);
+                [A0, p0, b0] = obj.mcauchy_handle.get_reinitialization_statistics(dz, dx, reinit_Phat, reinit_H, reinit_gamma);
                 A0 = reshape(A0, [obj.n, obj.n]);
             end
         end
@@ -341,7 +368,7 @@ classdef MatCauchyEstimator < handle
                 fprintf("Note to user: Setting xbar for any mode besides 'nonlinear' will have no effect!\n");
             end
 
-            obj.matcauchy_handle.reset(obj.A0, obj.p0, obj.b0, obj.xbar);
+            obj.mcauchy_handle.reset(obj.A0, obj.p0, obj.b0, obj.xbar);
         end
 
 
@@ -386,7 +413,7 @@ classdef MatCauchyEstimator < handle
             end
             
             [xs, Ps] = obj.call_step(msmts, []);
-            obj.matcauchy_handle.set_master_step(obj.p);
+            obj.mcauchy_handle.set_master_step(obj.p);
         end
         
 
@@ -398,22 +425,23 @@ classdef MatCauchyEstimator < handle
                 obj.reset(A0, p0, b0, xbar);
             end
             [xs, Ps] = obj.call_step(z_scalar, []);
-            obj.matcauchy_handle.set_master_step(obj.p);
+            obj.mcauchy_handle.set_master_step(obj.p);
         end
     
 
         function set_window_number(obj, win_num)
             win_num = int32(win_num);
-            obj.matcauchy_handle.set_window_number(win_num);
+            obj.mcauchy_handle.set_window_number(win_num);
         end
     
         function shutdown(obj)
             if ~obj.is_initialized
                 error('Cannot shutdown estimator before it has been initialized!');
             end
-            obj.matcauchy_handle.shutdown();
-            obj.is_initialized = false;
+            mshutdown(obj.mcauchy_handle);
+            obj.mcauchy_handle = [];
             fprintf('Estimator backend has been shutdown!\n');
+            obj.is_initialized = false;
         end
 
 
@@ -447,7 +475,7 @@ classdef MatCauchyEstimator < handle
                 log_dir = char(log_dir); % Convert to char array if not empty
             end
         
-            [cpdf_points, num_gridx, num_gridy] = obj.matcauchy_handle.matcauchy_get_marginal_2D_pointwise_cpdf(marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir);
+            [cpdf_points, num_gridx, num_gridy] = mcauchy_get_marginal_2D_pointwise_cpdf(marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir);
             cpdf_points = reshape(cpdf_points, 3, num_gridx*num_gridy)';
             X = reshape(cpdf_points(:, 1), num_gridy, num_gridx);
             Y = reshape(cpdf_points(:, 2), num_gridy, num_gridx);
@@ -502,7 +530,7 @@ classdef MatCauchyEstimator < handle
                 log_dir = char(log_dir); % Convert to char array
             end
         
-            [cpdf_points, num_gridx] = obj.matcauchy_handle.matcauchy_get_marginal_1D_pointwise_cpdf(marg_idx, gridx_low, gridx_high, gridx_resolution, log_dir);
+            [cpdf_points, num_gridx] = mcauchy_get_marginal_1D_pointwise_cpdf(marg_idx, gridx_low, gridx_high, gridx_resolution, log_dir);
             cpdf_points = reshape(cpdf_points, num_gridx, 2);
             X = cpdf_points(:, 1);
             Y = cpdf_points(:, 2);

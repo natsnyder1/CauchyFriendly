@@ -25,7 +25,7 @@ function plot_simulation_history(cauchy_moment_info, simulation_history, kf_hist
         n = size(kf_history{1}, 2);
         T = 0:(size(kf_history{1}, 1)-1);
     elseif with_ce
-        n = numel(cauchy_moment_info.x{1});
+        n = numel(cauchy_moment_info.x(1));
         T = 0:(length(cauchy_moment_info.x) - 1 + with_cauchy_delay);
     else
         fprintf('Must provide simulation data, kalman filter data or cauchy estimator data!\nExiting function with no plotting (Nothing Given!)\n');
@@ -40,11 +40,11 @@ function plot_simulation_history(cauchy_moment_info, simulation_history, kf_hist
     end
 
     if with_ce
-        means = cat(1, cauchy_moment_info.x{:});
-        covars = cat(1, cauchy_moment_info.P{:});
-        cerr_norm_factors = cat(1, cauchy_moment_info.cerr_fz{:});
-        cerr_means = cat(1, cauchy_moment_info.cerr_x{:});
-        cerr_covars = cat(1, cauchy_moment_info.cerr_P{:});
+        means = cat(1, cauchy_moment_info.x);
+        covars = cat(1, cauchy_moment_info.P);
+        cerr_norm_factors = cat(1, cauchy_moment_info.cerr_fz);
+        cerr_means = cat(1, cauchy_moment_info.cerr_x);
+        cerr_covars = cat(1, cauchy_moment_info.cerr_P);
         n = size(means, 2);
     end
 
@@ -157,13 +157,13 @@ function plot_simulation_history(cauchy_moment_info, simulation_history, kf_hist
         figure;
         sgtitle('Complex Errors (mean,covar,norm factor) in Semi-Log');
         subplot(3, 1, 1);
-        semilogy(T(cd+1:plot_len), cerr_means, 'g');
+        semilogy(T(cd+1:plot_len), cerr_means, 'k');
         
         subplot(3, 1, 2);
-        semilogy(T(cd+1:plot_len), cerr_covars, 'g');
+        semilogy(T(cd+1:plot_len), cerr_covars, 'k');
         
         subplot(3, 1, 3);
-        semilogy(T(cd+1:plot_len), cerr_norm_factors, 'g');
+        semilogy(T(cd+1:plot_len), cerr_norm_factors, 'k');
     end
     
 end
