@@ -27,6 +27,176 @@ int sort_dless(const void* p1, const void* p2)
         return 0;
 } 
 
+// Extracts columns of HPA for 2D marginalization process
+void marg2d_extract_2D_HPA(double* A_ndim, double* b_ndim, double* A2, double* b2, int m, int d, int marg_idx1, int marg_idx2)
+{
+    for(int i = 0; i < m; i++)
+    {
+        A2[i*2 + 0] = A_ndim[i*d + marg_idx1];
+        A2[i*2 + 1] = A_ndim[i*d + marg_idx2];
+    }
+    b2[0] = b_ndim[marg_idx1];
+    b2[1] = b_ndim[marg_idx2];
+}
+
+int marg2d_remove_zeros_and_coalign(double* work_A, double* work_p, double* work_A2, double* work_p2, int* c_map, int* cs_map, int m, double ZERO_EPSILON, int ZERO_HP_MARKER_VALUE)
+{
+    bool F[m];
+    memset(F, 1, m * sizeof(bool));
+    int F_idxs[m];
+
+    // Normalize all HPs in work_A using 1-norm
+    // Scale p[i] by the 1-norm of work_A[i,:]
+    //checking for zero HPs, and marking these accordingly
+    for(int i = 0; i < m; i++)
+    {
+        double* ai = work_A + i*2;
+        double fabs_ai0 = fabs(ai[0]);
+        double fabs_ai1 = fabs(ai[1]);
+        bool is_zero = (fabs_ai0 < ZERO_EPSILON) && (fabs_ai1 < ZERO_EPSILON);
+        // Mark with special zero index of ZERO_HP_MARKER_VALUE in F_Map if this is the case
+        if(is_zero)
+        {
+            c_map[i] = ZERO_HP_MARKER_VALUE;
+            cs_map[i] = ZERO_HP_MARKER_VALUE;
+            F_idxs[i] = ZERO_HP_MARKER_VALUE;
+            F[i] = 0;
+            continue;
+        }
+        else 
+        {
+            double sum_a = fabs_ai0 + fabs_ai1;
+            ai[0] /= sum_a;
+            ai[1] /= sum_a;
+            work_p[i] *= sum_a;
+        }
+    }
+
+    // Loop over all non-zero rows of work_A
+    int unique_count = 0;
+    for(int i = 0; i < m; i++)
+    {
+        if(F[i])
+        {
+            c_map[i] = unique_count;
+            cs_map[i] = 1;
+            F_idxs[i] = i;
+            work_p2[unique_count] = work_p[i];
+            // Zeros check
+            double* ai = work_A + i*2;    
+            for(int j = i+1; j < m; j++)
+            {
+                if(F[j])
+                {
+                    double* aj = work_A + j*2;
+                    // Check for positive coals first
+                    bool pos_coal = (fabs(ai[0] - aj[0]) < COALIGN_MU_EPS) && (fabs(ai[1] - aj[1]) < COALIGN_MU_EPS);
+                    if(pos_coal)
+                    {
+                        c_map[j] = unique_count;
+                        cs_map[j] = 1;
+                        F[j] = 0;
+                        F_idxs[j] = i;
+                        work_p2[unique_count] += work_p[j];
+                        continue;
+                    }
+                    bool neg_coal = (fabs(ai[0] + aj[0]) < COALIGN_MU_EPS) && (fabs(ai[1] + aj[1]) < COALIGN_MU_EPS);
+                    if(neg_coal)
+                    {
+                        c_map[j] = unique_count;
+                        cs_map[j] = -1;
+                        F[j] = 0;
+                        F_idxs[j] = i;
+                        work_p2[unique_count] += work_p[j];
+                        continue;
+                    }
+                }
+            }
+            unique_count++;
+        }
+    }
+    if(unique_count < m)
+    {
+        unique_count = 0;
+        for(int i = 0; i < m; i++)
+        {
+            if(F_idxs[i] == i)
+            {
+                work_A2[unique_count*2+0] = work_A[i*2+0];
+                work_A2[unique_count*2+1] = work_A[i*2+1];
+                unique_count++;
+            }
+        }
+    }
+    else
+        memcpy(work_A2, work_A, m * 2 * sizeof(double));
+
+    return unique_count;
+} 
+
+// returns the (2*m) angles of the cell walls for all cells encompassing A
+void marg2d_get_cell_wall_angles(double* thetas, double* A, const int m)
+{
+    const int d = 2;
+    double point[d]; // point on hyperplane i
+    double* a;
+    int count = 0;
+    for(int i = 0; i < m; i++)
+    {
+        a = A + i*d;
+        if( fabs(a[0]) < fabs(a[1]) )
+        {
+            point[0] = 1;
+            point[1] = -a[0] / a[1];
+        }
+        else 
+        {
+            point[0] = - a[1] / a[0];
+            point[1] = 1;
+        }
+        double t1 = atan2(point[1], point[0]);
+        if(t1 < 0)
+            t1 += PI;
+        double t2 = t1 + PI;
+        thetas[count++] = t1;
+        thetas[count++] = t2;
+    }
+    // Now sort the thetas, the theta at idx m corresponds to a half rotation around the arrangement
+    qsort(thetas, 2*m, sizeof(double), &sort_dless);
+}
+
+// Returns half of the SVs ( i.e, m/(2m) ),
+// to get all the SVs, we simply flip these
+// SVs is size 2*m x m 
+// thetas 
+void marg2d_get_SVs(double* SVs, double* A, double* thetas, const int m, const bool flip_svs = true)
+{
+    const int d = 2;
+    double point[d];
+    double* SV;
+    for(int i = 0; i < m; i++)
+    {
+        double t = (thetas[i+1] + thetas[i]) / 2.0;
+        point[0] = cos(t); point[1] = sin(t);
+        SV = SVs + i*m;
+        for(int j = 0; j < m; j++)
+        {
+            double* a = A + j*d;
+            double sum = a[0] * point[0] + a[1] * point[1];
+            SV[j] = sum > 0 ? 1 : -1;
+        }
+    }
+
+    // Now flip these signs, they now correspond to full arrangement
+    if(flip_svs)
+    {
+        SV = SVs + m*m;
+        for(int i = 0; i < m*m; i++)
+            SV[i] = -1*SVs[i];
+    }
+}
+
+
 struct Cached2DCPDFTerm
 {
     double* sin_thetas;
@@ -55,8 +225,11 @@ struct Cached2DCPDFTermContainer
     ChunkedPackedElement<double> chunked_gam2_reals;
     ChunkedPackedElement<C_COMPLEX_TYPE> chunked_g_vals;
     int current_term_idx;
+    int terms_alloc_total;
+    bool full_solve;
 
-    void init(int pages_at_start = 0)
+
+    void init(int pages_at_start = 0, bool _full_solve = false)
     {
         chunked_sin_thetas.init(pages_at_start, CP_STORAGE_PAGE_SIZE);
         chunked_cos_thetas.init(pages_at_start, CP_STORAGE_PAGE_SIZE);
@@ -65,6 +238,8 @@ struct Cached2DCPDFTermContainer
         chunked_g_vals.init(pages_at_start, CP_STORAGE_PAGE_SIZE);
         cached_terms = (Cached2DCPDFTerm*) malloc(0);
         current_term_idx = 0;
+        terms_alloc_total = 0;
+        full_solve = _full_solve;
     }
 
     void extend_storage(int* terms_per_shape, int shape_range)
@@ -79,6 +254,7 @@ struct Cached2DCPDFTermContainer
             theta_bytes += Nt_shape * (m+1);
             gam_bytes += Nt_shape * m;
         }
+        terms_alloc_total = terms_total;
         cached_terms = (Cached2DCPDFTerm*)realloc(cached_terms, terms_total * sizeof(Cached2DCPDFTerm));
         chunked_sin_thetas.extend_elems(theta_bytes * sizeof(double));
         chunked_cos_thetas.extend_elems(theta_bytes * sizeof(double));
@@ -86,6 +262,20 @@ struct Cached2DCPDFTermContainer
         chunked_gam2_reals.extend_elems(gam_bytes * sizeof(double));
         chunked_g_vals.extend_elems(gam_bytes * sizeof(C_COMPLEX_TYPE));
         current_term_idx = 0;
+    }
+    
+    void extend_storage_by(BYTE_COUNT_TYPE num_terms, int m)
+    {
+        BYTE_COUNT_TYPE theta_bytes = num_terms * ( (1+full_solve) * m + 1 );
+        BYTE_COUNT_TYPE gam_bytes = num_terms * (1+full_solve) * m;
+        terms_alloc_total += num_terms;
+        cached_terms = (Cached2DCPDFTerm*)realloc(cached_terms, terms_alloc_total * sizeof(Cached2DCPDFTerm));
+        chunked_sin_thetas.extend_elems(theta_bytes * sizeof(double));
+        chunked_cos_thetas.extend_elems(theta_bytes * sizeof(double));
+        chunked_gam1_reals.extend_elems(gam_bytes * sizeof(double));
+        chunked_gam2_reals.extend_elems(gam_bytes * sizeof(double));
+        chunked_g_vals.extend_elems(gam_bytes * sizeof(C_COMPLEX_TYPE));
+        //current_term_idx = 0;
     }
 
     void reset_page_idxs()
@@ -122,19 +312,33 @@ struct Cached2DCPDFTermContainer
     void set_term_ptrs(BYTE_COUNT_TYPE m)
     {
         Cached2DCPDFTerm* cached_term = cached_terms + current_term_idx;
-        chunked_sin_thetas.set_elem_ptr(&(cached_term->sin_thetas), m+1);
-        chunked_cos_thetas.set_elem_ptr(&(cached_term->cos_thetas), m+1);
-        chunked_gam1_reals.set_elem_ptr(&(cached_term->gam1_reals), m);
-        chunked_gam2_reals.set_elem_ptr(&(cached_term->gam2_reals), m);
-        chunked_g_vals.set_elem_ptr(&(cached_term->g_vals), m);
+        int cells_to_visit = (1+full_solve)*m;
+        chunked_sin_thetas.set_elem_ptr(&(cached_term->sin_thetas), cells_to_visit+1);
+        chunked_cos_thetas.set_elem_ptr(&(cached_term->cos_thetas), cells_to_visit+1);
+        chunked_gam1_reals.set_elem_ptr(&(cached_term->gam1_reals), cells_to_visit);
+        chunked_gam2_reals.set_elem_ptr(&(cached_term->gam2_reals), cells_to_visit);
+        chunked_g_vals.set_elem_ptr(&(cached_term->g_vals), cells_to_visit);
     }
-
     void incr_cached_term_idx()
     {
         current_term_idx++;
     }
 
-    
+    // can call to remove last term 
+    void pop_term_ptrs()
+    {
+        if(current_term_idx > 0)
+        {
+            Cached2DCPDFTerm* cached_term = cached_terms + (current_term_idx-1);
+            int cells_to_visit = (1+full_solve)*cached_term->m;
+            chunked_sin_thetas.pop_elem_ptr(cells_to_visit+1);
+            chunked_cos_thetas.pop_elem_ptr(cells_to_visit+1);
+            chunked_gam1_reals.pop_elem_ptr(cells_to_visit);
+            chunked_gam2_reals.pop_elem_ptr(cells_to_visit);
+            chunked_g_vals.pop_elem_ptr(cells_to_visit);
+            current_term_idx -= 1;
+        }
+    }
 };
 
 struct PointWiseNDimCauchyCPDF
@@ -1180,7 +1384,7 @@ struct PointWiseNDimCauchyCPDF
                     memcpy(work_p, term->p, m * sizeof(double));
                     marg2d_extract_2D_HPA(term->A, term->b, work_A, b, m, d, marg_idx1, marg_idx2);
                     // Remove zero rows, keeping list of where these occur
-                    int m_new = marg2d_remove_zeros_and_coalign(work_A, work_p, work_A2, work_p2, c_map, cs_map, m);
+                    int m_new = marg2d_remove_zeros_and_coalign(work_A, work_p, work_A2, work_p2, c_map, cs_map, m, ZERO_EPSILON, ZERO_HP_MARKER_VALUE);
                     // Now this term can be evaluated using the (modified) 2D cpdf routine
                     // If we have coalignments and/or zero HPs, we need to use the modified version of the 2D evaluation 
                     double term_integral;
@@ -1197,10 +1401,17 @@ struct PointWiseNDimCauchyCPDF
         tmr.toc(false);
         if(with_timing_print)
             printf("Marginal 2D CPDF for states (%d,%d) took %d ms to process %d terms!\n", marg_idx1, marg_idx2, tmr.cpu_time_used, cauchyEst->Nt);
+        
         double fx_normalized = 2 * fx_unnormalized * RECIPRICAL_TWO_PI * RECIPRICAL_TWO_PI / norm_factor;
         return fx_normalized + 0*I;
     }
 
+    void reset_2D_marginal_cpdf()
+    {
+        master_step_of_cached_2d_terms = -1;
+        marg_idxs_of_cached_2d_terms[0] = -1;
+        marg_idxs_of_cached_2d_terms[1] = -1;
+    }
     /*
     C_COMPLEX_TYPE evaluate_ND_marginal_cpdf(double* xk_marginal, int* marg_state_idxs, int num_marg_state_idxs, bool with_timing_print = false, bool with_caching = false)
     {
@@ -1209,113 +1420,6 @@ struct PointWiseNDimCauchyCPDF
         return 0;
     }
     */
-
-    // Extracts columns of HPA for 2D marginalization process
-    void marg2d_extract_2D_HPA(double* A_ndim, double* b_ndim, double* A2, double* b2, int m, int d, int marg_idx1, int marg_idx2)
-    {
-        for(int i = 0; i < m; i++)
-        {
-            A2[i*2 + 0] = A_ndim[i*d + marg_idx1];
-            A2[i*2 + 1] = A_ndim[i*d + marg_idx2];
-        }
-        b2[0] = b_ndim[marg_idx1];
-        b2[1] = b_ndim[marg_idx2];
-    }
-
-    int marg2d_remove_zeros_and_coalign(double* work_A, double* work_p, double* work_A2, double* work_p2, int* c_map, int* cs_map, int m)
-    {
-        bool F[m];
-        memset(F, 1, m * sizeof(bool));
-        int F_idxs[m];
-
-        // Normalize all HPs in work_A using 1-norm
-        // Scale p[i] by the 1-norm of work_A[i,:]
-        //checking for zero HPs, and marking these accordingly
-        for(int i = 0; i < m; i++)
-        {
-            double* ai = work_A + i*2;
-            double fabs_ai0 = fabs(ai[0]);
-            double fabs_ai1 = fabs(ai[1]);
-            bool is_zero = (fabs_ai0 < ZERO_EPSILON) && (fabs_ai1 < ZERO_EPSILON);
-            // Mark with special zero index of ZERO_HP_MARKER_VALUE in F_Map if this is the case
-            if(is_zero)
-            {
-                c_map[i] = ZERO_HP_MARKER_VALUE;
-                cs_map[i] = ZERO_HP_MARKER_VALUE;
-                F_idxs[i] = ZERO_HP_MARKER_VALUE;
-                F[i] = 0;
-                continue;
-            }
-            else 
-            {
-                double sum_a = fabs_ai0 + fabs_ai1;
-                ai[0] /= sum_a;
-                ai[1] /= sum_a;
-                work_p[i] *= sum_a;
-            }
-        }
-
-        // Loop over all non-zero rows of work_A
-        int unique_count = 0;
-        for(int i = 0; i < m; i++)
-        {
-            if(F[i])
-            {
-                c_map[i] = unique_count;
-                cs_map[i] = 1;
-                F_idxs[i] = i;
-                work_p2[unique_count] = work_p[i];
-                // Zeros check
-                double* ai = work_A + i*2;    
-                for(int j = i+1; j < m; j++)
-                {
-                    if(F[j])
-                    {
-                        double* aj = work_A + j*2;
-                        // Check for positive coals first
-                        bool pos_coal = (fabs(ai[0] - aj[0]) < COALIGN_MU_EPS) && (fabs(ai[1] - aj[1]) < COALIGN_MU_EPS);
-                        if(pos_coal)
-                        {
-                            c_map[j] = unique_count;
-                            cs_map[j] = 1;
-                            F[j] = 0;
-                            F_idxs[j] = i;
-                            work_p2[unique_count] += work_p[j];
-                            continue;
-                        }
-                        bool neg_coal = (fabs(ai[0] + aj[0]) < COALIGN_MU_EPS) && (fabs(ai[1] + aj[1]) < COALIGN_MU_EPS);
-                        if(neg_coal)
-                        {
-                            c_map[j] = unique_count;
-                            cs_map[j] = -1;
-                            F[j] = 0;
-                            F_idxs[j] = i;
-                            work_p2[unique_count] += work_p[j];
-                            continue;
-                        }
-                    }
-                }
-                unique_count++;
-            }
-        }
-        if(unique_count < m)
-        {
-            unique_count = 0;
-            for(int i = 0; i < m; i++)
-            {
-                if(F_idxs[i] == i)
-                {
-                    work_A2[unique_count*2+0] = work_A[i*2+0];
-                    work_A2[unique_count*2+1] = work_A[i*2+1];
-                    unique_count++;
-                }
-            }
-        }
-        else
-            memcpy(work_A2, work_A, m * 2 * sizeof(double));
-
-        return unique_count;
-    } 
 
     // This routine evaluates a 2D hyperplane arrangement for its contribution to the marginal cpdf
     // Can be used for marginalization of a Ndim arrangement down to two dimensions, or to for a 2D arrangement itself
@@ -1372,6 +1476,12 @@ struct PointWiseNDimCauchyCPDF
         double cos_t1;
         double sin_t2;
         double cos_t2;
+        // Variables to check which integration form we should use
+        // Both methods work fine for gamma2 == 0
+        // If gamma1 == 0, then we need to use the slower int method 
+        // If gamma1 and gamma2 == 0, assert false and exit 
+        const bool check_gamma1 = fabs(gam1_imag) < INTEGRAL_GAMMA_EPS;
+        
         for(int i = 0; i < m; i++)
         {
 
@@ -1405,12 +1515,9 @@ struct PointWiseNDimCauchyCPDF
                     }
                 }
             }
-            
             // Overloading numerator lookup function to lookup gtable Gs (just replace "phc" definitions with "m" definitions, which is done here)
             g_val = lookup_g_numerator(enc_sv, two_to_m_parent_minus1, rev_m_parent_mask, gtable_parent, gtable_parent_size, true);
             
-            // Evaluating the piece-wise integral within this cell
-
             // 2.) Evaluate the real part of gamma1 parameter and real part of gamma2 parameter
             gam1_real = 0;
             gam2_real = 0;
@@ -1420,28 +1527,14 @@ struct PointWiseNDimCauchyCPDF
                 gam1_real -= a[0] * SV[j];
                 gam2_real -= a[1] * SV[j];
             }
-            
-            // 3.) Form gamma1 and gamma2 and evaluate the analytic form of the integral
-            gamma1 = gam1_real + I*gam1_imag;
-            gamma2 = gam2_real + I*gam2_imag;
-
-            // Faster integral, some caching has been added
-            //sin(theta) / (gamma1*gamma1*cos(theta) + gamma1*gamma2*sin(theta));
-            gamma2 *= gamma1;
-            gamma1 *= gamma1;
             theta1 = thetas[i];
             theta2 = thetas[i+1];
             sin_t1 = sin(theta1);
             cos_t1 = cos(theta1);
             sin_t2 = sin(theta2);
             cos_t2 = cos(theta2);
-
-            integral_low_lim = sin_t1 / (gamma1*cos_t1 + gamma2*sin_t1);
-            integral_high_lim = sin_t2 / (gamma1*cos_t2 + gamma2*sin_t2);
-            integral_over_cell = integral_high_lim - integral_low_lim;
-            integral_over_cell *= g_val;
-            term_integral += creal(integral_over_cell);
-
+            gamma1 = gam1_real + I*gam1_imag;
+            gamma2 = gam2_real + I*gam2_imag;
             if(setup_cache)
             {
                 cached_term->sin_thetas[i] = sin_t1;
@@ -1449,6 +1542,44 @@ struct PointWiseNDimCauchyCPDF
                 cached_term->gam1_reals[i] = gam1_real;
                 cached_term->gam2_reals[i] = gam2_real;
                 cached_term->g_vals[i] = g_val;
+            }
+
+            // Evaluating the piece-wise integral within this cell
+            bool fast_int_method = true;
+            if( check_gamma1 )
+            {
+                if( fabs(gam1_real) < INTEGRAL_GAMMA_EPS )
+                {
+                    fast_int_method = false; // Gamma1 is effectively zero
+                    // Now need to check gamma2 for singularity 
+                    if( (fabs(gam2_real) < INTEGRAL_GAMMA_EPS) && (fabs(gam2_imag) < INTEGRAL_GAMMA_EPS) )
+                    {
+                        printf(RED "[Error marg2d_eval_term_for_cpdf:] Possible singularity error, gamma1=%.4E+%.4Ej and gamma2=%.4E+%.4Ej\n Until resolved, exiting! Debug here! Goodbye!" NC"\n", gam1_real, gam1_imag, gam2_real, gam2_imag);
+                        exit(1);
+                    }
+                }
+            }
+            // Faster integral
+            if(fast_int_method)
+            {
+                gamma2 *= gamma1;
+                gamma1 *= gamma1;
+                integral_low_lim = sin_t1 / (gamma1*cos_t1 + gamma2*sin_t1);
+                integral_high_lim = sin_t2 / (gamma1*cos_t2 + gamma2*sin_t2);
+                integral_over_cell = integral_high_lim - integral_low_lim;
+                integral_over_cell *= g_val;
+                term_integral += creal(integral_over_cell);
+            }
+            // New way that automatically deals with gamma1==0 or gamma2==0 issues
+            else
+            {
+                integral_low_lim = (gamma1 * sin_t1 - gamma2 * cos_t1) / (gamma1 * cos_t1 + gamma2 * sin_t1);
+                integral_high_lim = (gamma1 * sin_t2 - gamma2 * cos_t2) / (gamma1 * cos_t2 + gamma2 * sin_t2);
+                integral_over_cell = integral_high_lim - integral_low_lim;
+                gamma1 *= gamma1;
+                gamma2 *= gamma2;
+                integral_over_cell *= g_val / (gamma1 + gamma2);
+                term_integral += creal(integral_over_cell);
             }
         }
         if(setup_cache)
@@ -1480,85 +1611,72 @@ struct PointWiseNDimCauchyCPDF
         double* gam2_reals = cached_term->gam2_reals;
         C_COMPLEX_TYPE* g_vals = cached_term->g_vals;
         double term_integral = 0;
+
+        // Variables to check which integration form we should use
+        // Both methods work fine for gamma2 == 0
+        // If gamma1 == 0, then we need to use the slower int method 
+        // If gamma1 and gamma2 == 0, assert false and exit 
+        const bool check_gamma1 = fabs(gam1_imag) < INTEGRAL_GAMMA_EPS;
+
         for(int i = 0; i < m; i++)
         {
-            gamma1 = gam1_reals[i] + I*gam1_imag;
-            gamma2 = gam2_reals[i] + I*gam2_imag;
-            gamma2 *= gamma1;
-            gamma1 *= gamma1;
             sin_t1 = sin_thetas[i];
             cos_t1 = cos_thetas[i];
             sin_t2 = sin_thetas[i+1];
             cos_t2 = cos_thetas[i+1];
+            gamma1 = gam1_reals[i] + I*gam1_imag;
+            gamma2 = gam2_reals[i] + I*gam2_imag;
+
+            // Evaluating the piece-wise integral within this cell
+            bool fast_int_method = true;
+            if( check_gamma1 )
+            {
+                if( fabs(gam1_reals[i]) < INTEGRAL_GAMMA_EPS )
+                {
+                    fast_int_method = false; // Gamma1 is effectively zero
+                    // Now need to check gamma2 for singularity 
+                    if( (fabs(gam2_reals[i]) < INTEGRAL_GAMMA_EPS) && (fabs(gam2_imag) < INTEGRAL_GAMMA_EPS) )
+                    {
+                        printf(RED "[Error marg2d_cached_eval_term_for_cpdf:] Possible singularity error, gamma1=%.4E+%.4Ej and gamma2=%.4E+%.4Ej\n Until resolved, exiting! Debug here! Goodbye!" NC"\n", gam1_reals[i], gam1_imag, gam2_reals[i], gam2_imag);
+                        exit(1);
+                    }
+                }
+            }
+            // Faster integral
+            if(fast_int_method)
+            {
+                gamma2 *= gamma1;
+                gamma1 *= gamma1;
+                integral_low_lim = sin_t1 / (gamma1*cos_t1 + gamma2*sin_t1);
+                integral_high_lim = sin_t2 / (gamma1*cos_t2 + gamma2*sin_t2);
+                integral_over_cell = integral_high_lim - integral_low_lim;
+                integral_over_cell *= g_vals[i];
+                term_integral += creal(integral_over_cell);
+            }
+            // New way that automatically deals with gamma1==0 or gamma2==0 issues
+            else
+            {
+                integral_low_lim = (gamma1 * sin_t1 - gamma2 * cos_t1) / (gamma1 * cos_t1 + gamma2 * sin_t1);
+                integral_high_lim = (gamma1 * sin_t2 - gamma2 * cos_t2) / (gamma1 * cos_t2 + gamma2 * sin_t2);
+                integral_over_cell = integral_high_lim - integral_low_lim;
+                gamma1 *= gamma1;
+                gamma2 *= gamma2;
+                integral_over_cell *= g_vals[i] / (gamma1 + gamma2);
+                term_integral += creal(integral_over_cell);
+            }
+
+            /* 
+            // Old Code
+            gamma2 *= gamma1;
+            gamma1 *= gamma1;
             integral_low_lim = sin_t1 / (gamma1*cos_t1 + gamma2*sin_t1);
             integral_high_lim = sin_t2 / (gamma1*cos_t2 + gamma2*sin_t2);
             integral_over_cell = integral_high_lim - integral_low_lim;
             integral_over_cell *= g_vals[i];
             term_integral += creal(integral_over_cell);
+            */
         }
         return term_integral;
-    }
-
-    // returns the (2*m) angles of the cell walls for all cells encompassing A
-    void marg2d_get_cell_wall_angles(double* thetas, double* A, const int m)
-    {
-        const int d = 2;
-        double point[d]; // point on hyperplane i
-        double* a;
-        int count = 0;
-        for(int i = 0; i < m; i++)
-        {
-            a = A + i*d;
-            if( fabs(a[0]) < fabs(a[1]) )
-            {
-                point[0] = 1;
-                point[1] = -a[0] / a[1];
-            }
-            else 
-            {
-                point[0] = - a[1] / a[0];
-                point[1] = 1;
-            }
-            double t1 = atan2(point[1], point[0]);
-            if(t1 < 0)
-                t1 += PI;
-            double t2 = t1 + PI;
-            thetas[count++] = t1;
-            thetas[count++] = t2;
-        }
-        // Now sort the thetas, the theta at idx m corresponds to a half rotation around the arrangement
-        qsort(thetas, 2*m, sizeof(double), &sort_dless);
-    }
-
-    // Returns half of the SVs ( i.e, m/(2m) ),
-    // to get all the SVs, we simply flip these
-    // SVs is size 2*m x m 
-    // thetas 
-    void marg2d_get_SVs(double* SVs, double* A, double* thetas, const int m, const bool flip_svs = true)
-    {
-        const int d = 2;
-        double point[d];
-        double* SV;
-        for(int i = 0; i < m; i++)
-        {
-            double t = (thetas[i+1] + thetas[i]) / 2.0;
-            point[0] = cos(t); point[1] = sin(t);
-            SV = SVs + i*m;
-            for(int j = 0; j < m; j++)
-            {
-                double* a = A + j*d;
-                double sum = a[0] * point[0] + a[1] * point[1];
-                SV[j] = sum > 0 ? 1 : -1;
-            }
-        }
-
-        // Now flip these signs, they now correspond to full arrangement
-        if(flip_svs)
-        {
-            SV = SVs + m*m;
-            for(int i = 0; i < m*m; i++)
-                SV[i] = -1*SVs[i];
-        }
     }
 
     ~PointWiseNDimCauchyCPDF()
@@ -1674,7 +1792,7 @@ struct CauchyCPDFGridDispatcher2D
             return 1;
         }
         if(num_grid_points < num_threads)
-            num_threads = num_grid_points-1;
+            num_threads = 1; //num_grid_points-1;
         // Evaluate with first point and setup caching
         CPUTimer tmr;
         tmr.tic();
@@ -1692,6 +1810,9 @@ struct CauchyCPDFGridDispatcher2D
             {
                 point[0] = points[i].x; point[1] = points[i].y; 
                 points[i].z = creal( cpdf->evaluate_2D_marginal_cpdf(point, marg_state_idxs, 2, false, true) );
+                //printf("Point %d: x=%.2lf, y=%.2lf, z=%.4E\n", i, points[i].x, points[i].y, points[i].z);
+                if( points[i].z < 0 )
+                    printf(YEL"[WARN evaluate_point_grid:]" NC " Negative CPDF Value of %.4E at x=%.3E, y=%.3E\n", points[i].z, points[i].x, points[i].y);
             }
         }
         else 
@@ -2046,6 +2167,8 @@ void* evaluate_2d_marginal_grid_points(void* marg_args)
         xk_marginal[1] = points[i].y;
         C_COMPLEX_TYPE fx = cpdf->evaluate_2D_marginal_cpdf(xk_marginal, marg_state_idxs, 2, with_timing, with_caching);
         points[i].z = creal(fx);
+        if( points[i].z < -1e-10 )
+            printf(YEL"[WARN evaluate_2d_marginal_grid_points:]" NC " Negative CPDF Value of %.4E at x=%.3E, y=%.3E\n", points[i].z, points[i].x, points[i].y);
     }
     return NULL;
 }

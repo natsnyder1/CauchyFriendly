@@ -32,13 +32,24 @@ bin/test_enum : test_enumerations.cpp
 bin/test_coalign : test_coalign_with_zeros.cpp
 	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
 
+bin/test_pred : test_rel_marg2d_cpdf.cpp
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)
+
+
+bin/test_target_tracking : test_target_tracking.cpp
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)
+
 cpdf : bin/test_cpdf_ndim
 
 enum : bin/test_enum
 
 coalign : bin/test_coalign
 
-all : bin/gamma bin/binsearch cpdf enum coalign
+pred : bin/test_pred
+
+track : bin/test_target_tracking
+
+all : bin/gamma bin/binsearch cpdf enum coalign track
 
 clean : 
-	rm -f bin/gamma bin/binsearch bin/test_cpdf_ndim bin/test_enum bin/test_coalign
+	rm -f bin/gamma bin/binsearch bin/test_cpdf_ndim bin/test_enum bin/test_coalign bin/test_pred bin/test_target_tracking

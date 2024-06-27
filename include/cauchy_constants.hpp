@@ -24,14 +24,14 @@ const uint8_t COALIGN_MAP_NOVAL = 255;
 const bool WITH_COALIGN_REALLOC = false;
 
 // Chunked Packed Storage Settings
-const unsigned long long CP_STORAGE_PAGE_SIZE = 10 * 1024 * 1024; // Should be around 50 MB or larger (can be like 250MB or 1G too)
+const unsigned long long CP_STORAGE_PAGE_SIZE = 10 * 1024 * 1024; // Should be around 10 MB or larger (can be like 250MB or 1G too)
 const int CP_STORAGE_ALLOC_METHOD = 0; // 0: malloc, 1: calloc 2: page touching (after a malloc)
 
 // Gtable-Settings
 const uint8_t kByteEmpty = 0xff;
 const uint32_t kEmpty = 0xffffffff;
-const bool WITH_TERM_APPROXIMATION = true;
-const double TERM_APPROXIMATION_EPS = 1e-16;
+const bool WITH_TERM_APPROXIMATION = false;
+const double TERM_APPROXIMATION_EPS = 1e-14;
 const bool WITH_WARNINGS = false; // Used to flag when something may be fishy
 const bool WITH_GB_TABLE_REALLOC = true;
 const bool EXIT_ON_FAILURE = false; // Used to flag when something doesnt go right
@@ -58,6 +58,8 @@ const int NUM_CPUS_FTR = NUM_CPUS; // Set this to 32 on the cluster (NUM_CPUS / 
 const int MIN_TERMS_PER_THREAD_FTR = 10000;
 const int MIN_TERMS_PER_THREAD_GTABLE = 1000;
 
+// CPDF Constants
+const double INTEGRAL_GAMMA_EPS = 1e-8;
 
 // Log Error Warnings and Colors
 #define RED "\e[0;31m"

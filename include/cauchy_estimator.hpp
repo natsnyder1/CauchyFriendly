@@ -1300,6 +1300,33 @@ struct CauchyEstimator
         }
     }
 
+    // Deterministically propagates the CF, using either (Phi,B,u) or just (Phi,None,None)
+    void deterministic_time_prop(double* Phi, double* B, double* u)
+    {
+        int _cmcc;
+        //bool Bu_okay = !( (B==NULL) ^ (u==NULL) ); // Both False or Both True Evaluate to True
+        //assert(Bu_okay);
+        if( (B == NULL) && (u == NULL) )
+            _cmcc = 0;
+        else if( (B != NULL) && (u != NULL) )
+            _cmcc = cmcc;
+        else
+        {
+            printf("Illegal use of arguments B and u! Either B or u set, both not both!\n");
+            assert(false);
+        }
+
+        for(int m = 1; m < shape_range; m++)
+        {
+            int Nt_shape = terms_per_shape[m];
+            for(int i = 0; i < Nt_shape; i++)
+            {
+                CauchyTerm* term = terms_dp[m] + i;
+                term->time_prop(Phi, B, u, _cmcc);
+            }
+        }
+    }
+
     // Shifts bs in CF by -\delta{x_k}. Sets conditional_mean=\delta{x_k} + duc->x (which is x_bar). Then sets (duc->x) x_bar = creal(conditional_mean)
     void finalize_extended_moments(double* x_bar)
     {

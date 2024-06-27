@@ -1,11 +1,10 @@
-from distutils.log import debug
-from glob import glob
 import numpy as np 
 import cauchy_estimator as ce 
 import math, os, pickle
 import matplotlib.pyplot as plt
 import matplotlib 
 matplotlib.use('TkAgg',force=True)
+import pycauchy
 from gmat_sat import *
 
 # Process Noise Model 
@@ -163,23 +162,29 @@ def plot_against_kf(mce_msmt_idxs, xs, xs_kf, Ps_kf, xs_mce, Ps_mce, xs_avg_mce,
     true_x_mce = xs[mce_msmt_idxs]
     true_x_kf = xs[mce_msmt_idxs[0]:]
 
+
     xt_kf = xs_kf[mce_msmt_idxs[0]:]
     Pt_kf = Ps_kf[mce_msmt_idxs[0]:]
-
     sig_kf = np.array([np.diag(P)**0.5 for P in Pt_kf]) * sig
-    sig_mce = np.array([np.diag(P)**0.5 for P in Ps_mce]) * sig
-    sig_avg_mce = np.array([np.diag(P)**0.5 for P in Ps_avg_mce]) * sig
-
     es_kf = true_x_kf - xt_kf
-    es_mce = true_x_mce - xs_mce
-    es_avg_mce = true_x_mce - xs_avg_mce
+
+    with_mce = False
+    if (Ps_mce is not None ) and (xs_mce is not None):
+        with_mce = True
+        sig_mce = np.array([np.diag(P)**0.5 for P in Ps_mce]) * sig
+        es_mce = true_x_mce - xs_mce
+    with_avg_mce = False 
+    if (Ps_avg_mce is not None ) and (xs_avg_mce is not None):
+        with_avg_mce = True
+        sig_avg_mce = np.array([np.diag(P)**0.5 for P in Ps_avg_mce]) * sig
+        es_avg_mce = true_x_mce - xs_avg_mce
 
     kf_msmt_idxs = np.arange(mce_msmt_idxs[0], mce_msmt_idxs[-1]+1, 1)
     N = xs.shape[1]
 
     plt.figure()
     plt.suptitle(title_prefix + " Estimation Errors Vs {}-Sigma Bounds\nKF (g/m) vs MCE (b/r) vs Weighted Avg MCE (b--/r--)".format(sig))
-    ylabels = ['Pos X (km)', 'Pos Y (km)', 'Pos Z (km)', 'Position Z (km)', 'Vel X (km/s)', 'Vel Y (km/s)', 'Vel Z (km/s)', 'Change Dens']
+    ylabels = ['Pos X (km)', 'Pos Y (km)', 'Pos Z (km)', 'Vel X (km/s)', 'Vel Y (km/s)', 'Vel Z (km/s)', 'Change \nAtms Dens']
     for i in range(N):
         plt.subplot(N, 1, i+1)
         # Kalman Filter
@@ -187,16 +192,18 @@ def plot_against_kf(mce_msmt_idxs, xs, xs_kf, Ps_kf, xs_mce, Ps_mce, xs_avg_mce,
         plt.scatter(kf_msmt_idxs, es_kf[:,i], color='g')
         plt.plot(kf_msmt_idxs, sig_kf[:,i], 'm')
         plt.plot(kf_msmt_idxs, -sig_kf[:,i], 'm')
-        # MCE
-        plt.plot(mce_msmt_idxs, es_mce[:,i], 'b')
-        plt.scatter(mce_msmt_idxs, es_mce[:,i], color='b')
-        plt.plot(mce_msmt_idxs, sig_mce[:,i], 'r')
-        plt.plot(mce_msmt_idxs, -sig_mce[:,i], 'r')
-        # Weighted Avg MCE 
-        plt.plot(mce_msmt_idxs, es_avg_mce[:,i], 'b--')
-        plt.scatter(mce_msmt_idxs, es_avg_mce[:,i], color='b', linestyle='dashed')
-        plt.plot(mce_msmt_idxs, sig_avg_mce[:,i], 'r--')
-        plt.plot(mce_msmt_idxs, -sig_avg_mce[:,i], 'r--')
+        if with_mce:
+            # MCE
+            plt.plot(mce_msmt_idxs, es_mce[:,i], 'b')
+            plt.scatter(mce_msmt_idxs, es_mce[:,i], color='b')
+            plt.plot(mce_msmt_idxs, sig_mce[:,i], 'r')
+            plt.plot(mce_msmt_idxs, -sig_mce[:,i], 'r')
+        if with_avg_mce:
+            # Weighted Avg MCE 
+            plt.plot(mce_msmt_idxs, es_avg_mce[:,i], 'b--')
+            plt.scatter(mce_msmt_idxs, es_avg_mce[:,i], color='b', linestyle='dashed')
+            plt.plot(mce_msmt_idxs, sig_avg_mce[:,i], 'r--')
+            plt.plot(mce_msmt_idxs, -sig_avg_mce[:,i], 'r--')
         plt.ylabel(ylabels[i])
     plt.xlabel('Time Step k (KF dt={}, MCE dt={})'.format(kf_dt, mce_dt))
     plt.show()
@@ -260,6 +267,9 @@ class GmatMCE():
         self.win_moms = { i : [] for i in range(num_windows) }
         self.debug_print = debug_print
         self.mce_print = mce_print
+        self.Cd_dist = Cd_dist
+        self.std_Cd = std_Cd 
+        self.tau_Cd = tau_Cd
 
         # Setup GMAT Fermi Satellite Object -- internally GMAT uses KM, so need conversions
         gmat.Clear()
@@ -362,8 +372,8 @@ class GmatMCE():
             win_avg_cov /= win_norm_fac
             return win_avg_mean, win_avg_cov
 
-    # zk is assumed to be GPS coordinates in the ECI frame for this function
-    def sim_step(self, zk, x_truth = None, is_inputs_meters = True):
+    # zk is assumed to be GPS coordinates in the ECI (Earth Centered Inertial) frame for this function
+    def sim_step(self, zk, x_truth = None, is_inputs_meters = True, last_step = False):
         if not is_inputs_meters:
             _zk = zk.copy() * 1000 # Convert km to meters
             if x_truth is not None:
@@ -406,6 +416,7 @@ class GmatMCE():
                     self.win_counts[win_idx] += 1
             # Now reinitialize the empty window about the best estimate
             best_idx, usable_wins = self._best_window_est()
+            self.usable_wins = usable_wins
             #best_idx, usable_wins = idx_max, np.zeros(self.num_windows, dtype=np.bool) 
             #for _ in range(self.num_windows):
             #    if _ <= self.k:
@@ -442,15 +453,115 @@ class GmatMCE():
                 print("Window {}/{} was reinitialized!".format(idx_min+1, self.num_windows))
             # Tear down most full window
             if self.win_counts[idx_max] == self.num_windows:
-                self.cauchyEsts[idx_max].reset()
-                self.win_counts[idx_max] = 0
+                if not last_step:
+                    self.cauchyEsts[idx_max].reset()
+                    self.win_counts[idx_max] = 0
     
+    # zk is assumed to be GPS coordinates in the ECF (Earth Centered Fixed) frame for this function, and is converted to the ECI Frame
     def real_step():
-        pass
+        pass # ADD METHOD
     
-    def clear_gmat(self):
+    # Propagate the denisty function to TCA
+    def pred_to_tca(self, pred_t0, pred_dt, i_star_lhs, t_lhs, t_c, max_terms = np.inf, with_propagate_drag_estimate=True, xhat_pred_t0 = None):
+        # Find the estimator which has less terms than the max specified, and is 
+        best_win_terms = -1
+        best_win_idx = -1
+        for i in range(self.num_windows):
+            if self.usable_wins[i] and (self.win_counts[i] < self.num_windows):
+                win_i_terms = self.cauchyEsts[i].get_num_CF_terms()
+                if (win_i_terms < max_terms) and (win_i_terms > best_win_terms):
+                    best_win_terms = win_i_terms
+                    best_win_idx = i
+        if best_win_idx == -1:
+            print("[GMAT MCE: pred_to_tca] All Characteristic Functions have number of terms greater than the max allowable")
+            exit(1)
+        
+        # Deterministic piece to propagate using the GMATSat class
+        cauchyEst = self.cauchyEsts[best_win_idx]
+        if xhat_pred_t0 is None:
+            xhat, _ = cauchyEst.get_last_mean_cov()
+            xhat[0:6] /= 1000 # m to km
+        else:
+            xhat = xhat_pred_t0.copy() 
+        xhat[6] *= with_propagate_drag_estimate
+
+        # Need to accumulate sequence of Phis from pred_t0 to TCA so we can propagate the denisty function itself to TCA
+        global global_leo
+        global_leo.clear_model()
+        global_leo = FermiSatelliteModel(pred_t0, xhat[0:6], pred_dt, gmat_print=False)
+        global_leo.create_model(True, True)
+        global_leo.set_solve_for(field="Cd", dist=self.Cd_dist, scale=self.std_Cd, tau=self.tau_Cd, alpha = 2.0 if self.Cd_dist == "gauss" else 1.3)
+        global_leo.reset_state(xhat, 0)
+
+        # Set running Phi from start to i_star_lhs (t_lhs) 
+        Phi_total = np.eye(7)
+        taylor_order = 3
+        for i in range(i_star_lhs):
+            Jac = global_leo.get_jacobian_matrix()
+            Jac[3:6,6] *= 1000 # km to m
+            Phi_k = np.eye(7) + Jac * global_leo.dt
+            for i in range(2,taylor_order+1):
+                Phi_k += np.linalg.matrix_power(Jac, i) * global_leo.dt**i / math.factorial(i)
+            Phi_total = Phi_k @ Phi_total
+            global_leo.step()
+
+        # Set running Phi for last partial step t_lhs to t_c
+        new_step_dt = t_c - t_lhs 
+        Jac = global_leo.get_jacobian_matrix()
+        Jac[3:6,6] *= 1000 # km to m
+        Phi_k = np.eye(7) + Jac * new_step_dt
+        for i in range(2,taylor_order+1):
+            Phi_k += np.linalg.matrix_power(Jac, i) * new_step_dt**i / math.factorial(i)
+        Phi_total = Phi_k @ Phi_total
+        
+        cauchyEst.tca_xhat = global_leo.step(new_step_dt = new_step_dt)
+        cauchyEst.tca_xhat[0:6] *= 1000 # km to m
+        cauchyEst.deterministic_transform(Phi_total, cauchyEst.tca_xhat)
+        return best_win_idx
+
+    def teardown_except_selected_estimators(self, mce_idxs):
+        if type(mce_idxs) == int:
+            _mce_idxs = [mce_idxs]
+        else:
+            _mce_idxs = list(mce_idxs)
+        global global_leo
+        global_leo.clear_model()
+        for i in range(self.num_windows):
+            if i not in _mce_idxs:
+                self.cauchyEsts[i].__del__()
+        print("GMAT MCE Torn down")
+
+    def teardown(self):
         global global_leo
         global_leo.clear_model()
         for cauchyEst in self.cauchyEsts:
             cauchyEst.__del__()
         print("GMAT MCE Torn down")
+
+
+def form_short_encounter_contour_plot(s_mce_tca, p_mce_tca, xlow, xhigh, delta_x, ylow, yhigh, delta_y, APPROX_EPS=1e-12):
+    # Form conjunction plane using short encounter assumption
+    s_tca_xhat = s_mce_tca.tca_xhat
+    p_tca_xhat = p_mce_tca.tca_xhat
+    rv = s_tca_xhat[3:6] - p_tca_xhat[3:6]
+    _, _, Vt = np.linalg.svd( rv.reshape((1,3)) )
+    Trel = Vt[1:,:]
+    Trel = np.hstack((Trel, np.zeros((2,4)) ))
+    _Trel = Trel.copy().reshape(-1)
+    r2d = Trel @ (s_tca_xhat - p_tca_xhat)
+    
+    # Form 2D System and use approximation, extend caching mechanism to threading...it will take a long time
+    rsys2d_fz, rsys2d_mean, rsys2d_var, \
+    rsys2d_cerr_fz, rsys2d_cerr_mean, rsys2d_cerr_var, \
+    cpdf_points, num_gridx, num_gridy = pycauchy.pycauchy_single_step_eval_2d_rsys_cpdf(
+        _Trel, s_mce_tca.py_handle, p_mce_tca.py_handle, float(APPROX_EPS),
+        float(xlow), float(xhigh), float(delta_x),
+        float(ylow), float(yhigh), float(delta_y) )
+    cpdf_points = cpdf_points.reshape(num_gridx*num_gridy, 3)
+    # Meters to KM
+    X = cpdf_points[:,0].reshape( (num_gridy, num_gridx) ) / 1000
+    Y = cpdf_points[:,1].reshape( (num_gridy, num_gridx) ) / 1000
+    Z = cpdf_points[:,2].reshape( (num_gridy, num_gridx) )
+    rsys2d_mean /= 1000
+    rsys2d_var /= 1e6
+    return X,Y,Z, rsys2d_mean, rsys2d_var.reshape((2,2))

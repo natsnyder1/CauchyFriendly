@@ -1,10 +1,10 @@
-from cmath import log
 import numpy as np 
 import ctypes as ct
 import pycauchy
 import matplotlib.pyplot as plt 
 import math
 import os
+from scipy.stats import chi2  
 
 CAUCHY_TO_GAUSSIAN_NOISE = 1.3898
 GAUSSIAN_TO_CAUCHY_NOISE = 1.0 / CAUCHY_TO_GAUSSIAN_NOISE
@@ -796,6 +796,26 @@ class PyCauchyEstimator():
         print("WARN step_scalar_msmt: this function has not been fully implemented! Please do so! Exiting!")
         exit(1)
 
+    def deterministic_transform(self, Trans, bias):
+        if(self.is_initialized == False):
+            print("Estimator is not initialized yet. Mode set to {}. Please call method initialize_{} before running step()!".format(self.mode, self.mode))
+            print("Not stepping! Please call correct method / fix mode!")
+            return
+        _Trans = Trans.copy().reshape(-1)
+        _bias = bias.copy().reshape(-1)
+        assert(_Trans.size == self.n**2)
+        assert(_bias.size == self.n)
+        pycauchy.pycauchy_single_step_deterministic_transform(self.py_handle, _Trans, _bias)
+        
+    def get_num_CF_terms(self):
+        if(self.is_initialized == False):
+            print("[Error get_num_CF_terms]: Cannot find number of terms of an estimator not initialized")
+            return 0
+        elif(self.step_count == 0):
+            return 1
+        else:
+            return pycauchy.pycauchy_single_step_get_number_of_terms(self.py_handle)
+    
     def get_last_mean_cov(self):
         return self.moment_info["x"][-1], self.moment_info["P"][-1]
 
@@ -891,7 +911,7 @@ class PyCauchyEstimator():
         return xs, Ps
     
     def reset_with_last_measurement(self, z_scalar, A0, p0, b0, xbar):
-        _z_scalar = np.array(z_scalar).copy().reshape(-1)
+        _z_scalar = np.array(z_scalar, dtype=np.float64).copy().reshape(-1)
         if self.mode != "nonlin":
             self.reset(A0, p0, b0)
         else:
@@ -921,7 +941,7 @@ class PyCauchyEstimator():
         self.pyduc = Py_CauchyDynamicsUpdateContainer(self.c_pyduc)
         return self.pyduc
 
-    def get_marginal_2D_pointwise_cpdf(self, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir = None):
+    def get_marginal_2D_pointwise_cpdf(self, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir = None, reset_cache=True):
         if(self.is_initialized == False):
             print("Cannot evaluate Cauchy Estimator CPDF before it has been initialized (or after shutdown has been called)!")
             return None,None,None
@@ -949,8 +969,9 @@ class PyCauchyEstimator():
                 _log_dir = None
             elif _log_dir[-1] == "/":
                 _log_dir = log_dir[:-1]
+        _reset_cache = bool(reset_cache)
 
-        cpdf_points, num_gridx, num_gridy = pycauchy.pycauchy_get_marginal_2D_pointwise_cpdf(self.py_handle, _marg_idx1, _marg_idx2, _gridx_low, _gridx_high, _gridx_resolution, _gridy_low, _gridy_high, _gridy_resolution, _log_dir)
+        cpdf_points, num_gridx, num_gridy = pycauchy.pycauchy_get_marginal_2D_pointwise_cpdf(self.py_handle, _marg_idx1, _marg_idx2, _gridx_low, _gridx_high, _gridx_resolution, _gridy_low, _gridy_high, _gridy_resolution, _log_dir, _reset_cache)
         cpdf_points = cpdf_points.reshape(num_gridx*num_gridy, 3)
         X = cpdf_points[:,0].reshape( (num_gridy, num_gridx) )
         Y = cpdf_points[:,1].reshape( (num_gridy, num_gridx) )
@@ -1077,6 +1098,10 @@ class PySlidingWindowManager():
         self.win_idxs = np.arange(self.num_windows)
         self.win_counts = np.zeros(self.num_windows, dtype=np.int64)
         self.cauchyEsts = [PyCauchyEstimator(self.mode, self.num_windows, bool(win_debug_print) ) for _ in range(self.num_windows)]
+        self.last_xhat = None 
+        self.last_Phat = None 
+        self.last_xhat_avg = None 
+        self.last_Phat 
 
     def _set_dimensions(self):
         self.n = self.cauchyEsts[0].n
@@ -1236,39 +1261,45 @@ class PySlidingWindowManager():
                 print("  Window {} is on step {}/{}".format(1, 1, self.num_windows) )
             self.cauchyEsts[0].step(msmts, controls)
             self.win_counts[0] += 1
+            self.min_idx = None
         else:
             # Step all windows that are not uninitialized
-            idx_max = np.argmax(self.win_counts)
-            idx_min = np.argmin(self.win_counts)
+            max_idx = np.argmax(self.win_counts)
+            min_idx = np.argmin(self.win_counts)
             for win_idx, win_count in zip(self.win_idxs, self.win_counts):
                 if(win_count > 0):
                     if self.debug_print:
                         print("  Window {} is on step {}/{}".format(win_idx+1, win_count+1, self.num_windows) )
                     self.cauchyEsts[win_idx].step(msmts, controls)
                     self.win_counts[win_idx] += 1
+            self.min_idx = min_idx
         
         # Find best window, its estimates, and the weighted average of the estimation results
         best_idx, usable_wins = self._best_window_est()
         wavg_xhat, wavg_Phat = self._weighted_average_win_est(usable_wins)
         xhat, Phat = self.cauchyEsts[best_idx].get_last_mean_cov()
+        self.best_idx = best_idx 
+        self.usable_wins = usable_wins
         
         # Reinitialize the empty window
         if self.step_idx > 0:
             if self.reinit_func is not None:
-                self.reinit_func(self.cauchyEsts, best_idx, usable_wins, self.win_counts.copy(), reinit_args)
+                self.reinit_func(self.cauchyEsts, msmts, best_idx, min_idx, self.step_idx+1, reinit_args)
+                # THIS HAS BEEN CHANGED FROM THE BELOW TO THE ABOVE
+                # self.reinit_func(self.cauchyEsts, best_idx, usable_wins, self.win_counts.copy(), reinit_args)
             else:
                 if reinit_args is not None:
                     print("  [Warn PySlidingWindowManager:] Providing reinit_args with no reinit_func given will do nothing!")
                 # using speyer's start method if no user reinit function provided
                 speyer_restart_idx = self.p-1
-                self.cauchyEsts[idx_min].reset_about_estimator(self.cauchyEsts[best_idx], msmt_idx = speyer_restart_idx)
+                self.cauchyEsts[min_idx].reset_about_estimator(self.cauchyEsts[best_idx], msmt_idx = speyer_restart_idx)
                 if self.debug_print:
-                    print("  Window {} reinitializes Window {}".format(best_idx+1, idx_min+1))
+                    print("  Window {} reinitializes Window {}".format(best_idx+1, min_idx+1))
             # reset full estimator, increment reinitialized estimator count
-            self.win_counts[idx_min] += 1
-            if(self.win_counts[idx_max] == self.num_windows):
-                self.cauchyEsts[idx_max].reset()
-                self.win_counts[idx_max] = 0
+            self.win_counts[min_idx] += 1
+            if(self.win_counts[max_idx] == self.num_windows):
+                self.cauchyEsts[max_idx].reset()
+                self.win_counts[max_idx] = 0
         # Increment step index
         self.step_idx += 1
         # return the best estimate as well as the averaged conditional estimates 
@@ -1835,3 +1866,35 @@ def random_symmetric_alpha_stable(alpha, c, mu):
     Y = c*X + mu
     return Y
 
+
+def get_2d_covariance_ellipsoid(x, P, quantile, num_points = 100):
+    assert (x.size == 2) and ( P.shape == (2,2) )
+    assert quantile < 1
+    s2 = chi2.ppf(quantile, 2) # s3 is the value for which e^T @ P^-1 @ e == s2 
+    t1s = np.atleast_2d( np.array([ np.sin(2*np.pi*t) for t in np.linspace(0,1,num_points)]) ).T
+    t2s = np.atleast_2d( np.array([ np.cos(2*np.pi*t) for t in np.linspace(0,1,num_points)]) ).T
+    unit_circle = np.hstack((t1s,t2s))
+    D, U = np.linalg.eig(P)
+    E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
+    ell_points = (E @ unit_circle.T).T + x 
+    return ell_points[:,0], ell_points[:,1] # x and y points returned
+
+def _create_unit_sphere():
+    _u = np.linspace(0, 2 * np.pi, 50)
+    _v = np.linspace(0, np.pi, 50)
+    _x = np.outer(np.cos(_u), np.sin(_v))
+    _y = np.outer(np.sin(_u), np.sin(_v))
+    _z = np.outer(np.ones_like(_u), np.cos(_v))
+    unitsphere = np.stack((_x, _y, _z), axis=-1)[..., None]
+    return unitsphere
+
+def get_3d_covariance_ellipsoid(x,P,quantile, num_points = 100):
+    assert (x.size == 3) and ( P.shape == (3,3) )
+    assert quantile < 1
+    s3 = chi2.ppf(quantile, 3) # s3 is the value for which e^T @ P^-1 @ e == s3
+    D, U = np.linalg.eig(P)
+    E = U @ np.diag(D * s3)**0.5 # Ellipse is the matrix square root of covariance
+    unitsphere = _create_unit_sphere()
+    ellipse_points = (E @ unitsphere).squeeze(-1) + x
+    ellpsX, ellpsY, ellpsZ = ellipse_points.transpose(2, 0, 1)
+    return ellpsX, ellpsY, ellpsZ # Meshgrid

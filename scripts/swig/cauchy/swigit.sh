@@ -12,7 +12,6 @@ LIB_LAPACK="-llapacke -llapack -lblas -lm -lpthread"
 #PYTHON_INC_PATH="-I/home/natsnyder1/.local/lib/python3.7/site-packages/numpy/core/include -I/cm/local/apps/python37/include/python3.7m"
 #LIB_LAPACK="-Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl"
 
-
 rm _${FILE_NAME}.so
 rm ${FILE_NAME}_wrap.cxx
 rm ${FILE_NAME}_wrap.o

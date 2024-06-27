@@ -3,6 +3,8 @@
 
 #include "../../../include/cauchy_windows.hpp"
 #include "../../../include/cpdf_ndim.hpp"
+#include "../../../include/cauchy_prediction.hpp"
+#include <lapacke.h>
 //#include "../../../include/cpdf_2d.hpp"
 
 CauchyDynamicsUpdateContainer* cduc;
@@ -641,6 +643,103 @@ void pycauchy_single_step_nonlin(
     duc->step += 1;
 }
 
+void pycauchy_single_step_deterministic_transform(
+    void* _pcdh, 
+    double* Trans, int size_Trans, 
+    double* bias, int size_bias)
+{
+     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
+     CauchyEstimator* cauchyEst = pcdh->cauchyEst;
+     cauchyEst->deterministic_time_prop(Trans, NULL, NULL);
+     cauchyEst->shift_cf_by_bias(bias);
+}
+
+int pycauchy_single_step_get_number_of_terms(void* _pcdh)
+{
+     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
+     CauchyEstimator* cauchyEst = pcdh->cauchyEst;
+     return cauchyEst->Nt;
+}
+
+void pycauchy_single_step_eval_2d_rsys_cpdf(
+    double* Trel, int size_Trel,
+    void* _s_pcdh, void* _p_pcdh, 
+    double RSYS_APPROX_EPS,
+    double xlow, double xhigh, double delta_x,
+    double ylow, double yhigh, double delta_y,
+    double** out_rsys_fz, int* size_out_rsys_fz,
+    double** out_rsys_xhat, int* size_out_rsys_xhat,
+    double** out_rsys_Phat, int* size_out_rsys_Phat,
+    double** out_rsys_cerr_fz, int* size_out_rsys_cerr_fz,
+    double** out_rsys_cerr_xhat, int* size_out_rsys_cerr_xhat,
+    double** out_rsys_cerr_Phat, int* size_out_rsys_cerr_Phat,
+    double **out_cpdf_data, int *size_out_cpdf_data,
+    int* out_num_gridx, int* out_num_gridy
+    )
+{
+    PyCauchyDataHandler* s_pcdh = (PyCauchyDataHandler*) _s_pcdh;
+    PyCauchyDataHandler* p_pcdh = (PyCauchyDataHandler*) _p_pcdh;
+    CauchyEstimator* s_cauchyEst = s_pcdh->cauchyEst;
+    CauchyEstimator* p_cauchyEst = p_pcdh->cauchyEst;
+    const bool FULL_RSYS_SOLVE = false;
+    const bool REL_CPDF_TIMING = true;
+    const bool GET_RSYS_MOMENTS = true;
+    const bool WITH_TERM_APPROX = true;
+    *size_out_rsys_fz = 1; *size_out_rsys_cerr_fz = 1;
+    *size_out_rsys_xhat = 2; *size_out_rsys_cerr_xhat = 2;
+    *size_out_rsys_Phat = 4; *size_out_rsys_cerr_Phat = 4;
+    *out_rsys_fz = (double*) malloc(1 * sizeof(double));
+    *out_rsys_cerr_fz = (double*) malloc(1 * sizeof(double));
+    *out_rsys_xhat = (double*) malloc(2 * sizeof(double));
+    *out_rsys_cerr_xhat = (double*) malloc(2 * sizeof(double));
+    *out_rsys_Phat = (double*) malloc(4 * sizeof(double));
+    *out_rsys_cerr_Phat = (double*) malloc(4 * sizeof(double));
+    C_COMPLEX_TYPE rsys_norm_factor[1];
+    C_COMPLEX_TYPE rsys_cond_mean[2];
+    C_COMPLEX_TYPE rsys_cond_covar[4];
+
+    Cached2DCPDFTermContainer* rel_trans_2d_cached_terms = get_marg2d_relative_and_transformed_cpdf(
+            p_cauchyEst, s_cauchyEst, Trel, FULL_RSYS_SOLVE, REL_CPDF_TIMING,
+            GET_RSYS_MOMENTS, rsys_norm_factor, rsys_cond_mean, rsys_cond_covar, WITH_TERM_APPROX, RSYS_APPROX_EPS, NUM_CPUS);
+    (*out_rsys_fz)[0] = creal(*rsys_norm_factor);
+    (*out_rsys_cerr_fz)[0] = cimag(*rsys_norm_factor);
+    for(int i = 0; i < 2; i++)
+    {
+        (*out_rsys_xhat)[i] = creal(rsys_cond_mean[i]);
+        (*out_rsys_cerr_xhat)[i] = cimag(rsys_cond_mean[i]);
+    }
+    for(int i = 0; i < 4; i++)
+    {
+        (*out_rsys_Phat)[i] = creal(rsys_cond_covar[i]);
+        (*out_rsys_cerr_Phat)[i] = cimag(rsys_cond_covar[i]);
+    }
+    // Now Evaluate 
+    int ret_num_points_x, ret_num_points_y;
+    CauchyPoint3D* points = grid_eval_marg2d_relative_and_transformed_cpdf(
+        rel_trans_2d_cached_terms, 
+        xlow + (*out_rsys_xhat)[0], 
+        xhigh + (*out_rsys_xhat)[0], 
+        delta_x, 
+        ylow + (*out_rsys_xhat)[1],
+        yhigh + (*out_rsys_xhat)[1],
+        delta_y, 
+        creal(p_cauchyEst->fz), creal(s_cauchyEst->fz), 
+        &ret_num_points_x, &ret_num_points_y, 
+        NUM_CPUS, FULL_RSYS_SOLVE, REL_CPDF_TIMING);
+    
+    int points_cpdf = ret_num_points_x * ret_num_points_y;
+    BYTE_COUNT_TYPE bytes_cpdf = 3 * ((BYTE_COUNT_TYPE)points_cpdf) * sizeof(double);
+    *size_out_cpdf_data = 3 * points_cpdf;
+    *out_cpdf_data = (double*) malloc(bytes_cpdf);
+    memcpy(*out_cpdf_data, points, bytes_cpdf);
+    *out_num_gridx = ret_num_points_x;
+    *out_num_gridy = ret_num_points_y;
+    free(points);
+    rel_trans_2d_cached_terms->deinit();
+    free(rel_trans_2d_cached_terms);
+}
+
+
 void pycauchy_single_step_shutdown(void* _pcdh)
 {
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
@@ -716,7 +815,7 @@ void pycauchy_get_marginal_2D_pointwise_cpdf(
     int marg_idx1, int marg_idx2,
     double gridx_low, double gridx_high, double gridx_resolution, 
     double gridy_low, double gridy_high, double gridy_resolution, 
-    char* log_dir, 
+    char* log_dir, bool reset_cache,
     double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx, int* out_num_gridy)
 {
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
@@ -743,6 +842,10 @@ void pycauchy_get_marginal_2D_pointwise_cpdf(
         *out_cpdf_data = (double*) malloc(0);
         return;
     }
+    if(reset_cache)
+    {
+        pcdh->cpdf->reset_2D_marginal_cpdf();
+    }
 
     double* cpdf_points = (double*) pcdh->grid_2d->points;
     int num_gridx = pcdh->grid_2d->num_points_x;
@@ -762,13 +865,13 @@ void pycauchy_get_2D_pointwise_cpdf(
     void* _pcdh, 
     double gridx_low, double gridx_high, double gridx_resolution, 
     double gridy_low, double gridy_high, double gridy_resolution, 
-    char* log_dir, 
+    char* log_dir, bool reset_cache,
     double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx, int* out_num_gridy)
 {
     pycauchy_get_marginal_2D_pointwise_cpdf(
         _pcdh, 0,1,
         gridx_low, gridx_high, gridx_resolution, 
-        gridy_low, gridy_high, gridy_resolution, log_dir, 
+        gridy_low, gridy_high, gridy_resolution, log_dir, reset_cache,
         out_cpdf_data, size_out_cpdf_data, out_num_gridx, out_num_gridy);
 }
 

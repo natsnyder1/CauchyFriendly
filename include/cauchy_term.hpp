@@ -406,7 +406,7 @@ struct CauchyTerm
 
         return g_val;
     }
-  
+    
     void time_prop(double* Phi, double* B, double* u, const int cmcc)
     {
         double work[m*d];
@@ -571,7 +571,7 @@ struct CauchyTerm
                                 // raise error and exit(1)
                                 else 
                                 {
-                                    printf(RED "[ERROR MUC #1:]" 
+                                    printf(YEL "[WARN MUC #1:]" 
                                         YEL "Shape %d, HP1 index=%d, HP2 index=%d.\n"
                                         YEL "IT WAS SEEN THAT TWO HPS ORTHOGONAL TO H (BEFORE MSMT UPDATE) ARE COALIGNING.\n"
                                         YEL "THESE HPS SHOULD HAVE BEEN COALIGNED DURING COALIGNMENT AFTER TIME PROPAGATION (TPC).\n"
@@ -579,13 +579,13 @@ struct CauchyTerm
                                         YEL "THIS ERROR CAN BE DISCARDED IF THIS NUMERICAL ERROR IS NOT OF RELEVANCE (COMMENT THIS WARNINH OUT)"
                                         YEL "PLEASE PLACE BREAKPOINT HERE AND DEBUG FURTHER IF DESIRED, OR REMOVE ERROR MESSAGE! EXITING FOR NOW! GOODBYE!"
                                         NC "\n", m, j, k, COALIGN_TP_EPS, COALIGN_MU_EPS);
-                                    sleep(2);
-                                    exit(1);
+                                    //sleep(2);
+                                    //exit(1);
                                     // If the above error is commented, uncomment the line below
-                                    //Horthog_flag_unencoded[k] = false;
+                                    Horthog_flag_unencoded[k] = false;
                                     // Do not really need this line of code....
                                     // It will not be summed over, due to the Horthog_flag being 1 at index j
-                                    //q[j] += q[k];
+                                    q[j] += q[k];
                                 }
                             }
                             else

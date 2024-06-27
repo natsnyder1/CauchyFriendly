@@ -36,6 +36,10 @@ import_array();
 %apply (double* IN_ARRAY1, int DIM1) {(double* xbar, int size_xbar)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* xhat, int size_xhat)};
 %apply (double* IN_ARRAY1, int DIM1) {(double* Phat, int size_Phat)};
+%apply (double* IN_ARRAY1, int DIM1) {(double* Trans, int size_Trans)}; 
+%apply (double* IN_ARRAY1, int DIM1) {(double* bias, int size_bias)}; 
+%apply (double* IN_ARRAY1, int DIM1) {(double* Trel, int size_Trel)}; 
+
 %apply (int* IN_ARRAY1, int DIM1) {(int* ordering, int size_ordering)};
 
 // Output array naming convention
@@ -58,6 +62,13 @@ import_array();
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cerr_fz, int *size_out_cerr_fz)};
 %apply (int** ARGOUTVIEWM_ARRAY1, int* DIM1) {(int **out_err_code, int *size_out_err_code)};
 %apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_cpdf_data, int *size_out_cpdf_data)};
+
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_rsys_fz, int *size_out_rsys_fz)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_rsys_xhat, int *size_out_rsys_xhat)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_rsys_Phat, int *size_out_rsys_Phat)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_rsys_cerr_fz, int *size_out_rsys_cerr_fz)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_rsys_cerr_xhat, int *size_out_rsys_cerr_xhat)};
+%apply (double** ARGOUTVIEWM_ARRAY1, int* DIM1) {(double **out_rsys_cerr_Phat, int *size_out_rsys_cerr_Phat)};
 
 // Output scalar naming convention
 %apply int* OUTPUT { int* out_num_gridx, int* out_num_gridy };
@@ -312,6 +323,29 @@ void* pycauchy_initialize_lti(
     int init_step,  
     bool debug_print);
 
+void pycauchy_single_step_deterministic_transform(
+    void* _pcdh, 
+    double* Trans, int size_Trans, 
+    double* bias, int size_bias);
+
+int pycauchy_single_step_get_number_of_terms(void* _pcdh);
+
+void pycauchy_single_step_eval_2d_rsys_cpdf(
+    double* Trel, int size_Trel,
+    void* _s_pcdh, void* _p_pcdh, 
+    double RSYS_APPROX_EPS,
+    double xlow, double xhigh, double delta_x,
+    double ylow, double yhigh, double delta_y,
+    double** out_rsys_fz, int* size_out_rsys_fz,
+    double** out_rsys_xhat, int* size_out_rsys_xhat,
+    double** out_rsys_Phat, int* size_out_rsys_Phat,
+    double** out_rsys_cerr_fz, int* size_out_rsys_cerr_fz,
+    double** out_rsys_cerr_xhat, int* size_out_rsys_cerr_xhat,
+    double** out_rsys_cerr_Phat, int* size_out_rsys_cerr_Phat,
+    double **out_cpdf_data, int *size_out_cpdf_data,
+    int* out_num_gridx, int* out_num_gridy
+    );
+
 
 void pycauchy_single_step_reset(
     void* _pcdh, 
@@ -334,13 +368,14 @@ void pycauchy_get_marginal_2D_pointwise_cpdf(void* _pcdh,
     int marg_idx1, int marg_idx2,
     double gridx_low, double gridx_high, double gridx_resolution, 
     double gridy_low, double gridy_high, double gridy_resolution, 
-    char* log_dir, 
+    char* log_dir, bool reset_cache,
     double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx, int* out_num_gridy);
 
-void pycauchy_get_2D_pointwise_cpdf(void* _pcdh, 
+void pycauchy_get_2D_pointwise_cpdf(
+    void* _pcdh, 
     double gridx_low, double gridx_high, double gridx_resolution, 
     double gridy_low, double gridy_high, double gridy_resolution, 
-    char* log_dir, 
+    char* log_dir, bool reset_cache,
     double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx, int* out_num_gridy);
 
 void pycauchy_get_marginal_1D_pointwise_cpdf(

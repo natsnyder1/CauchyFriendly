@@ -13,6 +13,7 @@ import copy
 import gmat_sat as gsat 
 import pickle
 
+
 # Fancy Arrow Patch for MPL
 class Arrow3D(FancyArrowPatch):
 
@@ -255,7 +256,7 @@ def iterative_time_closest_approach(dt, _t0, prim_tup, sec_tup, start_idx = 0, i
     # Find the index of closest position between the two vehicles
     i = np.argmin( np.sum( (s_pks[start_idx:,:] - p_pks[start_idx:,:])**2, axis=1) ) # eq 13
     i += start_idx
-    if (i == start_idx) or (i == s_pks[start_idx:,:].shape[0]):
+    if (i == start_idx) or (i == (s_pks[start_idx:,:].shape[0]-1) ):
         print("Index range is bad! Use the norm plotter to select a more appropriate index range!")
         return None,None,None,None,None,None,None
     
@@ -338,7 +339,7 @@ def iterative_time_closest_approach(dt, _t0, prim_tup, sec_tup, start_idx = 0, i
         s_aks = np.array(s_aks)
         fermiSat.clear_model()
 
-        if it < 4:
+        if it < (its - 1):
             i = np.argmin( np.sum( (s_pks - p_pks)**2, axis=1) ) - 1
         else:
             # Now re-run the closest approach routine
@@ -418,14 +419,15 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc,
     rP = P1 + P2 # relative position uncertainty
     
     # Draw Primary and its velocity vector direction
-    ax.scatter(p1[0], p1[1], p1[2], s=2, color = 'r')
-    suv1 = ( v1 / np.linalg.norm(v1) ) * np.min(np.abs(rp)) * 0.5 # scaled unit vector of primary
-    ax.arrow3D(p1[0], p1[1], p1[2], suv1[0], suv1[1], suv1[2], arrowstyle="-|>", mutation_scale=20, lw=3, color='r', label='PrimVelVec')
+    #ax.scatter(p1[0], p1[1], p1[2], s=2, color = 'r')
+    #suv1 = ( v1 / np.linalg.norm(v1) ) * np.min(np.abs(rp)) * 0.5 # scaled unit vector of primary
+    #ax.arrow3D(p1[0], p1[1], p1[2], suv1[0], suv1[1], suv1[2], arrowstyle="-|>", mutation_scale=20, lw=3, color='r', label='PrimVelVec')
 
     # Draw Secondary and its velocity vector direction
     ax.scatter(p2[0], p2[1], p2[2], s=2, color = 'b')
     suv2 = ( v2 / np.linalg.norm(v2) ) * np.min(np.abs(rp)) * 0.5 # scaled unit vector of secondary
     ax.arrow3D(p2[0], p2[1], p2[2], suv2[0], suv2[1], suv2[2], arrowstyle="-|>", mutation_scale=20, lw=3, color='b', label='SecVelVec')
+    
     
     # Draw Encounter Plane is defined by (ep_c, ep_a)
     # ep_c is the center of the encounter plane (average of prim and sec positions)
@@ -434,7 +436,8 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc,
     ep_c = (p1 + p2) / 2.0
     ep_a = rv.copy()
     ep_b = ep_a @ ep_c
-
+    
+    
     ax.scatter(ep_c[0], ep_c[1], ep_c[2], s=80, color = 'g', marker = "*", label= 'Encounter Plane')
     suv3 = ( ep_a / np.linalg.norm(ep_a) ) * np.min(np.abs(rp)) * 0.5 # scaled unit vector of encounter plane
     ax.arrow3D(ep_c[0], ep_c[1], ep_c[2], suv3[0], suv3[1], suv3[2], arrowstyle="-|>", mutation_scale=20, lw=3, color='g', label='EPVelVec')
@@ -470,6 +473,7 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc,
         X,Y = np.meshgrid(sc1, sc2)
         Z = np.array([(ep_b - ep_a[0]*x - ep_a[1]*y ) / ep_a[2] for x,y in zip(X,Y)]).reshape(X.shape)
     ax.plot_surface(X,Y,Z, alpha=0.2, color='g')
+    
 
     # Now plot the q_chosen covariance ellipsoids of the primary/secondary sat
     quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
@@ -480,6 +484,7 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc,
         _P = P1
     else: 
         _P = P1 + P2
+    
     if plot_var_3D:
         D1, U1 = np.linalg.eig(_P)
         E1 = U1 @ np.diag(D1 * s3)**0.5 # Ellipse is the matrix square root of covariance
@@ -556,9 +561,8 @@ def draw_3d_encounter_plane(s_xtc, p_xtc, s_Ptc, p_Ptc,
                 aorth2 = np.atleast_2d( ep_aproj_orth2[1] )
                 us2 = t1s * aorth1 + t2s * aorth2 #- ep_bproj
                 ellipse_points_proj2 = (E2 @ us2.T).T + ep_p2
-                leg_2dvar = 'SecSatProj2DVar'
+                leg_2dvar = 'MCESecSatProj2DVar'
                 ax.plot(ellipse_points_proj2[:,0], ellipse_points_proj2[:,1], ellipse_points_proj2[:,2], color = 'tab:cyan', label = leg_2dvar)
-            
             
     # Should be a list of points of realizations
     if mc_runs_prim is not None:
@@ -727,6 +731,91 @@ def draw_2d_projected_encounter_plane(quantile_kf,
     plt.show()
     foobar=5
 
+def draw_ensemble_encounter_plane(
+        quantile_kf, 
+        s_xtc, p_xtc, 
+        s_Ptc_kf, p_Ptc_kf, 
+        s_Ptc_mce = None, p_Ptc_mce = None, quantile_mce = None,
+        mc_prim = None, mc_sec = None, rsys_info = None, num_contour_levels = 11):
+    
+    # Create relative quantities
+    rp = s_xtc[0:3] - p_xtc[0:3] # relative position vector
+    rv = s_xtc[3:6] - p_xtc[3:6] # relative velocity vector
+    # Transformation into (for now) coordinates orthogonal to the relative vel. vec
+    _,_,T = np.linalg.svd(rv.reshape((1,3)))
+    # Get expected location for the transformed (projected onto 2D plane) relative pos
+    T2D = T[1:, :]
+    rp2D = T2D @ rp # expected relative 2D position
+    rP2D = T2D @ (s_Ptc_kf[0:3,0:3] + p_Ptc_kf[0:3,0:3]) @ T2D.T # expected relative 2D covariance
+    
+    # Now plot the q_chosen covariance ellipsoids of the primary/secondary sat
+    #quantiles = np.array([0.7, 0.9, 0.95, 0.99, 0.9999]) # quantiles
+    #q_chosen = quantiles[-1]
+    assert quantile_kf < 1
+    s2 = chi2.ppf(quantile_kf, 2) # s3 is the value for which e^T @ P_2DProj^-1 @ e == s2 
+    t1s = np.atleast_2d( np.array([ np.sin(2*np.pi*t) for t in np.linspace(0,1,100)]) ).T
+    t2s = np.atleast_2d( np.array([ np.cos(2*np.pi*t) for t in np.linspace(0,1,100)]) ).T
+    unit_circle = np.hstack((t1s,t2s))
+    D, U = np.linalg.eig(rP2D)
+    E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
+    ell_points = (E @ unit_circle.T).T + rp2D 
+    fig = plt.figure()
+    plt.title("MC of Prim/Sec Positions at TCA, first projected onto \n(the expected) encounter plane, then made relative (sec - prim)")
+    plt.plot(ell_points[:,0], ell_points[:,1], color='r', label='{}% Proj 2D Cov. Ellipse for KF'.format(quantile_kf*100))
+    plt.scatter(rp2D[0], rp2D[1], color='r', label='Expected relative projected position')
+    plt.xlabel("Rel Vel Vec Orthog Direction 1 (km)")
+    plt.ylabel("Rel Vel Vec Orthog Direction 2 (km)")
+
+    # Now plot MCE if provided 
+    if p_Ptc_mce is not None:
+        assert s_Ptc_mce is not None
+        mce_rP2D = T2D @ (s_Ptc_mce[0:3,0:3] + p_Ptc_mce[0:3,0:3]) @ T2D.T # expected relative 2D covariance
+        assert quantile_mce is not None
+        assert quantile_mce < 1
+        s2 = chi2.ppf(quantile_mce, 2)
+        D, U = np.linalg.eig(mce_rP2D)
+        E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
+        ell_points = (E @ unit_circle.T).T + rp2D 
+        plt.plot(ell_points[:,0], ell_points[:,1], color='g', label='{}% Proj 2D Cov. Ellipse for MCE'.format(quantile_mce*100))
+
+    # Plot the assortment of MC points on their repsective TCA planes 
+    if (mc_prim is not None) and (mc_sec is not None):
+        assert len(mc_prim) == len(mc_sec)
+        proj_mcs = []
+        for mcp, mcs in zip(mc_prim, mc_sec):
+            # Project prim onto encounter plane 
+            p1 = mcp[0:3]
+            v1 = mcp[3:6]
+            # project sec onto encounter plane 
+            p2 = mcs[0:3]
+            v2 = mcs[3:6]
+            # find plane orthogonal to the relative velocity vector here
+            rv = v2 - v1
+            _, _, Vt = np.linalg.svd( rv.reshape((1,3)) ) 
+            mc_T2D = Vt[1:,:]
+            # subtract, project down
+            mcr = p2 - p1
+            proj_mc = mc_T2D @ mcr
+            proj_mcs.append(proj_mc)
+        proj_mcs = np.array(proj_mcs)    
+        plt.scatter(proj_mcs[0,0], proj_mcs[0,1], color='m', label = 'MC real. of (rel.) proj. pos. onto EP at TCA from x0')
+        plt.scatter(proj_mcs[1:,0], proj_mcs[1:,1], color='m')
+
+    if rsys_info is not None:
+        rsys_Xs, rsys_Ys, rsys_Zs, rsys_mean, rsys_var = rsys_info
+        s2 = chi2.ppf(quantile_mce, 2)
+        D, U = np.linalg.eig(rsys_var)
+        E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
+        ell_points = (E @ unit_circle.T).T + rsys_mean 
+        plt.plot(ell_points[:,0], ell_points[:,1], color='b', label='{}% Rsys Proj 2D Cov. Ellipse of MCEs'.format(quantile_mce*100))
+        rsys_Zs[rsys_Zs < 0] = 0
+        plt.contour(rsys_Xs, rsys_Ys, rsys_Zs, levels=num_contour_levels)
+
+
+    plt.legend().set_draggable(True)
+    plt.show()
+    foobar=5
+    
 def analyze_3d_statistics(quantile_kf, quantile_mce,
     s_xtc, p_xtc, s_Ptc, p_Ptc,
     s_mce_Ptc, p_mce_Ptc, 
@@ -933,7 +1022,7 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
     with_mc_points = False
     mce_counts = 0
     len_points = 0
-    if mc_sec_x0s:
+    if mc_sec_x0s is not None:
         with_mc_points = True
         ax22.scatter(mc_sec_x0s[:,0], mc_sec_x0s[:,1], mc_sec_x0s[:,2], color='m',label='MC realizations forced by SaS=1.3 atms. density changes, I.C is x0')
         mc_points = np.vstack((mc_points,mc_sec_x0s))
@@ -941,8 +1030,8 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
         with_mc_points = True
         ax22.scatter(mc_sec_sampled[:,0], mc_sec_sampled[:,1], mc_sec_sampled[:,2], color='g',label='MC realizations forced by SaS=1.3 atms. density changes, I.C is N(x0,P0_kf)')
         mc_points = np.vstack((mc_points,mc_sec_sampled))
+        mc_points = np.vstack((mc_points,mc_sec_sampled))
     if with_mc_points:
-        mc_points = np.vstack((mc_sec_x0s,mc_sec_sampled)) 
         min_bounds = x2 - np.min(mc_points, axis = 0)
         max_bounds = np.max(mc_points, axis = 0) - x2
         eq_bounds = np.max( np.vstack((min_bounds,max_bounds)), axis = 0 )
@@ -964,7 +1053,6 @@ def analyze_3d_statistics(quantile_kf, quantile_mce,
     leg.set_draggable(state=True)
     plt.show()
     foobar = 3
-
 
 def simulate_then_run_ekf(t0, x0, P0_kf, filt_dt, sas_Cd, std_Cd, tau_Cd, sas_alpha, filt_orbits, std_gps_noise, with_density_jumps, STM_order, Wn, H, V):
     # Create Satellite Model of Primary Satellite
@@ -1118,6 +1206,17 @@ def step_sat_stats_to_tca(t0_pred, xpred0, Ppred0, pred_dt, i_star_lhs, t_lhs, t
     fermiSat.clear_model()
     return xk, Pk
 
+def backprop_sat_from_xftf_to_x0t0(xf, tf, t0):
+    step_dt = 120.0 
+    sat = gsat.FermiSatelliteModel(tf, xf, step_dt, False)
+    sat.create_model(True, True)
+    prop_secs = (tf - t0).total_seconds()
+    while prop_secs > step_dt:
+        xk = sat.step(new_step_dt=-step_dt) 
+        prop_secs -= step_dt
+    x0 = sat.step(new_step_dt=-prop_secs)
+    return x0 
+
 def log_mc_trials(mc_trials, with_mc_from_x0, t0_pred, pred_dt, p_xpred0, p_Ppred0, s_xpred0, s_Ppred0, sas_Cd, std_Cd, tau_Cd, sas_alpha, std_gps_noise, i_star_lhs, t_c, t_lhs, cache_dic, fpath):
     print("Logging {} MC Trials".format(mc_trials))
     sub_trials_per_log = 5
@@ -1203,6 +1302,123 @@ def log_mc_trials(mc_trials, with_mc_from_x0, t0_pred, pred_dt, p_xpred0, p_Ppre
                 cache_dic['mc_sec_sample_tcas'] = inner_mc_runs_sec
             else:
                 cache_dic['mc_sec_sample_tcas'] += inner_mc_runs_sec
+        with open(fpath, "wb") as handle:
+            pickle.dump(cache_dic, handle)
+        print("Stored data to:", fpath)
+        
+    print("Logged ", len(new_mc_runs_prim), " total new Primary MC runs")
+    print("Logged ", len(new_mc_runs_sec), " total new Secondary MC runs")
+
+def log_mc_trials2(mc_trials, with_mc_from_x0, t0_pred, pred_dt, p_xpred0, p_Ppred0, s_xpred0, s_Ppred0, sas_Cd, std_Cd, tau_Cd, sas_alpha, itca_start_idx, itca_end_idx, cache_dic, fpath):
+    print("Logging {} MC Trials".format(mc_trials))
+    sub_trials_per_log = 5
+    mc_count = 0
+    
+    new_mc_runs_prim = []
+    new_mc_runs_sec = []
+    while mc_count < mc_trials: 
+        inner_loop = mc_trials if (mc_trials < sub_trials_per_log) else sub_trials_per_log
+        if (inner_loop + mc_count) > mc_trials:
+            inner_loop = mc_trials - mc_count
+        # Simulate a new atms. density realization under the current atms. distribution starting at primary at end of filtration. 
+        print("Running MC for Primary:")
+        inner_mc_runs_prim = []
+        inner_mc_runs_sec = []
+        inner_mc_tca_data = [] 
+        for mc_it in range(inner_loop):
+            print( "Primary trial {}/{}:".format(mc_count+1, mc_trials) )
+            if with_mc_from_x0:
+                p_xpred = p_xpred0.copy()
+            else:
+                p_xpred = np.zeros(7)
+                p_xpred[0:6] = np.random.multivariate_normal(p_xpred[0:6], p_Ppred0[0:6,0:6])
+
+            fermiSat = gsat.FermiSatelliteModel(t0_pred, p_xpred[0:6].copy(), pred_dt, gmat_print = False)
+            fermiSat.create_model(with_jacchia=True, with_SRP=True)
+            fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+            fermiSat.reset_state(p_xpred, 0)
+            p_pks = [] 
+            p_vks = []
+            p_aks = [] 
+            for j in range(itca_end_idx+1):
+                xk = fermiSat.get_state()
+                p_pks.append(xk[0:3])
+                p_vks.append(xk[3:6])
+                p_aks.append( fermiSat.get_state6_derivatives()[3:6] )
+                fermiSat.step(noisy_prop_solve_for=True)
+            fermiSat.clear_model()
+            p_pks = np.array(p_pks)
+            p_vks = np.array(p_vks)
+            p_aks = np.array(p_aks)
+
+            print( "Secondary trial {}/{}:".format(mc_count+1, mc_trials) )
+            if with_mc_from_x0:
+                s_xpred = s_xpred0.copy()
+            else:
+                s_xpred = np.zeros(7)
+                s_xpred[0:6] = np.random.multivariate_normal(s_xpred0[0:6], s_Ppred0[0:6,0:6])
+            fermiSat = gsat.FermiSatelliteModel(t0_pred, s_xpred[0:6].copy(), pred_dt, gmat_print = False)
+            fermiSat.create_model(with_jacchia=True, with_SRP=True)
+            fermiSat.set_solve_for("Cd", sas_Cd, std_Cd, tau_Cd, alpha=sas_alpha)
+            fermiSat.reset_state(s_xpred, 0)
+            s_pks = [] 
+            s_vks = []
+            s_aks = [] 
+            for j in range(itca_end_idx+1):
+                xk = fermiSat.get_state()
+                s_pks.append(xk[0:3])
+                s_vks.append(xk[3:6])
+                s_aks.append( fermiSat.get_state6_derivatives()[3:6] )
+                fermiSat.step(noisy_prop_solve_for=True)
+            fermiSat.clear_model()
+            s_pks = np.array(s_pks)
+            s_vks = np.array(s_vks)
+            s_aks = np.array(s_aks)
+
+            # Now run ITCA
+            itca_its = 3
+            i_star_lhs, t_lhs, t_c, pp_c, pv_c, sp_c, sv_c = iterative_time_closest_approach(pred_dt, t0_pred, (p_pks,p_vks[:itca_end_idx+1],p_aks[:itca_end_idx+1]), (s_pks[:itca_end_idx+1],s_vks[:itca_end_idx+1],s_aks[:itca_end_idx+1]), start_idx = itca_start_idx, its=itca_its, with_plot=False)
+            # Create Primary and Secondary data results
+            prim_x = np.concatenate( (pp_c,pv_c) )
+            sec_x = np.concatenate( (sp_c,sv_c) )
+            inner_mc_runs_prim.append( prim_x )
+            inner_mc_runs_sec.append( sec_x )
+            inner_mc_tca_data.append( (i_star_lhs, t_lhs, t_c, pp_c, pv_c, sp_c, sv_c) )
+            mc_count += 1
+
+        new_mc_runs_prim += inner_mc_runs_prim 
+        new_mc_runs_sec += inner_mc_runs_sec
+        #mc_count += inner_loop
+
+        print("Caching {} runs, total done is {}, total left is {}".format(inner_loop, mc_count, mc_trials - mc_count) )
+        if with_mc_from_x0:
+            if cache_dic['mc_prim_tcas'] is None:
+                cache_dic['mc_prim_tcas'] = inner_mc_runs_prim
+            else:
+                cache_dic['mc_prim_tcas'] += inner_mc_runs_prim
+            
+            if cache_dic['mc_sec_tcas'] is None:
+                cache_dic['mc_sec_tcas'] = inner_mc_runs_sec
+            else:
+                cache_dic['mc_sec_tcas'] += inner_mc_runs_sec
+        else:
+            if cache_dic['mc_prim_sample_tcas'] is None:
+                cache_dic['mc_prim_sample_tcas'] = inner_mc_runs_prim
+            else:
+                cache_dic['mc_prim_sample_tcas'] += inner_mc_runs_prim
+            
+            if cache_dic['mc_sec_sample_tcas'] is None:
+                cache_dic['mc_sec_sample_tcas'] = inner_mc_runs_sec
+            else:
+                cache_dic['mc_sec_sample_tcas'] += inner_mc_runs_sec
+
+        if 'mc_itca_info' not in cache_dic:
+            cache_dic['mc_itca_info'] = None
+        if cache_dic['mc_itca_info'] is None:
+            cache_dic['mc_itca_info'] = inner_mc_tca_data
+        else:
+            cache_dic['mc_itca_info'] += inner_mc_tca_data
+
         with open(fpath, "wb") as handle:
             pickle.dump(cache_dic, handle)
         print("Stored data to:", fpath)

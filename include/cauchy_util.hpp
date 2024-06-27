@@ -1060,6 +1060,23 @@ struct ChunkedPackedElement
 		used_elems_per_page[current_page_idx] += num_elems;
 	}
 
+	void pop_elem_ptr(BYTE_COUNT_TYPE num_elems)
+	{
+		BYTE_COUNT_TYPE elems_used_in_page = used_elems_per_page[current_page_idx];
+		if(num_elems > elems_used_in_page)
+		{
+			used_elems_per_page[current_page_idx] = 0;
+			assert(current_page_idx > 0);
+			current_page_idx--;
+			assert( used_elems_per_page[current_page_idx] >= (num_elems-elems_used_in_page) );
+			used_elems_per_page[current_page_idx] -= (num_elems-elems_used_in_page);
+		}
+		else 
+		{
+			used_elems_per_page[current_page_idx] -= num_elems;
+		}
+	}
+
 	void unallocate_unused_space()
 	{
 		for(uint i = current_page_idx+1; i < page_limit; i++)

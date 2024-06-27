@@ -21,6 +21,27 @@ from cauchy_estimator import random_symmetric_alpha_stable
 MonthDic = {"Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12}
 MonthDic2 = {v:k for k,v in MonthDic.items()}
 
+def datetime_2_time_string(t):
+    global MonthDic2
+    t_format = "{} {} {} ".format(t.day, MonthDic2[t.month], t.year)
+    if t.hour < 10:
+        t_format += "0"
+    t_format += str(t.hour) + ":"
+    if t.minute < 10:
+        t_format += "0"
+    t_format += str(t.minute) + ":"
+    if t.second < 10:
+        t_format += "0"
+    t_format += str(t.second) + "."
+    millisec = str(np.round(t.microsecond / 1e6, 3)).split(".")[1]
+    if millisec == "0":
+        millisec = "000"
+    t_format += millisec
+    return t_format 
+
+def time_string_2_datetime(t):
+    return datetime.strptime(t, "%d %b %Y %H:%M:%S.%f")
+
 # Initial state given in distance units kilometers
 class FermiSatelliteModel():
     def __init__(self, t0, x0, dt, gmat_print = True):
@@ -148,7 +169,7 @@ class FermiSatelliteModel():
         # Set some of the fields for the integration
         self.pdprop.SetField("InitialStepSize", self.dt)
         self.pdprop.SetField("Accuracy", 1.0e-13)
-        self.pdprop.SetField("MinStep", 0.0)
+        self.pdprop.SetField("MinStep", 0)
         self.pdprop.SetField("MaxStep", self.dt)
         self.pdprop.SetField("MaxStepAttempts", 50)
 
@@ -279,14 +300,23 @@ class FermiSatelliteModel():
             Phi += np.linalg.matrix_power(Jac, i) * self.dt**i / math.factorial(i)
         return Phi
 
-    def step(self):
-        self.gator.Step(self.dt)
+    def step(self, noisy_prop_solve_for = False, new_step_dt = None):
+        if new_step_dt is None:
+            self.gator.Step(self.dt)
+        else:
+            self.gator.Step(new_step_dt)
         num_sf = len(self.solve_for_states)
         xk = np.zeros(6 + num_sf)
         xk[0:6] = np.array(self.gator.GetState())
-        if num_sf > 0:
-            xk[6:] = self.propagate_solve_fors(False)
-        return xk
+        if (num_sf > 0):
+            if noisy_prop_solve_for:
+                xk[6:], wk = self.propagate_solve_fors(noisy_prop_solve_for)
+                return xk, wk 
+            else:
+                xk[6:] = self.propagate_solve_fors(noisy_prop_solve_for)
+                return xk
+        else:
+            return xk
 
     def get_state(self):
         num_sf = len(self.solve_for_states)
@@ -425,5 +455,3 @@ class FermiSatelliteModel():
         self.reset_state(x0, 0)
         return np.array(states), np.array(msmts), np.array(proc_noises), np.array(msmt_noises)
     
-def gmat_time_string_2_datetime(t):
-    return datetime.strptime(t, "%d %b %Y %H:%M:%S.%f")
