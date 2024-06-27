@@ -672,9 +672,9 @@ Cached2DCPDFTermContainer* get_marg2d_relative_and_transformed_cpdf(
     // create a random point \bar\nu, in the event A_2d has a singular HPA 
     double bar_nu_full[d];
     double bar_nu[2];
-    //for(int i = 0; i < d; i++)
-    //    bar_nu_full[i] = 2*random_uniform_open() -1;
-    bar_nu_full[0] = 0.1982739812; bar_nu_full[1] = -0.278786; bar_nu_full[2] = 0.781236; 
+    for(int i = 0; i < d; i++)
+        bar_nu_full[i] = 2*random_uniform_open() -1;
+    //bar_nu_full[0] = 0.1982739812; bar_nu_full[1] = -0.278786; bar_nu_full[2] = 0.781236; 
 
     matvecmul(Trel, bar_nu_full, bar_nu, 2, d);
     Cached2DCPDFTermContainer* cached_2d_terms = (Cached2DCPDFTermContainer*) malloc(sizeof(Cached2DCPDFTermContainer));

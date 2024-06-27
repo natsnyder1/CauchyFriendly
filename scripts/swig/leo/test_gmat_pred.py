@@ -616,7 +616,7 @@ def test_sat_pc_mc():
                                    Cd_dist=mode, std_Cd=std_Cd, tau_Cd=tau_Cd,
                                    win_reinitialize_func=mce_init_func,
                                    win_reinitialize_params=mce_other_params,
-                                   debug_print=True, mce_print=True)
+                                   debug_print=False, mce_print=True)
 
         len_mce_p_zxs = mce_p_zs.shape[0]
         for i in range(len_mce_p_zxs):
@@ -700,7 +700,7 @@ def test_sat_pc_mc():
                                    Cd_dist=mode, std_Cd=std_Cd, tau_Cd=tau_Cd,
                                    win_reinitialize_func=mce_init_func,
                                    win_reinitialize_params=mce_other_params,
-                                   debug_print=True, mce_print=True)
+                                   debug_print=False, mce_print=True)
         
         len_mce_s_zxs = mce_s_zs.shape[0]
         for i in range(len_mce_s_zxs):
@@ -802,17 +802,19 @@ def test_sat_pc_mc():
             r2d = Trel @ (s_tca_xhat - p_tca_xhat)
             P2d = Trel @ (s_mce_tca.tca_Phat + p_mce_tca.tca_Phat) @ Trel.T
             
-            sig = 2.0
-            points_per_xaxis = 800
+            sig = 1.0
+            points_per_xaxis = 1600
             points_per_yaxis = points_per_xaxis
 
-            xlow = r2d[0] - sig*P2d[0,0]**0.5
-            xhigh = r2d[0] - sig*P2d[0,0]**0.5
-            delta_x = 2*sig*P2d[0,0]**0.5 / points_per_xaxis, 
-            ylow = r2d[1] - sig*P2d[1,1]**0.5
-            yhigh = r2d[1] - sig*P2d[1,1]**0.5, 
-            delta_y = 2*sig*P2d[1,1]**0.5 / points_per_yaxis, 
+            xlow = -sig*P2d[0,0]**0.5
+            xhigh = sig*P2d[0,0]**0.5
+            delta_x = 2*sig*P2d[0,0]**0.5 / points_per_xaxis
+            ylow = -sig*P2d[1,1]**0.5
+            yhigh = sig*P2d[1,1]**0.5
+            delta_y = 2*sig*P2d[1,1]**0.5 / points_per_yaxis
             rsys_Xs, rsys_Ys, rsys_Zs, rsys_mean, rsys_var = gmce.form_short_encounter_contour_plot(s_mce_tca, p_mce_tca, xlow, xhigh, delta_x, ylow, yhigh, delta_y)
+            #rsys_Xs[0] += r2d[0]/1000
+            #rsys_Ys[0] += r2d[1]/1000
             cache_dic['mce_rsys'] = (rsys_Xs, rsys_Ys, rsys_Zs, rsys_mean, rsys_var)
 
         # Save Data

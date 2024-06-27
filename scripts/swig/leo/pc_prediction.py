@@ -810,6 +810,11 @@ def draw_ensemble_encounter_plane(
         plt.plot(ell_points[:,0], ell_points[:,1], color='b', label='{}% Rsys Proj 2D Cov. Ellipse of MCEs'.format(quantile_mce*100))
         rsys_Zs[rsys_Zs < 0] = 0
         plt.contour(rsys_Xs, rsys_Ys, rsys_Zs, levels=num_contour_levels)
+        _rsys_Zs = rsys_Zs.copy()
+        _rsys_Zs[_rsys_Zs < 0] = 1e-12
+        plt.figure()
+        plt.title("Foo!")
+        plt.contour(rsys_Xs, rsys_Ys, np.log10(_rsys_Zs), levels=2*num_contour_levels)
 
 
     plt.legend().set_draggable(True)
