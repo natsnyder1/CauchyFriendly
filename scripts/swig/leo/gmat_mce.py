@@ -514,9 +514,11 @@ class GmatMCE():
             Phi_k += np.linalg.matrix_power(Jac, i) * new_step_dt**i / math.factorial(i)
         Phi_total = Phi_k @ Phi_total
         
+        
         cauchyEst.tca_xhat = global_leo.step(new_step_dt = new_step_dt)
         cauchyEst.tca_xhat[0:6] *= 1000 # km to m
         cauchyEst.deterministic_transform(Phi_total, cauchyEst.tca_xhat)
+        cauchyEst.tca_Phat = Phi_total @ cauchyEst.get_last_mean_cov()[1] @ Phi_total.T
         return best_win_idx
 
     def teardown_except_selected_estimators(self, mce_idxs):

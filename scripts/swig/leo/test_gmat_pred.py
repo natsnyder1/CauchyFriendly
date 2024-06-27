@@ -72,7 +72,7 @@ def test_sat_pc_mc():
     with_pred_plots = False
     with_density_jumps = False
     with_mc_from_x0 = True  # True
-    with_auto_save_yes = False
+    with_auto_save_yes = False # True
     with_no_initial_pred_error = True
     with_mce_contour_plot = True
     RSYS_MAX_TERMS_ESTM = 20000 # np.inf
@@ -791,13 +791,27 @@ def test_sat_pc_mc():
         if with_mce_contour_plot:
             print("Forming Contour Plot of the 2D RSYS Projected onto Conjunction Plane at TCA")
             # CHANGE THESE BASED ON THE PLOTS BELOW FIRST 
-            # In Meters
-            xlow = -50.0
-            xhigh = 50.0
-            delta_x = 0.2
-            ylow = -50.0
-            yhigh = 50.0
-            delta_y = 0.2
+        
+            # Form conjunction plane using short encounter assumption
+            s_tca_xhat = s_mce_tca.tca_xhat
+            p_tca_xhat = p_mce_tca.tca_xhat
+            rv = s_tca_xhat[3:6] - p_tca_xhat[3:6]
+            _, _, Vt = np.linalg.svd( rv.reshape((1,3)) )
+            Trel = Vt[1:,:]
+            Trel = np.hstack((Trel, np.zeros((2,4)) ))
+            r2d = Trel @ (s_tca_xhat - p_tca_xhat)
+            P2d = Trel @ (s_mce_tca.tca_Phat + p_mce_tca.tca_Phat) @ Trel.T
+            
+            sig = 2.0
+            points_per_xaxis = 800
+            points_per_yaxis = points_per_xaxis
+
+            xlow = r2d[0] - sig*P2d[0,0]**0.5
+            xhigh = r2d[0] - sig*P2d[0,0]**0.5
+            delta_x = 2*sig*P2d[0,0]**0.5 / points_per_xaxis, 
+            ylow = r2d[1] - sig*P2d[1,1]**0.5
+            yhigh = r2d[1] - sig*P2d[1,1]**0.5, 
+            delta_y = 2*sig*P2d[1,1]**0.5 / points_per_yaxis, 
             rsys_Xs, rsys_Ys, rsys_Zs, rsys_mean, rsys_var = gmce.form_short_encounter_contour_plot(s_mce_tca, p_mce_tca, xlow, xhigh, delta_x, ylow, yhigh, delta_y)
             cache_dic['mce_rsys'] = (rsys_Xs, rsys_Ys, rsys_Zs, rsys_mean, rsys_var)
 

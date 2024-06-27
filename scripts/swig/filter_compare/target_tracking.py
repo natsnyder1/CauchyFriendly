@@ -897,7 +897,7 @@ def emce_H(c_duc):
     else:
         pyduc.cset_H(H)
 
-def indep_non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, KNOB_V, fig_path):
+def non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, KNOB_V, fig_path):
     T = 1.0 # seconds
     W1 = 1.0 # PSD of noise channel 1
     W2 = 1.0 # PSD of noise channel 2
@@ -912,7 +912,7 @@ def indep_non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNO
     I4 = np.eye(4)
 
     # True Initial Simulation State
-    x0 = np.array([5e2, -100, 5e2, -100])  # [m, m/s, m, m/s] -> [x,vx,y,vy]-> [posx,velx,posy,vely]
+    x0 = np.array([5e4, -100, 5e4, -100])  # [m, m/s, m, m/s] -> [x,vx,y,vy]-> [posx,velx,posy,vely]
     
     # Nominal Kalman Filter
     Phi = np.vstack(( np.hstack((T2,Z2)), np.hstack((Z2,T2))  ))
@@ -922,8 +922,8 @@ def indep_non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNO
     x0_kf = np.random.multivariate_normal(x0, P0_kf)
 
     # Cauchy Estimator 
-    beta = np.array([W1**0.5 / 1.3898, W2**0.5 / 1.3898,])
-    gamma = np.array([V0[0,0]**0.5/1.3898, V0[1,1]**0.5/1.3898 ])
+    beta = np.array([W1**0.5 / 1.3898, W2**0.5 / 1.3898,]) 
+    gamma = np.array([V0[0,0]**0.5/1.3898, V0[1,1]**0.5/1.3898 ]) 
     b0  = np.zeros(4)
     p0 = np.diag(P0_kf)**0.5 / 1.3898
     A0 = np.eye(4)
@@ -935,7 +935,6 @@ def indep_non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNO
     win_debug_print = False
     steps = 16
     reinit_func =  H_reinit_func_nl #None
-    num_windows = 5 #HighJack
     show_marginals = False # FALSE!!
 
     cauchyEst = ce.PySlidingWindowManager('nonlin', num_windows, swm_debug_print, win_debug_print= win_debug_print)
@@ -1064,22 +1063,27 @@ def indep_non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNO
             points_per_yaxis = points_per_xaxis
             PX,VX,FXZ = cauchyEst.cauchyEsts[best_win_idx].get_marginal_2D_pointwise_cpdf(  #cauchyEst.cauchyEsts[best_win_idx].get_marginal_2D_pointwise_cpdf( #cauchyEst.get_marginal_2D_pointwise_cpdf(
                 0,1,
-                x_ce[0] - sig*P_ce[0,0]**0.5, 
-                x_ce[0] + sig*P_ce[0,0]**0.5, 
+                -sig*P_ce[0,0]**0.5, 
+                sig*P_ce[0,0]**0.5, 
                 2*sig*P_ce[0,0]**0.5 / points_per_xaxis, 
-                x_ce[1] - sig*P_ce[1,1]**0.5, 
-                x_ce[1] + sig*P_ce[1,1]**0.5, 
+                -sig*P_ce[1,1]**0.5, 
+                sig*P_ce[1,1]**0.5, 
                 2*sig*P_ce[1,1]**0.5 / points_per_xaxis, 
                 log_dir = None)
             PY,VY,FYZ = cauchyEst.cauchyEsts[best_win_idx].get_marginal_2D_pointwise_cpdf( #cauchyEst.cauchyEsts[best_win_idx].get_marginal_2D_pointwise_cpdf( #cauchyEst.get_marginal_2D_pointwise_cpdf(
                 2,3,
-                x_ce[2] - sig*P_ce[2,2]**0.5, 
-                x_ce[2] + sig*P_ce[2,2]**0.5, 
+                -sig*P_ce[2,2]**0.5, 
+                sig*P_ce[2,2]**0.5, 
                 2*sig*P_ce[2,2]**0.5 / points_per_yaxis, 
-                x_ce[3] - sig*P_ce[3,3]**0.5, 
-                x_ce[3] + sig*P_ce[3,3]**0.5, 
+                -sig*P_ce[3,3]**0.5, 
+                sig*P_ce[3,3]**0.5, 
                 2*sig*P_ce[3,3]**0.5 / points_per_yaxis, 
                 log_dir = None)
+            PX += x_ce[0]
+            VX += x_ce[1]
+            PY += x_ce[2]
+            VY += x_ce[3]
+
             #'''
             z_low1 = -np.max(FXZ) / 10
             z_low2 = -np.max(FYZ) / 10
@@ -1285,17 +1289,17 @@ def indep_non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNO
     return ret_dic
 
 # Calls the above for different scenarios and subscenarios
-def call_linear_target_track(root_dir = None, subdir_name = "foo_target_track_single_reals"):
+def call_target_track(root_dir = None, subdir_name = "foo_target_track_single_reals"):
     if root_dir is None:
         root_dir = os.path.dirname(os.path.abspath(__file__))
     N = 300
     KNOB_Q = 50 # ENTER ABOVE KNOB_VAL = 5 -> KNOB_QV = KNOB_VAL
     KNOB_V = 50 
-    #scenarios = ["0", "1a", "1b", "1c", "2"]
-    #V0S_HELS = {"high" : 100, "equal" : 10000, "low" : 1000000} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
-    scenarios = ["1c"]
-    V0S_HELS = {"high" : 1} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
-    num_windows = 4
+    scenarios = ["0", "1a", "1b", "1c", "2"]
+    V0S_HELS = {"high" : 100, "equal" : 10000, "low" : 1000000} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
+    #scenarios = ["2"]
+    #V0S_HELS = {"high" : 1} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
+    num_windows = 6
     for use_scen in scenarios:
         for setting, V0_scale_factor in V0S_HELS.items():
             sub_dir = root_dir+ "/" + "w{}_s{}_".format(num_windows, KNOB_Q) + subdir_name
@@ -1307,7 +1311,7 @@ def call_linear_target_track(root_dir = None, subdir_name = "foo_target_track_si
             # Create Read me File for the directory
             if not os.path.isdir(scen_dir):
                 os.mkdir(scen_dir)
-            data_dic = indep_non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, KNOB_V, fig_path) #linear_target_track
+            data_dic = non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, KNOB_V, fig_path) #linear_target_track
             pickle_path = scen_dir + "/data.pickle"
             with open(pickle_path, "wb") as handle:
                 pickle.dump(data_dic, handle)
@@ -1331,4 +1335,4 @@ def call_linear_target_track(root_dir = None, subdir_name = "foo_target_track_si
 
 if __name__ == "__main__":
     #test_linear_target_track()
-    call_linear_target_track(root_dir = None)
+    call_target_track(root_dir = None)
