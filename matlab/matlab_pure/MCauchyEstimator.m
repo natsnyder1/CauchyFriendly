@@ -150,7 +150,7 @@ classdef MCauchyEstimator < handle
 
 
         function [xs, Ps] = call_step(obj, msmts, controls, full_info)
-            % Placeholder for Python pycauchy call, assuming a similar interface is available in MATLAB
+
             if strcmp(obj.mode, 'lti')
                 [~, ~, ~, ~, ~, ~, ...
                 obj.fz, obj.x, obj.P, ...
@@ -255,7 +255,7 @@ classdef MCauchyEstimator < handle
             
             % Instantiate and initialize the mcauchy object
             % FIX THIS LINE
-            obj.mcauchy_handle = minitialize_lti(obj.num_steps, obj.A0, obj.p0, obj.b0, obj.Phi, obj.Gamma, obj.B, ...
+            obj.mcauchy_handle = mcauchy_initialize_lti(obj.num_steps, obj.A0, obj.p0, obj.b0, obj.Phi, obj.Gamma, obj.B, ...
                                                 obj.beta, obj.H, obj.gamma, dt, init_step, obj.debug_print);
             obj.is_initialized = true;
     
@@ -300,8 +300,8 @@ classdef MCauchyEstimator < handle
 
 
         function [last_mean, last_cov] = get_last_mean_cov(obj)
-            last_mean = obj.moment_info.x{end};
-            last_cov = obj.moment_info.P{end};
+            last_mean = squeeze(obj.moment_info.x(end,:))';
+            last_cov = squeeze(obj.moment_info.P(end,:,:));
         end
 
 
@@ -316,36 +316,49 @@ classdef MCauchyEstimator < handle
                 return;
             end
             
-            if msmt_idx >= obj.p || msmt_idx < -obj.p
+            if msmt_idx-1 >= obj.p || msmt_idx-1 < -obj.p
                 fprintf('[Error get_reinitialization_statistics]: Cannot find reinitialization stats for msmt_idx=%d. The index is out of range -%d <= msmt_idx < %d...(max index is p-1=%d)! Please correct!\n', msmt_idx, -obj.p, obj.p, obj.p-1);
                 return;
             end
             
             msmt_idx = int32(msmt_idx);
-            if msmt_idx < 0
+            if msmt_idx-1 < 0
                 msmt_idx = msmt_idx + obj.p;
             end
             
-            reinit_msmt = obj.msmts(msmt_idx+1); % Assuming _msmts is 1-indexed in MATLAB
-            reinit_xhat = obj.x((msmt_idx*obj.n)+1 : (msmt_idx+1)*obj.n); % Copying is implicit in MATLAB
-            reinit_Phat = obj.P((msmt_idx*obj.n*obj.n)+1 : (msmt_idx+1)*obj.n*obj.n);
-            reinit_H = obj.H((msmt_idx*obj.n)+1 : (msmt_idx+1)*obj.n);
-            reinit_gamma = obj.gamma(msmt_idx+1);
+            reinit_msmt = obj.msmts(msmt_idx);
+            reinit_xhat = obj.x(((msmt_idx-1)*obj.n+1) : (msmt_idx)*obj.n); 
+            reinit_Phat = obj.P(((msmt_idx-1)*obj.n*obj.n+1) : (msmt_idx)*obj.n*obj.n);
+            reinit_H = obj.H(((msmt_idx-1)*obj.n+1) : (msmt_idx)*obj.n);
+            reinit_gamma = obj.gamma(msmt_idx);
 
             if ~strcmp(obj.mode, "nonlin")
-                A0 = obj.mcauchy_handle.get_reinitialization_statistics(reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma);
+                A0 = mcauchy_get_reinitialization_statistics(obj.mcauchy_handle, reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma);
                 A0 = reshape(A0, [obj.n, obj.n]);
             else
                 reinit_xbar = obj.xbar((msmt_idx*obj.n)+1:(msmt_idx+1)*obj.n);
                 reinit_zbar = obj.zbar(msmt_idx+1);
                 dx = reinit_xhat - reinit_xbar;
                 dz = reinit_msmt - reinit_zbar;
-                [A0, p0, b0] = obj.mcauchy_handle.get_reinitialization_statistics(dz, dx, reinit_Phat, reinit_H, reinit_gamma);
+                [A0, p0, b0] = mcauchy_get_reinitialization_statistics(obj.mcauchy_handle, dz, dx, reinit_Phat, reinit_H, reinit_gamma);
                 A0 = reshape(A0, [obj.n, obj.n]);
             end
         end
         
         function reset(obj, A0, p0, b0, xbar)
+            if nargin < 5
+                xbar = [];
+            end
+            if nargin < 4
+                b0 = [];
+            end
+            if nargin < 3
+                p0 = [];
+            end
+            if nargin < 2
+                A0 = [];
+            end
+
             if ~obj.is_initialized
                 fprintf('Cannot reset estimator before it has been initialized (or after shutdown has been called)!\n');
                 return;
@@ -368,7 +381,7 @@ classdef MCauchyEstimator < handle
                 fprintf("Note to user: Setting xbar for any mode besides 'nonlinear' will have no effect!\n");
             end
 
-            obj.mcauchy_handle.reset(obj.A0, obj.p0, obj.b0, obj.xbar);
+            mcauchy_reset(obj.mcauchy_handle, obj.A0, obj.p0, obj.b0, obj.xbar);
         end
 
 
@@ -395,13 +408,14 @@ classdef MCauchyEstimator < handle
             if ~strcmp(obj.mode, other_estimator.mode)
                 error('[Error reset_about_estimator:] Both estimators must have same mode! this=%s, other=%s', obj.mode, other_estimator.mode);
             end
-            if msmt_idx >= obj.p || msmt_idx < -obj.p
+            % indeces start at 1 in matlab instead of 0 in python, so must
+            % check msmt_idx-1 inst
+            if msmt_idx-1 >= obj.p || msmt_idx-1 < -obj.p
                 error('[Error reset_about_estimator:] Specified msmt_idx=%d. The index is out of range -%d <= msmt_idx < %d...(max index is p-1=%d)! Please correct!', msmt_idx, -obj.p, obj.p-1, obj.p-1);
             end
-            if msmt_idx < 0
+            if msmt_idx-1 < 0
                 msmt_idx = msmt_idx + obj.p;
             end
-            msmt_idx = msmt_idx + 1; % Adjusting for MATLAB 1-based indexing
             msmts = other_estimator.msmts(msmt_idx:end);
             obj.msmts = msmts;
             if ~strcmp(obj.mode, 'nonlin')
@@ -412,8 +426,8 @@ classdef MCauchyEstimator < handle
                 obj.reset(A0, p0, b0, xbar);
             end
             
-            [xs, Ps] = obj.call_step(msmts, []);
-            obj.mcauchy_handle.set_master_step(obj.p);
+            [xs, Ps] = obj.call_step(msmts, [], false);
+            mcauchy_set_master_step(obj.mcauchy_handle, obj.p);
         end
         
 
@@ -425,20 +439,20 @@ classdef MCauchyEstimator < handle
                 obj.reset(A0, p0, b0, xbar);
             end
             [xs, Ps] = obj.call_step(z_scalar, []);
-            obj.mcauchy_handle.set_master_step(obj.p);
+            mcauchy_set_master_step(obj.mcauchy_handle, obj.p);
         end
     
 
         function set_window_number(obj, win_num)
             win_num = int32(win_num);
-            obj.mcauchy_handle.set_window_number(win_num);
+            mcauchy_set_window_number(obj.mcauchy_handle, win_num);
         end
     
         function shutdown(obj)
             if ~obj.is_initialized
                 error('Cannot shutdown estimator before it has been initialized!');
             end
-            mshutdown(obj.mcauchy_handle);
+            mcauchy_shutdown(obj.mcauchy_handle);
             obj.mcauchy_handle = [];
             fprintf('Estimator backend has been shutdown!\n');
             obj.is_initialized = false;

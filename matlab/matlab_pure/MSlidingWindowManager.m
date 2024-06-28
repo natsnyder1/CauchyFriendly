@@ -1,6 +1,6 @@
-% file: MatSlidingWindowManager
+% file: MSlidingWindowManager
 
-classdef MatSlidingWindowManager < handle
+classdef MSlidingWindowManager < handle
     properties
         num_windows;
         mode;
@@ -20,18 +20,18 @@ classdef MatSlidingWindowManager < handle
     end
     
     methods
-        function obj = MatSlidingWindowManager(mode, num_windows, swm_debug_print, win_debug_print)
+        function obj = MSlidingWindowManager(mode, num_windows, swm_debug_print, win_debug_print)
             if nargin < 3
                 swm_debug_print = true;
             end
             if nargin < 4
                 win_debug_print = false;
             end
-            
+            obj.num_windows = num_windows;
             assert(num_windows < 20);
             modes = ["lti", "ltv", "nonlin"];
             if ~any(strcmpi(mode, modes))
-                fprintf("[Error MatSlidingWindowManager:] chosen mode %s invalid. Please choose one of the following: ", mode);
+                fprintf("[Error MSlidingWindowManager:] chosen mode %s invalid. Please choose one of the following: ", mode);
                 disp(modes)
                 return;
             else
@@ -49,7 +49,7 @@ classdef MatSlidingWindowManager < handle
             obj.win_idxs = 0:(num_windows-1);
             obj.win_counts = zeros(num_windows, 1, 'int64');
             for i = 1:num_windows
-                obj.cauchyEsts{i} = MatCauchyEstimator(obj.mode, num_windows, win_debug_print);
+                obj.cauchyEsts{i} = MCauchyEstimator(obj.mode, num_windows, win_debug_print);
             end
         end
         
@@ -67,8 +67,11 @@ classdef MatSlidingWindowManager < handle
             if nargin < 12
                 step = 0;
             end
+            if nargin < 13
+                reinit_func = [];
+            end
             if numel(p0) == 1
-                fprintf("[Error MatSlidingWindowManager:] Do not use this class for scalar systems! This is only for systems of dimension >1 Use the MatCauchyEstimator class instead!\n");
+                fprintf("[Error MSlidingWindowManager:] Do not use this class for scalar systems! This is only for systems of dimension >1 Use the MCauchyEstimator class instead!\n");
                 return;
             end
             if ~strcmp(obj.mode, "lti")
@@ -106,7 +109,7 @@ classdef MatSlidingWindowManager < handle
             COV_DNE = 8;
             for i = 1:W
                 if obj.win_counts(i) > 0
-                    err = obj.cauchyEsts(i).err_code(check_idx);
+                    err = obj.cauchyEsts{i}.err_code(check_idx);
                     if bitand(err, COV_UNSTABLE) || bitand(err, COV_DNE)
                         % pass (do nothing)
                     else
@@ -122,7 +125,7 @@ classdef MatSlidingWindowManager < handle
             else
                 if isempty(idxs)
                     fprintf('No window is available without an error code!\n');
-                    errorId = 'MatSlidingWindowManager:NoValidWindow';
+                    errorId = 'MSlidingWindowManager:NoValidWindow';
                     errorMsg = 'No window is available without an error code!';
                     error(errorId, errorMsg);
                 end
@@ -132,13 +135,15 @@ classdef MatSlidingWindowManager < handle
             end
             
             n = obj.n;
-            best_estm = obj.cauchyEsts(best_idx);
+            best_estm = obj.cauchyEsts{best_idx};
             
             obj.moment_info.fz = [obj.moment_info.fz; best_estm.fz(check_idx)];
-            obj.moment_info.x = [obj.moment_info.x; best_estm.x((check_idx - 1) * n + (1:n))];
-            
+            temp = best_estm.x((check_idx - 1) * n + (1:n));
+            obj.moment_info.x = cat(1, obj.moment_info.x, reshape(temp, [1 size(temp)]));
+
             P_flat = best_estm.P((check_idx - 1) * n * n + (1:n * n));
-            obj.moment_info.P = cat(3, obj.moment_info.P, reshape(P_flat, n, n));
+            temp = reshape(P_flat, n, n);
+            obj.moment_info.P = cat(1, obj.moment_info.P, reshape(temp, [1 size(temp)]));
             
             obj.moment_info.cerr_x = [obj.moment_info.cerr_x; best_estm.cerr_x(check_idx)];
             obj.moment_info.cerr_P = [obj.moment_info.cerr_P; best_estm.cerr_P(check_idx)];
@@ -161,12 +166,12 @@ classdef MatSlidingWindowManager < handle
             win_norm_fac = 0.0;
             
             for i = 1:obj.num_windows
-                win_count = obj.win_counts(i);
+                win_count = double(obj.win_counts(i));
                 if win_count > 0 && usable_wins(i)
-                    est = obj.cauchyEsts(i);
+                    est = obj.cauchyEsts{i};
                     norm_fac = win_count / obj.num_windows;
                     win_norm_fac = win_norm_fac + norm_fac;
-                    [x, P] = est.get_last_mean_cov(); % assuming such a method exists in est
+                    [x, P] = est.get_last_mean_cov(); 
                     win_avg_mean = win_avg_mean + x * norm_fac;
                     win_avg_cov = win_avg_cov + P * norm_fac;         
                     win_avg_fz = win_avg_fz + est.fz(last_idx) * norm_fac;
@@ -186,8 +191,8 @@ classdef MatSlidingWindowManager < handle
                 win_avg_cerr_P = win_avg_cerr_P / win_norm_fac;
             
                 obj.avg_moment_info.fz = [obj.avg_moment_info.fz, win_avg_fz];
-                obj.avg_moment_info.x = [obj.avg_moment_info.x, win_avg_mean];
-                obj.avg_moment_info.P = cat(3, obj.avg_moment_info.P, win_avg_cov);
+                obj.avg_moment_info.x = cat(1, obj.avg_moment_info.x, reshape(win_avg_mean, [1 size(win_avg_mean)]));
+                obj.avg_moment_info.P = cat(1, obj.avg_moment_info.P, reshape(win_avg_cov, [1 size(win_avg_cov)]));
                 obj.avg_moment_info.cerr_x = [obj.avg_moment_info.cerr_x, win_avg_cerr_x];
                 obj.avg_moment_info.cerr_P = [obj.avg_moment_info.cerr_P, win_avg_cerr_P];
                 obj.avg_moment_info.cerr_fz = [obj.avg_moment_info.cerr_fz, win_avg_cerr_fz];
@@ -200,6 +205,13 @@ classdef MatSlidingWindowManager < handle
         
         
         function [xhat, Phat, wavg_xhat, wavg_Phat] = step(obj, msmts, controls, reinit_args)
+            if nargin < 4
+                reinit_args = [];
+            end
+            if nargin < 3
+                controls = [];
+            end
+            
             if ~obj.is_initialized
                 fprintf('Estimator is not initialized yet. Mode set to %s. Please call method initialize_%s before running step()!\n', obj.mode, obj.mode);
                 fprintf('Not stepping! Please call correct method / fix mode!\n');
@@ -237,11 +249,11 @@ classdef MatSlidingWindowManager < handle
             
             if obj.step_idx > 0
                 if ~isempty(obj.reinit_func)
-                    reinit_args.copied_win_counts = obj.win_counts; % Assuming the arguments need a structure.
+                    reinit_args.copied_win_counts = obj.win_counts;
                     obj.reinit_func(obj.cauchyEsts, best_idx, usable_wins, reinit_args);
                 else
                     if ~isempty(reinit_args)
-                        fprintf(['  [Warn MatSlidingWindowManager:] Providing reinit_args ' ...
+                        fprintf(['  [Warn MSlidingWindowManager:] Providing reinit_args ' ...
                                  'with no reinit_func given will do nothing!\n']);
                     end
                     speyer_restart_idx = obj.p;
@@ -268,10 +280,9 @@ classdef MatSlidingWindowManager < handle
                 return;
             end
             for i = 1:obj.num_windows
-                % Assume each element in cauchyEsts has a 'shutdown' method.
-                obj.cauchyEsts(i).shutdown();
+                obj.cauchyEsts{i}.shutdown();
             end
-            obj.win_counts = zeros(obj.num_windows, 1, 'int64'); % MATLAB uses 'zeros' with types
+            obj.win_counts = zeros(obj.num_windows, 1, 'int64');
             fprintf('Sliding Window Manager has been shutdown!\n');
             obj.is_initialized = false;
             obj.step_idx = 0;
@@ -280,7 +291,6 @@ classdef MatSlidingWindowManager < handle
         function delete(obj)
             if obj.is_initialized
                 obj.shutdown();
-                obj.is_initialized = false; % This line is probably redundant
             end
         end
     end
