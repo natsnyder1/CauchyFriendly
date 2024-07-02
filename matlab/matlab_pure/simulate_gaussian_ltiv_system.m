@@ -47,7 +47,7 @@ function [xs, zs, ws, vs] = simulate_gaussian_ltiv_system(num_steps, x0_truth, u
     vs = []; % Initialize measurement noise history
     
     if with_zeroth_step_msmt
-        v0 = v_zero_vec + chol(V)' * randn(size(V, 1), 1);
+        v0 = mvnrnd(v_zero_vec, V, 1)';
         z0 = H' * xk + v0;
         zs = z0; % Add initial measurement
         vs = v0; % Add initial measurement noise
@@ -58,13 +58,13 @@ function [xs, zs, ws, vs] = simulate_gaussian_ltiv_system(num_steps, x0_truth, u
             dynamics_update_callback(Phi, B, Gamma, H, W, V, i - 1, other_params);
         end
         uk = us(i,:)';
-        wk = w_zero_vec + chol(W)' * randn(size(W, 1), 1);
+        wk = mvnrnd(w_zero_vec, W, 1)';
         xk = Phi * xk + B * uk + Gamma * wk;
         
         xs = [xs; xk']; % Concatenate to states matrix
         ws = [ws wk]; % Concatenate to process noise matrix
         
-        vk = v_zero_vec + chol(V)' * randn(size(V, 1), 1);
+        vk = mvnrnd(v_zero_vec, V, 1)';
         zk = H' * xk + vk;
         
         zs = [zs; zk]; % Concatenate to measurement matrix

@@ -721,6 +721,7 @@ void pycauchy_get_marginal_2D_pointwise_cpdf(
 {
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
     CauchyEstimator* cauchyEst = pcdh->cauchyEst;
+    cauchyEst->set_function_pointers();
     if(pcdh->cpdf == NULL)
     {
         pcdh->cpdf = new PointWiseNDimCauchyCPDF(cauchyEst); //PointWise2DCauchyCPDF(log_dir, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);
@@ -782,6 +783,7 @@ void pycauchy_get_marginal_1D_pointwise_cpdf(
 {
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
     CauchyEstimator* cauchyEst = pcdh->cauchyEst;
+    cauchyEst->set_function_pointers();
     if(pcdh->cpdf == NULL)
     {
         pcdh->cpdf = new PointWiseNDimCauchyCPDF(cauchyEst); //PointWise2DCauchyCPDF(log_dir, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);

@@ -16,11 +16,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     uint64_t pointerValue = *((uint64_t*)mxGetData(prhs[0]));
     void* _pcdh = (void*)pointerValue;
 
-    const mxArray *mxmsmts = prhs[1];
-    const mxArray *controls = prhs[2];
-
-    double *msmts = mxGetPr(mxmsmts);
-    double *controlValues = mxGetPr(controls);
+    double *msmts = mxGetPr(prhs[1]);
+    double *controls = mxGetPr(prhs[2]);
 
     // Define output variables
     double *out_Phi = nullptr;
@@ -45,7 +42,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     pycauchy_single_step_ltiv(
         _pcdh,
         msmts, mxGetNumberOfElements(prhs[1]),   
-        controlValues, mxGetNumberOfElements(prhs[2]), 
+        controls, mxGetNumberOfElements(prhs[2]), 
         &out_Phi, &size_out_Phi,
         &out_Gamma, &size_out_Gamma,
         &out_B, &size_out_B,

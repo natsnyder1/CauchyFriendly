@@ -206,8 +206,6 @@ classdef MCauchyEstimator < handle
                 obj.moment_info.err_code = cat(1,obj.moment_info.err_code, err_code);
             end
             
-            
-        
             obj.step_count = obj.step_count + 1;
         end
 
@@ -230,24 +228,25 @@ classdef MCauchyEstimator < handle
             obj.ndim_input_checker(A0, p0, b0, Phi, B, Gamma, beta, H, gamma);
             
             % Reshape and ensure all inputs are column vectors
-            obj.A0 = A0(:);
-            obj.p0 = p0(:);
-            obj.b0 = b0(:);
-            obj.Phi = Phi(:);
+
+            obj.A0 = reshape(A0.', [], 1);
+            obj.p0 = reshape(p0.', [], 1);
+            obj.b0 = reshape(b0.', [], 1);
+            obj.Phi = reshape(Phi.', [], 1);
             obj.Gamma = [];
             if ~isempty(Gamma)
-                obj.Gamma = Gamma(:);
+                obj.Gamma = reshape(Gamma.', [], 1);
             end
             obj.beta = [];
             if ~isempty(beta)
-                obj.beta = beta(:);
+                obj.beta = reshape(beta.', [], 1);
             end
             obj.B = [];
             if ~isempty(B)
-                obj.B = B(:);
+                obj.B = reshape(B.', [], 1);
             end
-            obj.H = H(:);
-            obj.gamma = gamma(:);
+            obj.H = reshape(H.', [], 1);
+            obj.gamma = reshape(gamma.', [], 1);
             
             % Typecast as needed
             init_step = int32(init_step);
@@ -458,6 +457,13 @@ classdef MCauchyEstimator < handle
             obj.is_initialized = false;
         end
 
+        function delete(obj)
+            if obj.is_initialized
+                obj.shutdown();
+                obj.is_initialized = false;
+            end
+        end
+
 
         function [X, Y, Z] = get_marginal_2D_pointwise_cpdf(obj, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir)
     
@@ -489,15 +495,18 @@ classdef MCauchyEstimator < handle
                 log_dir = char(log_dir); % Convert to char array if not empty
             end
         
-            [cpdf_points, num_gridx, num_gridy] = mcauchy_get_marginal_2D_pointwise_cpdf(marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir);
-            cpdf_points = reshape(cpdf_points, 3, num_gridx*num_gridy)';
-            X = reshape(cpdf_points(:, 1), num_gridy, num_gridx);
-            Y = reshape(cpdf_points(:, 2), num_gridy, num_gridx);
-            Z = reshape(cpdf_points(:, 3), num_gridy, num_gridx);
+            [cpdf_points, num_gridx, num_gridy] = mcauchy_get_marginal_2D_pointwise_cpdf(obj.mcauchy_handle, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir);
+            X = squeeze(cpdf_points(1,:,:));
+            Y = squeeze(cpdf_points(2,:,:));
+            Z = squeeze(cpdf_points(3,:,:));
         end
 
 
         function [X, Y, Z] = get_2D_pointwise_cpdf(obj, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir)
+            if nargin < 8
+                log_dir = [];
+            end
+            
             X = []; Y = []; Z = []; % Initialize empty outputs in case of early return
             
             if ~obj.is_initialized
@@ -544,10 +553,9 @@ classdef MCauchyEstimator < handle
                 log_dir = char(log_dir); % Convert to char array
             end
         
-            [cpdf_points, num_gridx] = mcauchy_get_marginal_1D_pointwise_cpdf(marg_idx, gridx_low, gridx_high, gridx_resolution, log_dir);
-            cpdf_points = reshape(cpdf_points, num_gridx, 2);
-            X = cpdf_points(:, 1);
-            Y = cpdf_points(:, 2);
+            [cpdf_points, num_gridx] = mcauchy_get_marginal_1D_pointwise_cpdf(obj.mcauchy_handle, marg_idx, gridx_low, gridx_high, gridx_resolution, log_dir);
+            X = squeeze(cpdf_points(1, :))';
+            Y = squeeze(cpdf_points(2, :))';
         end
         
 

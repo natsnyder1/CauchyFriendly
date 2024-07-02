@@ -291,6 +291,7 @@ classdef MSlidingWindowManager < handle
         function delete(obj)
             if obj.is_initialized
                 obj.shutdown();
+                obj.is_initialized = false;
             end
         end
     end
