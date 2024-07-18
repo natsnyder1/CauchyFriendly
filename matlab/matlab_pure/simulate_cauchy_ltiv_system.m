@@ -37,7 +37,7 @@ function [xs, zs, ws, vs] = simulate_cauchy_ltiv_system(num_steps, x0_truth, us,
     xk = x0_truth;
     if with_zeroth_step_msmt
         v0 = arrayfun(@(g) random('Stable', 1, 0, g, 0), gamma);
-        zs = H' * xk + v0;
+        zs = H * xk + v0;
         vs = v0;
     end
    
@@ -51,7 +51,7 @@ function [xs, zs, ws, vs] = simulate_cauchy_ltiv_system(num_steps, x0_truth, us,
         xs(:, end+1) = xk;
         ws(:, end+1) = wk;
         vk = arrayfun(@(g) random('Stable', 1, 0, g, 0), gamma);
-        zs(:, end+1) = H' * xk + vk;
+        zs(:, end+1) = H * xk + vk;
         vs(:, end+1) = vk;
     end
 

@@ -111,8 +111,8 @@ classdef MCauchyEstimator < handle
                 p = size(H, 1);
             end
             
-            if any(abs(H' * Gamma) < 1e-12, 'all')
-                warning('Warning MCauchyEstimator: | H'' * Gamma | < eps for some input / output channels. This may result in undefined moments!');
+            if any(abs(H * Gamma) < 1e-12, 'all')
+                warning('Warning MCauchyEstimator: | H * Gamma | < eps for some input / output channels. This may result in undefined moments!');
             end
             
             obj.n = n;

@@ -16,14 +16,14 @@ function [xhat, P, r, K] = kalman_filter(x, u, msmt, P, Phi, B, Gam, H, W, V)
     M = Phi * P * Phi' + Gam' * W * Gam;
  
     % Update Kalman Gain
-    K = M * H / (H' * M * H + V);
+    K = M * H' / (H * M * H' + V);
 
     % Find the conditional mean estimate
-    r = msmt - H' * xbar;
+    r = msmt - H * xbar;
 
     xhat = xbar + K * r;
     
     % Posteriori Covariance Matrix
     I = eye(size(x, 1));
-    P = (I - K * H') * M * (I - K * H')' + K * V * K';
+    P = (I - K * H) * M * (I - K * H)' + K * V * K';
 end
