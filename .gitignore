@@ -1,4 +1,5 @@
 .vscode
 .DS_Store
-.mex*
-mex_files/
+*.mex*
+*.o
+*.mat
