@@ -4,7 +4,6 @@
 #include "../../../include/cauchy_windows.hpp"
 #include "../../../include/cpdf_ndim.hpp"
 #include "../../../include/cauchy_prediction.hpp"
-#include <lapacke.h>
 //#include "../../../include/cpdf_2d.hpp"
 
 CauchyDynamicsUpdateContainer* cduc;

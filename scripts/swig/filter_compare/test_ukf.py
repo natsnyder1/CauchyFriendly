@@ -3,8 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cauchy_estimator as ce 
 
+# FILTERS ALL USE THIS
 def f(x,u):
     return 3.5 * np.exp(-0.1 * x**2) + np.sin(np.pi*(4*np.e-2)*u) + 1 #0.9 * x #
+
+# FOR SYS MIS-IDENTIFICATION -- SIMULATION
+#def _f(x,u):
+#    return 3.1 * np.exp(-0.15 * x**2) + np.sin(np.pi*(4.3*np.e-2.1)*u) + 1.1 #0.9 * x #
+
 
 def h(x):
     return 0.2*x**2 #0.4 * x #
@@ -84,8 +90,8 @@ def test_ukf():
         A0 = np.array([[1.0]])
         p0 = np.array([std_P]) * ce.GAUSSIAN_TO_CAUCHY_NOISE
         b0 = np.array([0]) 
-        beta = np.array([std_Q]) * ce.GAUSSIAN_TO_CAUCHY_NOISE
-        gamma = np.array([std_V]) * ce.GAUSSIAN_TO_CAUCHY_NOISE
+        beta = np.array([std_Q]) * ce.GAUSSIAN_TO_CAUCHY_NOISE 
+        gamma = np.array([std_V]) * ce.GAUSSIAN_TO_CAUCHY_NOISE 
         cauchyEst.initialize_nonlin(x0.copy(),A0, p0, b0, beta, gamma, ece_dynamics_update_callback, ece_nonlinear_msmt_model, ece_extended_msmt_update_callback, 0, 0, step = 0)
         x_ce, P_ce = cauchyEst.step(zs[0])
         xs_ce.append(x_ce)

@@ -340,6 +340,58 @@ void test_cauchy_4_state_2_msmts_moshe()
 
 }
 
+// Testing Time Propagations and No Measurement Update 
+void test_time_prop_only_functionality()
+{
+  const int n = 3;
+  const int cmcc = 0;
+  const int pncc = 1;
+  const int p = 1;
+  double Phi[n*n] = {1.4, -0.6, -1.0,  -0.2,  1.0,  0.5,  0.6, -0.6, -0.2};
+  double Gamma[n*pncc] = {.1, 0.3, -0.2};
+  double H[n] = {1.0, 0.5, 0.2};
+  double beta[pncc] = {0.1};
+  double gamma[p] = {0.2};
+  double A0[n*n] =  {1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0}; //{-0.63335359, -0.74816241, -0.19777826, -0.7710082 ,  0.63199184,  0.07831134, -0.06640465, -0.20208744,  0.97711365}; 
+  double p0[n] = {0.10, 0.08, 0.05}; //{0.0, 0.0, 0.0}; //
+  double b0[n] = {0, 0, 0};
+  const int steps = 4;
+
+  double W[pncc*pncc] = {pow((beta[0]*1.3898), 2)};
+  double V[pncc*pncc] = {pow((gamma[0]*1.3898), 2)};
+
+  KalmanDynamicsUpdateContainer duc;
+  duc.n = n; duc.pncc = pncc; duc.p = p; duc.cmcc = cmcc;
+  duc.Phi = Phi; duc.Gamma = Gamma; duc.H = H; 
+  duc.B = NULL; duc.u = NULL; duc.x = NULL;
+  duc.W = W; duc.V = V;
+  duc.step = 0; duc.dt = 0; duc.other_stuff = NULL; 
+
+  const int total_steps = steps + 1;
+  SimulationLogger sim_log(NULL, steps, b0, &duc, gaussian_lti_transition_model, gaussian_lti_measurement_model);
+  sim_log.run_simulation_and_log();
+  //double zs[steps] = {-1.2172011200334241, -0.35943271347277583, -0.52353301003957098, 0.5855389648301792, -0.8048243525901404};
+  //, 0.34053610027255954, 1.0580483915838776, -0.55152999529515989,
+  //-0.72879029737003309, -0.82415138330170357}; //, -0.63794753995479381, -0.50437372151915394};
+  double* zs = sim_log.msmt_history;
+  bool use_msmt_sequence[total_steps] = {true, false, true, false, true};
+  bool print_basic_info = true;
+  CauchyEstimator cauchyEst(A0, p0, b0, steps, n, cmcc, pncc, p, print_basic_info);
+
+  for(int i = 0; i < steps; i++)
+  {
+    if(use_msmt_sequence[i])
+      cauchyEst.step(zs[i], Phi, Gamma, beta, H, gamma[0], NULL, NULL);
+    else
+    {
+      // We need to seperate step into these components
+      //cauchyEst.time_prop(Phi, Gamma, beta, B, u, only_tp = True/False);
+      //cauchyEst.msmt_update(zs[i], H, gamma[0]);
+    }
+  }
+
+}
+
 int main()
 {
     printf("Size of Cauchy Term is %lu\n", sizeof(CauchyTerm));

@@ -12,7 +12,7 @@ module load gcc/10.2.0 #9.2.0
 module load valgrind/3.15.0
 module load intel-mkl/2019.1.144 #2018
 module load py-pip/20.2
-module load python/3.8.5
+module load python/37
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/home/natsnyder1/cauchy/glpk-4.65/src/.libs
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/home/natsnyder1/cauchy/swig/swig-3.0.8/Lib
 export PATH=$PATH:/home/natsnyder1/cauchy/swig/swig_install/bin/

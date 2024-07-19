@@ -1,5 +1,3 @@
-from curses import nonl
-from re import X
 import cauchy_estimator as ce 
 import numpy as np 
 import matplotlib.pyplot as plt 
@@ -9,6 +7,7 @@ import sys, os
 import pickle
 # The linear target tracking scenario with poorly modelled noises using Nominal KF, Optimal KF, and Cauchy Estimator 
 # Nonlnear case also
+np.random.seed()
 
 SUM_INIT_H = False
 
@@ -444,6 +443,103 @@ def linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, KNOB_
     return ret_dic
 
 
+# Eh..
+class VBayes():
+
+    def __init__(self, x0, P0, f, F, h, H, Qhat = np.eye(4), V = 10000 * np.eye(2), rho_R = 0.98, tau_P = 3.0, tau_R = 3.0, is_lin = True):
+        self.f = f 
+        self.F = F 
+        self.h = h 
+        self.H = H 
+
+        self.n = f(x0).size
+        self.m = h(x0).size
+        
+        self.x = x0.copy() 
+        self.P = P0.copy()
+        self.v = tau_R + self.m + 1
+        self.u = self.n + 2
+        self.Qhat = Qhat.copy()
+        self.V = V.copy() * tau_R
+        self.rho_R = rho_R
+        self.tau_P = tau_P
+        self.tau_R = tau_R
+        self.is_lin = is_lin
+        self.eps = 1e-5
+
+    # Time Prop
+    def pxk_g_ykm1(self):
+        self.last_x = self.x.copy() 
+        self.last_P = self.P.copy() 
+        Phi = self.F(self.x)
+        self.Phi = Phi.copy() 
+
+        self.x = self.f(self.x)
+        self.P = Phi @ self.P @ Phi.T + self.Qhat
+        self.u = self.n + self.tau_P + 1
+        self.U = self.tau_P * self.P.copy()
+        self.v = self.rho_R*(self.v - self.m - 1) + self.m + 1 
+        self.V = self.rho_R*self.V.copy()
+
+    def lin_nat_param_update(self, yk):
+        # Get lam_R 
+        H = self.H(self.x) 
+
+        it = 0
+        xbar = self.x.copy()
+        Pbar = self.P.copy()
+        vbar = np.array([self.v]).reshape(-1).copy()
+        ubar = np.array([self.u]).reshape(-1).copy()
+        Ubar = self.U.copy()
+        Vbar = self.V.copy()
+
+        for it in range(25):
+            EPkk_I = (self.u - self.n - 1) * np.linalg.inv(self.U)
+            ERk_I = (self.v - self.m - 1) * np.linalg.inv(self.V)
+            # Form \lambda^x_k(1) and \lambda^x_k(2)
+            lxk1 = EPkk_I @ xbar + H.T @ ERk_I @ yk 
+            lxk2 = -0.5 * (EPkk_I +  H.T @ ERk_I @ H)
+            # recover Pkk and xkk 
+            self.P = np.linalg.inv(lxk2 / -0.5)
+            self.x = self.P @ lxk1 
+            # Form \lambda^P_k(1) and \lambda^P_k(2)
+            ex = (self.x - xbar).reshape((self.x.size, 1))
+            Ck = 0.5 * ex @ ex.T + self.P 
+            #lPk1 = -0.5 * (ubar + self.n + 2)
+            lPk2 = -0.5 * (Ubar + Ck)
+            # recover uk and Uk 
+            self.u = ubar + 1
+            self.U = lPk2 / -0.5 
+            # Form \lambda^R_k(1) and \lambda^R_k(2)
+            resid = (yk - H @ self.x ).reshape((yk.size,1))
+            Ak = resid @ resid.T + H @ self.P @ H.T
+            #lRk1 = -0.5 * (vbar + self.m + 2)
+            lRk2 = -0.5 * (Vbar + Ak)
+            # recover 
+            self.v = vbar + 1
+            self.V = lRk2 / -0.5 
+            #print("\nLam-k {}".format(lxk1))
+            #print("Ck-k {}".format(np.diag(Ck)))
+            #print("A-k {}".format(np.diag(Ak)))
+        Pbar = np.linalg.inv( EPkk_I )
+        R = np.linalg.inv( ERk_I )
+        Q = Pbar - self.Phi @ self.last_P @ self.Phi.T
+
+        return self.x.copy(), self.P.copy(), Q, R
+
+    def nonlin_nat_param_update(self): 
+        pass
+    
+    def step(self, yk, with_tp = True):
+        # Time Prop
+        if with_tp:
+            self.pxk_g_ykm1()
+        if self.is_lin:
+            _x, _P, Q, R = self.lin_nat_param_update(yk)
+        else:
+            _x, _P = self.nonlin_nat_param_update(yk)
+        return _x, _P, Q, R
+
 def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, KNOB_V, fig_path):
     T = 1.0 # seconds
     W1 = 1.0 # PSD of noise channel 1
@@ -503,7 +599,11 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     #cauchyEst2 = ce.PyCauchyEstimator('lti', steps, win_debug_print)
     #cauchyEst2.initialize_lti(A0_2,p0_2,b0_2,Phik.copy(),None,Gamk.copy(),beta0_2.copy(),Hk,gambar0_2)
 
-    # Run Simulation 
+    fk = lambda x : Phi @ x
+    Fk = lambda x : Phi
+    hk = lambda x : H @ x
+    Hk = lambda x : H 
+    vb = VBayes(x0_kf.copy(), P0_kf.copy(), fk, Fk, hk, Hk, Qhat = 1*np.eye(4), V = 10000*np.eye(2) )
 
 
     # Nominal KF Log
@@ -518,6 +618,9 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     xs_ce_avg = [] 
     Ps_ce_avg = []
 
+    vb_xs = [vb.x.copy()] 
+    vb_Ps = [vb.P.copy()] 
+
     x_kfn = x0_kf.copy() 
     P_kfn = P0_kf.copy()
     x_kfo = x0_kf.copy() 
@@ -526,10 +629,10 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     # Scenarios 
     s0_q = lambda k : Q0.copy()
     s0_v = lambda k : V0.copy()
-    s1_q = lambda k : (10 + 5*np.cos(np.pi*k/N))*Q0 #np.abs(1 + KNOB_Q*np.sin( (np.pi * k) / N))*Q0 #V0.copy() # np.abs(1 + KNOB_Q*np.sin( (np.pi * k) / N))*Q0 # Q0.copy() #
-    s2_q = lambda k : Q0.copy() if k < 100 else 5*Q0 if k < 200 else Q0.copy() 
-    s1_v = lambda k : (1 + 0.5*np.cos(np.pi*k/N))*V0 #np.abs(1 + KNOB_V*np.sin( (np.pi * k) / N))*V0 #V0.copy() #
-    s2_v = lambda k : V0.copy() if k < 200 else 5*V0 
+    s1_q = lambda k : (10 + 5*np.sin(np.pi*k/N))*Q0 #np.abs(1 + KNOB_Q*np.sin( (np.pi * k) / N))*Q0 #V0.copy() # np.abs(1 + KNOB_Q*np.sin( (np.pi * k) / N))*Q0 # Q0.copy() #
+    s2_q = lambda k : Q0.copy() if k < 100 else KNOB_Q/5*Q0 if k < 200 else Q0.copy() 
+    s1_v = lambda k : (1 + .5*np.sin(np.pi*k/N))*V0 #np.abs(1 + KNOB_V*np.sin( (np.pi * k) / N))*V0 #V0.copy() #
+    s2_v = lambda k : V0.copy() if k < 200 else 15*V0
 
     if( use_scen == "0" ):
         qscen = s0_q
@@ -584,6 +687,11 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
         # OPT1: SWM
         x_ce1, P_ce1, x_ce_avg1, P_ce_avg1 = cauchyEst1.step( zk[0] )
         x_ce2, P_ce2, x_ce_avg2, P_ce_avg2 = cauchyEst2.step( zk[1] )
+
+        if k > 0:
+            vb_x, vb_P, vb_Q, vb_R = vb.step(zk, True)
+            vb_xs.append(vb_x)
+            vb_Ps.append(vb_P)
 
         # OPT2: DEBUG SINGLE WINDOW
         #x_ce1, P_ce1 = cauchyEst1.step( zk[0] )
@@ -709,6 +817,9 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     xs_ce_avg = np.array(xs_ce_avg)
     Ps_ce_avg = np.array(Ps_ce_avg)
 
+    vb_xs = np.array(vb_xs)
+    vb_Ps = np.array(vb_Ps)
+
     # Now Plot Results
     Ts = np.arange(N+1)*T 
     # State History Plot 
@@ -744,6 +855,8 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     one_sig_ce = np.array([scale*np.diag(P)**0.5 for P in Ps_ce])
     one_sig_ce_avg = np.array([scale*np.diag(P)**0.5 for P in Ps_ce_avg])
 
+    one_sig_vb = np.array([scale*np.diag(P)**0.5 for P in vb_Ps])
+
     # Some Analysis 
     states = 4
     conf_percent = 0.70
@@ -758,15 +871,21 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     ae_ce = np.array([ (ae_ce[0]+ae_ce[2])**0.5, (ae_ce[1]+ae_ce[3])**0.5 ])
     ae_cea = np.mean( (xks[1:] - xs_ce_avg[1:])**2, axis=0)
     ae_cea = np.array([ (ae_cea[0]+ae_cea[2])**0.5, (ae_cea[1]+ae_cea[3])**0.5 ])
+    
+    ae_vb = np.mean( (xks[1:] - vb_xs[1:])**2, axis=0)
+    ae_vb = np.array([ (ae_vb[0]+ae_vb[2])**0.5, (ae_vb[1]+ae_vb[3])**0.5 ])
+
     kfo_bound_realiz = np.mean([ ( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s for xt, xh, P in zip(xks[1:], xs_kfo[1:], Ps_kfo[1:]) ])
     kfn_bound_realiz = np.mean([ ( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s for xt, xh, P in zip(xks[1:], xs_kfn[1:], Ps_kfn[1:]) ])
     ce_bound_realiz = np.mean([ (( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s) if np.all(np.linalg.eig(P)[0]>0) else 0 for xt, xh, P in zip(xks[1:], xs_ce[1:], Ps_ce[1:]) ]) 
     cea_bound_realiz = np.mean([ (( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s) if np.all(np.linalg.eig(P)[0]>0) else 0 for xt, xh, P in zip(xks[1:], xs_ce_avg[1:], Ps_ce_avg[1:]) ]) 
+    vb_bound_realiz = np.mean([ (( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s) if np.all(np.linalg.eig(P)[0]>0) else 0 for xt, xh, P in zip(xks[1:], vb_xs[1:], vb_Ps[1:]) ]) 
 
     print("The Optimal KF has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_kfo, kfo_bound_realiz) )
     print("The Nominal KF has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_kfn, kfn_bound_realiz) )
     print("The (Best Window) Cauchy Est has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_ce, ce_bound_realiz) )
     print("The (Averaged) Cauchy Est has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_cea, cea_bound_realiz) )
+    print("The VB KF Est has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_vb, vb_bound_realiz) )
 
     plt.subplot(4,1,1)
     plt.plot(Ts, xks[:,0] - xs_kfo[:,0], 'g')
@@ -781,6 +900,10 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     plt.plot(Ts, xks[:,0] - xs_ce_avg[:,0], 'm')
     plt.plot(Ts, one_sig_ce_avg[:,0], 'k--')
     plt.plot(Ts, -one_sig_ce_avg[:,0], 'k--')
+    plt.plot(Ts, xks[:,0] - vb_xs[:,0], 'y')
+    plt.plot(Ts, one_sig_vb[:,0], 'y--')
+    plt.plot(Ts, -one_sig_vb[:,0], 'y--')
+
     plt.ylabel("Pos X")
     plt.subplot(4,1,2)
     plt.plot(Ts, xks[:,1] - xs_kfo[:,1], 'g')
@@ -795,7 +918,11 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     plt.plot(Ts, xks[:,1] - xs_ce_avg[:,1], 'm')
     plt.plot(Ts, one_sig_ce_avg[:,1], 'k--')
     plt.plot(Ts, -one_sig_ce_avg[:,1], 'k--')
+    plt.plot(Ts, xks[:,1] - vb_xs[:,1], 'y')
+    plt.plot(Ts, one_sig_vb[:,1], 'y--')
+    plt.plot(Ts, -one_sig_vb[:,1], 'y--')
     plt.ylabel("Vel X")
+
     plt.subplot(4,1,3)
     plt.plot(Ts, xks[:,2] - xs_kfo[:,2], 'g')
     plt.plot(Ts, one_sig_kfo[:,2], 'g--')
@@ -809,7 +936,12 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     plt.plot(Ts, xks[:,2] - xs_ce_avg[:,2], 'm')
     plt.plot(Ts, one_sig_ce_avg[:,2], 'k--')
     plt.plot(Ts, -one_sig_ce_avg[:,2], 'k--')
+    plt.plot(Ts, xks[:,2] - vb_xs[:,2], 'y')
+    plt.plot(Ts, one_sig_vb[:,2], 'y--')
+    plt.plot(Ts, -one_sig_vb[:,2], 'y--')
     plt.ylabel("Pos Y")
+
+
     plt.subplot(4,1,4)
     plt.plot(Ts, xks[:,3] - xs_kfo[:,3], 'g')
     plt.plot(Ts, one_sig_kfo[:,3], 'g--')
@@ -823,9 +955,11 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     plt.plot(Ts, xks[:,3] - xs_ce_avg[:,3], 'm')
     plt.plot(Ts, one_sig_ce_avg[:,3], 'k--')
     plt.plot(Ts, -one_sig_ce_avg[:,3], 'k--')
+    plt.plot(Ts, xks[:,3] - vb_xs[:,3], 'y')
+    plt.plot(Ts, one_sig_vb[:,3], 'y--')
+    plt.plot(Ts, -one_sig_vb[:,3], 'y--')
     plt.ylabel("Vel Y")
     plt.xlabel("Time (sec)")
-    plt.savefig(fname = fig_path)
     
     ret_dic = {"xks": xks,
                "zks" : zks,
@@ -846,9 +980,12 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
                "xs_ce_avg" : xs_ce_avg, 
                "Ps_ce_avg" : Ps_ce_avg,
                "ae_cea" : ae_cea,
-               "cea_bound_realiz" : cea_bound_realiz
+               "cea_bound_realiz" : cea_bound_realiz,
+               "ae_vb" : ae_vb,
+               "vb_bound_realiz" : vb_bound_realiz
                }
     plt.pause(10)
+    plt.savefig(fname = fig_path)
     plt.close('all')
     return ret_dic
 
@@ -912,18 +1049,18 @@ def non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, K
     I4 = np.eye(4)
 
     # True Initial Simulation State
-    x0 = np.array([5e4, -100, 5e4, -100])  # [m, m/s, m, m/s] -> [x,vx,y,vy]-> [posx,velx,posy,vely]
+    x0 = np.array([1e4, -100, 1e4, -100])  # [m, m/s, m, m/s] -> [x,vx,y,vy]-> [posx,velx,posy,vely]
     
     # Nominal Kalman Filter
     Phi = np.vstack(( np.hstack((T2,Z2)), np.hstack((Z2,T2))  ))
     Q0 = np.vstack(( np.hstack(( W1 * QT2, Z2)), np.hstack((Z2, W2 * QT2))  ))
-    V0 = np.array([100,0,0,1e-6]).reshape((2,2)) / V0_scale_factor 
-    P0_kf = np.diag(np.array([100.0**2,10**2,100*2,10**2])) / 1
+    V0 = np.array([100 / V0_scale_factor,0,0,1e-6]).reshape((2,2)) 
+    P0_kf = np.diag(np.array([100.0**2,10**2,100*2,10**2]))
     x0_kf = np.random.multivariate_normal(x0, P0_kf)
 
     # Cauchy Estimator 
-    beta = np.array([W1**0.5 / 1.3898, W2**0.5 / 1.3898,]) 
-    gamma = np.array([V0[0,0]**0.5/1.3898, V0[1,1]**0.5/1.3898 ]) 
+    beta = np.array([W1**0.5 / 1.3898, W2**0.5 / 1.3898,]) / 1.3
+    gamma = np.array([V0[0,0]**0.5/1.3898, V0[1,1]**0.5/1.3898 ]) / 1.3
     b0  = np.zeros(4)
     p0 = np.diag(P0_kf)**0.5 / 1.3898
     A0 = np.eye(4)
@@ -1289,17 +1426,17 @@ def non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, K
     return ret_dic
 
 # Calls the above for different scenarios and subscenarios
-def call_target_track(root_dir = None, subdir_name = "foo_target_track_single_reals"):
+def call_target_track(root_dir = None, subdir_name = "VB_target_track_single_reals"):
     if root_dir is None:
         root_dir = os.path.dirname(os.path.abspath(__file__))
     N = 300
     KNOB_Q = 50 # ENTER ABOVE KNOB_VAL = 5 -> KNOB_QV = KNOB_VAL
     KNOB_V = 50 
-    scenarios = ["0", "1a", "1b", "1c", "2"]
-    V0S_HELS = {"high" : 100, "equal" : 10000, "low" : 1000000} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
-    #scenarios = ["2"]
-    #V0S_HELS = {"high" : 1} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
-    num_windows = 6
+    #scenarios = ["0", "1a", "1b", "1c", "2"]
+    #V0S_HELS = {"high" : 1, "equal" : 10000, "low" : 1000000} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
+    scenarios = ["1c"]
+    V0S_HELS = {"high" : 1} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
+    num_windows = 5
     for use_scen in scenarios:
         for setting, V0_scale_factor in V0S_HELS.items():
             sub_dir = root_dir+ "/" + "w{}_s{}_".format(num_windows, KNOB_Q) + subdir_name
@@ -1311,7 +1448,7 @@ def call_target_track(root_dir = None, subdir_name = "foo_target_track_single_re
             # Create Read me File for the directory
             if not os.path.isdir(scen_dir):
                 os.mkdir(scen_dir)
-            data_dic = non_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, KNOB_V, fig_path) #linear_target_track
+            data_dic = indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q, KNOB_V, fig_path) #linear_target_track
             pickle_path = scen_dir + "/data.pickle"
             with open(pickle_path, "wb") as handle:
                 pickle.dump(data_dic, handle)
@@ -1325,14 +1462,151 @@ def call_target_track(root_dir = None, subdir_name = "foo_target_track_single_re
                 cea_bound_realiz = data_dic["cea_bound_realiz"]
                 ae_ce = data_dic["ae_ce"]
                 ce_bound_realiz = data_dic["ce_bound_realiz"]
+                ae_vb = data_dic["ae_vb"]
+                vb_bound_realiz = data_dic["vb_bound_realiz"]
+
                 l1 = "The Optimal KF has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time\n".format(np.round(ae_kfo,5), np.round(kfo_bound_realiz,8))
                 l2 = "The Nominal KF has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time\n".format(np.round(ae_kfn,5), np.round(kfn_bound_realiz,8))
                 l3 = "The (Best Window) Cauchy Est has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time\n".format(np.round(ae_ce,5), np.round(ce_bound_realiz,8))
                 l4 = "The (Averaged) Cauchy Est has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time\n".format(np.round(ae_cea,5), np.round(cea_bound_realiz,8))
-                handle.writelines([l1,l2,l3,l4])
+                l5 = "The VBayes Est has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time\n".format(np.round(ae_vb,5), np.round(vb_bound_realiz,8))
+                handle.writelines([l1,l2,l3,l4,l5])
             foo = 3
             
+def view_data(root_dir = None):
+    if root_dir is None:
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+    subdir_name = "w6_s50_foo_target_track_single_reals"
+    N = 300
+    T = 1
+    KNOB_Q = 50 # ENTER ABOVE KNOB_VAL = 5 -> KNOB_QV = KNOB_VAL
+    KNOB_V = 50 
+    scenarios = ["0", "1a", "1b", "1c", "2"]
+    V0S_HELS = {"high" : 1, "equal" : 10000, "low" : 1000000} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
+    #scenarios = ["2"]
+    #V0S_HELS = {"high" : 1} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
+    
+    subdir = root_dir + "/" + subdir_name
+    for (root, subsubdir_names, files) in os.walk(subdir): 
+        for subsubdir_name in subsubdir_names: 
+            print("Loading " + subsubdir_name)
+            subsub_dir = subdir + "/" + subsubdir_name
+            with open(subsub_dir + "/" + "data.pickle", "rb") as handle:
+                data = pickle.load(handle)
+            xks = data["xks"]
+            xs_kfo = data["xs_kfo"]
+            Ps_kfo = data["Ps_kfo"]
+            ae_kfo = data["ae_kfo"]
+            kfo_bound_realiz = data["kfo_bound_realiz"]
+            xs_kfn = data["xs_kfn"]
+            Ps_kfn =  data["Ps_kfn"]
+            ae_kfn = data["ae_kfn"]
+            kfn_bound_realiz = data["kfn_bound_realiz"]
+            xs_ce = data["xs_ce"]
+            Ps_ce = data["Ps_ce"]
+            xs_ce_avg = data["xs_ce_avg"]
+            Ps_ce_avg = data["Ps_ce_avg"]
+            ae_cea = data["ae_cea"]
+            cea_bound_realiz = data["cea_bound_realiz"]
+            ce_bound_realiz = data["ce_bound_realiz"]
+
+
+            Ts = np.arange(N+1)*T 
+            # State Error Plot
+            scale = 1
+            plt.figure(figsize=(12,12))
+            plt.suptitle("State Error Plot\nOpt KF=green, Nom KF=blue, Nom Cauchy=magenta/black")
+            one_sig_kfn = np.array([scale*np.diag(P)**0.5 for P in Ps_kfn])
+            one_sig_kfo = np.array([scale*np.diag(P)**0.5 for P in Ps_kfo])
+            one_sig_ce = np.array([scale*np.diag(P)**0.5 for P in Ps_ce])
+            one_sig_ce_avg = np.array([scale*np.diag(P)**0.5 for P in Ps_ce_avg])
+
+            # Some Analysis 
+            states = 4
+            conf_percent = 0.70
+            from scipy.stats import chi2 
+            s = chi2.ppf(conf_percent, states)
+            # ARMSE
+            ae_kfo = np.mean( (xks[1:] - xs_kfo[1:])**2, axis=0)
+            ae_kfo = np.array([ (ae_kfo[0]+ae_kfo[2])**0.5, (ae_kfo[1]+ae_kfo[3])**0.5 ])
+            ae_kfn = np.mean( (xks[1:] - xs_kfn[1:])**2, axis=0)
+            ae_kfn = np.array([ (ae_kfn[0]+ae_kfn[2])**0.5, (ae_kfn[1]+ae_kfn[3])**0.5 ])
+            ae_ce = np.mean( (xks[1:] - xs_ce[1:])**2, axis=0)
+            ae_ce = np.array([ (ae_ce[0]+ae_ce[2])**0.5, (ae_ce[1]+ae_ce[3])**0.5 ])
+            ae_cea = np.mean( (xks[1:] - xs_ce_avg[1:])**2, axis=0)
+            ae_cea = np.array([ (ae_cea[0]+ae_cea[2])**0.5, (ae_cea[1]+ae_cea[3])**0.5 ])
+            kfo_bound_realiz = np.mean([ ( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s for xt, xh, P in zip(xks[1:], xs_kfo[1:], Ps_kfo[1:]) ])
+            kfn_bound_realiz = np.mean([ ( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s for xt, xh, P in zip(xks[1:], xs_kfn[1:], Ps_kfn[1:]) ])
+            ce_bound_realiz = np.mean([ (( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s) if np.all(np.linalg.eig(P)[0]>0) else 0 for xt, xh, P in zip(xks[1:], xs_ce[1:], Ps_ce[1:]) ]) 
+            cea_bound_realiz = np.mean([ (( (xt - xh) @ np.linalg.inv(P) @ (xt - xh) ) < s) if np.all(np.linalg.eig(P)[0]>0) else 0 for xt, xh, P in zip(xks[1:], xs_ce_avg[1:], Ps_ce_avg[1:]) ]) 
+
+            print("The Optimal KF has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_kfo, kfo_bound_realiz) )
+            print("The Nominal KF has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_kfn, kfn_bound_realiz) )
+            print("The (Best Window) Cauchy Est has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_ce, ce_bound_realiz) )
+            print("The (Averaged) Cauchy Est has average error of {} and its estimate was inside the 70% Conf. Shell {} percent of the time".format(ae_cea, cea_bound_realiz) )
+
+            plt.subplot(4,1,1)
+            plt.plot(Ts, xks[:,0] - xs_kfo[:,0], 'g')
+            plt.plot(Ts, one_sig_kfo[:,0], 'g--')
+            plt.plot(Ts, -one_sig_kfo[:,0], 'g--')
+            plt.plot(Ts, xks[:,0] - xs_kfn[:,0], 'b')
+            plt.plot(Ts, one_sig_kfn[:,0], 'b--')
+            plt.plot(Ts, -one_sig_kfn[:,0], 'b--')
+            #plt.plot(Ts, xks[:,0] - xs_ce[:,0], 'm')
+            #plt.plot(Ts, one_sig_ce[:,0], 'm--')
+            #plt.plot(Ts, -one_sig_ce[:,0], 'm--')
+            plt.plot(Ts, xks[:,0] - xs_ce_avg[:,0], 'm')
+            plt.plot(Ts, one_sig_ce_avg[:,0], 'k--')
+            plt.plot(Ts, -one_sig_ce_avg[:,0], 'k--')
+            plt.ylabel("Pos X")
+            plt.subplot(4,1,2)
+            plt.plot(Ts, xks[:,1] - xs_kfo[:,1], 'g')
+            plt.plot(Ts, one_sig_kfo[:,1], 'g--')
+            plt.plot(Ts, -one_sig_kfo[:,1], 'g--')
+            plt.plot(Ts, xks[:,1] - xs_kfn[:,1], 'b')
+            plt.plot(Ts, one_sig_kfn[:,1], 'b--')
+            plt.plot(Ts, -one_sig_kfn[:,1], 'b--')
+            #plt.plot(Ts, xks[:,1] - xs_ce[:,1], 'm')
+            #plt.plot(Ts, one_sig_ce[:,1], 'm--')
+            #plt.plot(Ts, -one_sig_ce[:,1], 'm--')
+            plt.plot(Ts, xks[:,1] - xs_ce_avg[:,1], 'm')
+            plt.plot(Ts, one_sig_ce_avg[:,1], 'k--')
+            plt.plot(Ts, -one_sig_ce_avg[:,1], 'k--')
+            plt.ylabel("Vel X")
+            plt.subplot(4,1,3)
+            plt.plot(Ts, xks[:,2] - xs_kfo[:,2], 'g')
+            plt.plot(Ts, one_sig_kfo[:,2], 'g--')
+            plt.plot(Ts, -one_sig_kfo[:,2], 'g--')
+            plt.plot(Ts, xks[:,2] - xs_kfn[:,2], 'b')
+            plt.plot(Ts, one_sig_kfn[:,2], 'b--')
+            plt.plot(Ts, -one_sig_kfn[:,2], 'b--')
+            #plt.plot(Ts, xks[:,2] - xs_ce[:,2], 'm')
+            #plt.plot(Ts, one_sig_ce[:,2], 'm--')
+            #plt.plot(Ts, -one_sig_ce[:,2], 'm--')
+            plt.plot(Ts, xks[:,2] - xs_ce_avg[:,2], 'm')
+            plt.plot(Ts, one_sig_ce_avg[:,2], 'k--')
+            plt.plot(Ts, -one_sig_ce_avg[:,2], 'k--')
+            plt.ylabel("Pos Y")
+            plt.subplot(4,1,4)
+            plt.plot(Ts, xks[:,3] - xs_kfo[:,3], 'g')
+            plt.plot(Ts, one_sig_kfo[:,3], 'g--')
+            plt.plot(Ts, -one_sig_kfo[:,3], 'g--')
+            plt.plot(Ts, xks[:,3] - xs_kfn[:,3], 'b')
+            plt.plot(Ts, one_sig_kfn[:,3], 'b--')
+            plt.plot(Ts, -one_sig_kfn[:,3], 'b--')
+            #plt.plot(Ts, xks[:,3] - xs_ce[:,3], 'm')
+            #plt.plot(Ts, one_sig_ce[:,3], 'm--')
+            #plt.plot(Ts, -one_sig_ce[:,3], 'm--')
+            plt.plot(Ts, xks[:,3] - xs_ce_avg[:,3], 'm')
+            plt.plot(Ts, one_sig_ce_avg[:,3], 'k--')
+            plt.plot(Ts, -one_sig_ce_avg[:,3], 'k--')
+            plt.ylabel("Vel Y")
+            plt.xlabel("Time (sec)")
+
+            plt.show()
+            foobar = 2
 
 if __name__ == "__main__":
     #test_linear_target_track()
     call_target_track(root_dir = None)
+    #view_data(root_dir = None)

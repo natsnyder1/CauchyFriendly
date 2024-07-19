@@ -71,6 +71,9 @@ class Py_CauchyDynamicsUpdateContainer():
     
     def cget_dt(self):
         return self.cduc.contents.dt
+    
+    def cset_dt(self, dt):
+        self.cduc.contents.dt = float(dt)
 
     # The inputs to these functions are numpy vectors / matrices, which then sets the raw C-Pointers
     def cget_x(self):
@@ -83,7 +86,7 @@ class Py_CauchyDynamicsUpdateContainer():
         assert(x.ndim == 1)
         assert(x.size == self.n)
         for i in range(self.n):
-            self.cduc.contents.x[i] = x[i]
+            self.cduc.contents.x[i] = float(x[i])
     
     def cget_u(self):
         u = np.zeros(self.cmcc, dtype=np.float64)
@@ -103,7 +106,7 @@ class Py_CauchyDynamicsUpdateContainer():
         assert(Phi.size == size_Phi)
         _Phi = Phi.reshape(-1)
         for i in range(size_Phi):
-            self.cduc.contents.Phi[i] = _Phi[i]
+            self.cduc.contents.Phi[i] = float(_Phi[i])
 
     def cget_Gamma(self):
         size_Gamma = self.n*self.pncc
@@ -117,7 +120,7 @@ class Py_CauchyDynamicsUpdateContainer():
         assert(Gamma.size == size_Gamma)
         _Gamma = Gamma.reshape(-1)
         for i in range(size_Gamma):
-            self.cduc.contents.Gamma[i] = _Gamma[i]
+            self.cduc.contents.Gamma[i] = float(_Gamma[i])
 
     def cget_B(self):
         size_B = self.n*self.cmcc
@@ -131,14 +134,21 @@ class Py_CauchyDynamicsUpdateContainer():
         assert(B.size == size_B)
         _B = B.reshape(-1)
         for i in range(size_B):
-            self.cduc.contents.B[i] = _B[i]
+            self.cduc.contents.B[i] = float(_B[i])
 
     def cset_beta(self, beta):
         size_beta = self.pncc
         assert(beta.size == size_beta)
         _beta = beta.reshape(-1)
         for i in range(size_beta):
-            self.cduc.contents.beta[i] = _beta[i]
+            self.cduc.contents.beta[i] = float(_beta[i])
+    
+    def cget_beta(self):
+        size_beta = self.pncc
+        beta = np.zeros(size_beta)
+        for i in range(size_beta):
+            beta[i] = self.cduc.contents.beta[i]
+        return beta
 
     def cget_H(self):
         size_H = self.n * self.p
@@ -152,7 +162,7 @@ class Py_CauchyDynamicsUpdateContainer():
         assert(H.size == size_H)
         _H = H.reshape(-1)
         for i in range(size_H):
-            self.cduc.contents.H[i] = _H[i]
+            self.cduc.contents.H[i] = float(_H[i])
 
     def cget_gamma(self):
         size_gamma = self.p
@@ -166,7 +176,7 @@ class Py_CauchyDynamicsUpdateContainer():
         assert(gamma.size == size_gamma)
         _gamma = gamma.reshape(-1)
         for i in range(size_gamma):
-            self.cduc.contents.gamma[i] = _gamma[i]
+            self.cduc.contents.gamma[i] = float(_gamma[i])
 
     def cset_is_xbar_set_for_ece(self):
         self.cduc.contents.is_xbar_set_for_ece = True
@@ -179,7 +189,7 @@ class Py_CauchyDynamicsUpdateContainer():
         assert(_zbar.size == self.p)
         size_zbar = _zbar.size
         for i in range(size_zbar):
-            c_zbar[i] = _zbar[i]
+            c_zbar[i] = float(_zbar[i])
 
 # Template Functions. Give directions to produce python callbacks compatible with C program
 def template_dynamics_update_callback(c_duc):
@@ -817,7 +827,7 @@ class PyCauchyEstimator():
             return pycauchy.pycauchy_single_step_get_number_of_terms(self.py_handle)
     
     def get_last_mean_cov(self):
-        return self.moment_info["x"][-1], self.moment_info["P"][-1]
+        return self.moment_info["x"][-1].copy(), self.moment_info["P"][-1].copy()
 
     # find reinitialization parameters for the msmt_idx-th measurement just computed
     # if msmt_idx not specified, uses the last measurement

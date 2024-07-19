@@ -808,16 +808,20 @@ def draw_ensemble_encounter_plane(
         E = U @ np.diag(D * s2)**0.5 # Ellipse is the matrix square root of covariance
         ell_points = (E @ unit_circle.T).T + rsys_mean 
         plt.plot(ell_points[:,0], ell_points[:,1], color='b', label='{}% Rsys Proj 2D Cov. Ellipse of MCEs'.format(quantile_mce*100))
-        rsys_Zs[rsys_Zs < 0] = 0
-        plt.contour(rsys_Xs, rsys_Ys, rsys_Zs, levels=num_contour_levels)
+        
         _rsys_Zs = rsys_Zs.copy()
         _rsys_Zs[_rsys_Zs < 0] = 1e-12
+        plt.contour(_rsys_Zs, _rsys_Zs, _rsys_Zs, levels=num_contour_levels)
+        plt.legend().set_draggable(True)
         plt.figure()
-        plt.title("Foo!")
+        plt.title("MCE Contour Plot!")
+        plt.contour(rsys_Xs, rsys_Ys, _rsys_Zs, levels=num_contour_levels)
+        plt.colorbar()
+        plt.figure()
+        plt.title("MCE Log Contour Plot!")
         plt.contour(rsys_Xs, rsys_Ys, np.log10(_rsys_Zs), levels=2*num_contour_levels)
+        plt.colorbar()                            
 
-
-    plt.legend().set_draggable(True)
     plt.show()
     foobar=5
     
@@ -1215,11 +1219,13 @@ def backprop_sat_from_xftf_to_x0t0(xf, tf, t0):
     step_dt = 120.0 
     sat = gsat.FermiSatelliteModel(tf, xf, step_dt, False)
     sat.create_model(True, True)
+    sat.dt = -step_dt
     prop_secs = (tf - t0).total_seconds()
     while prop_secs > step_dt:
-        xk = sat.step(new_step_dt=-step_dt) 
+        xk = sat.step() #new_step_dt=-step_dt
         prop_secs -= step_dt
-    x0 = sat.step(new_step_dt=-prop_secs)
+    sat.dt = -prop_secs
+    x0 = sat.step() #new_step_dt=-prop_secs)
     return x0 
 
 def log_mc_trials(mc_trials, with_mc_from_x0, t0_pred, pred_dt, p_xpred0, p_Ppred0, s_xpred0, s_Ppred0, sas_Cd, std_Cd, tau_Cd, sas_alpha, std_gps_noise, i_star_lhs, t_c, t_lhs, cache_dic, fpath):

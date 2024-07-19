@@ -625,7 +625,7 @@ def test_sat_pc_mc():
             _zk = zk.copy() * 1000  # km -> m
             _xk = xk.copy()
             _xk[0:6] *= 1000  # km -> m
-            p_cauchyEst.sim_step(zk=_zk, x_truth=_xk, is_inputs_meters=True, last_step = ( i == (len_mce_p_zxs-1) ) )
+            p_cauchyEst.step(zk=_zk, x_truth=_xk, is_inputs_meters=True, last_step = ( i == (len_mce_p_zxs-1) ) )
 
         # If with_mce_contour_plot is set, propagate the density function of the primary to expected TCA
         if with_mce_contour_plot:
@@ -698,6 +698,8 @@ def test_sat_pc_mc():
         s_cauchyEst = gmce.GmatMCE(mce_num_windows, mce_t0, mce_s_x0bar, mce_dt,
                                    mce_A0, mce_p0, mce_b0, mce_beta, mce_gamma,
                                    Cd_dist=mode, std_Cd=std_Cd, tau_Cd=tau_Cd,
+                                   EDIT_CHNG_ATM_DENS_LOW = -0.1, 
+                                   EDIT_CHNG_ATM_DENS_HIGH = 0.1,
                                    win_reinitialize_func=mce_init_func,
                                    win_reinitialize_params=mce_other_params,
                                    debug_print=False, mce_print=True)
@@ -709,7 +711,7 @@ def test_sat_pc_mc():
             _zk = zk.copy() * 1000  # km -> m
             _xk = xk.copy()
             _xk[0:6] *= 1000  # km -> m
-            s_cauchyEst.sim_step(zk=_zk, x_truth=_xk, is_inputs_meters=True, last_step = ( i == (len_mce_s_zxs-1) ) )
+            s_cauchyEst.step(zk=_zk, x_truth=_xk, is_inputs_meters=True, last_step = ( i == (len_mce_s_zxs-1) ) )
         
         # If with_mce_contour_plot is set, propagate the density function of the secondary to expected TCA
         if with_mce_contour_plot:

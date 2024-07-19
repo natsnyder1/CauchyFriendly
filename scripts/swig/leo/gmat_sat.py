@@ -1,8 +1,8 @@
 import os, sys, math 
 import numpy as np 
 file_dir = os.path.dirname(os.path.abspath(__file__))
-gmat_root_dir = '/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/GMAT/application'
-gmat_data_dir = file_dir + "/gmat_data/gps_2_11_23/"
+gmat_root_dir = '/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/GMAT/application' # CHANGE THIS FOR YOUR SETUP!
+gmat_data_dir = file_dir + "/gmat_data/gps_2_11_23/" # CHANGE THIS TO DIRECTORY WHERE EOP FILE and SPACE WEATHER FILE LIVE!
 assert( os.path.isdir(gmat_data_dir) )
 gmat_bin_dir = gmat_root_dir + '/bin'
 gmat_api_dir = gmat_root_dir + '/api'
@@ -17,6 +17,7 @@ if os.path.exists(gmat_startup_file):
 from datetime import datetime 
 from datetime import timedelta 
 from cauchy_estimator import random_symmetric_alpha_stable
+from cauchy_estimator import cd4_gvf
 
 MonthDic = {"Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12}
 MonthDic2 = {v:k for k,v in MonthDic.items()}
@@ -41,6 +42,45 @@ def datetime_2_time_string(t):
 
 def time_string_2_datetime(t):
     return datetime.strptime(t, "%d %b %Y %H:%M:%S.%f")
+
+MonthDic = {"Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12}
+MonthDic2 = {v:k for k,v in MonthDic.items()}
+
+# Time conversion function using GMAT
+def time_convert(time_in, type_in, type_out):
+    if type(time_in) == datetime:
+        millisec = str(np.round(time_in.microsecond / 1e6, 3)).split(".")[1]
+        _time_in = time_in.strftime("%d %b %Y %H:%M:%S") + "." + millisec
+        is_in_gregorian = True
+    elif type(time_in) == str:
+        _time_in = time_in
+        is_in_gregorian = True
+    elif type(time_in) == float:
+        _time_in = time_in
+        is_in_gregorian = False
+    else:
+        print("Time In Type: ", type(time_in), " Not Supported! Input was", time_in)
+        exit(1)
+    timecvt = gmat.TimeSystemConverter.Instance()
+    if is_in_gregorian:
+        time_in_greg = _time_in
+        time_in_mjd = timecvt.ConvertGregorianToMjd(_time_in)
+    else:
+        time_in_mjd = _time_in
+        time_in_greg = timecvt.ConvertMjdToGregorian(_time_in)
+    time_types = {"A1": timecvt.A1, "TAI": timecvt.TAI, "UTC" : timecvt.UTC, "TDB": timecvt.TDB, "TT": timecvt.TT}
+    assert type_in in time_types.keys()
+    assert type_out in time_types.keys()
+    time_code_in = time_types[type_in]
+    time_code_out = time_types[type_out]
+    time_out_mjt = timecvt.Convert(time_in_mjd, time_code_in, time_code_out)
+    time_out_greg = timecvt.ConvertMjdToGregorian(time_out_mjt)
+    time_dic = {"in_greg" : time_in_greg, 
+                "in_mjd" : time_in_mjd, 
+                "out_greg": time_out_greg, 
+                "out_mjd": time_out_mjt}
+    return time_dic
+
 
 # Initial state given in distance units kilometers
 class FermiSatelliteModel():
@@ -68,7 +108,7 @@ class FermiSatelliteModel():
         self.solve_for_dists_acceptable = ["gauss", "sas"]
         self.is_model_constructed = False
 
-    def create_model(self, with_jacchia=True, with_SRP=True):
+    def create_model(self, with_jacchia=True, with_SRP=True, Cd0 = 2.1, Cr0 = 0.75):
         assert self.is_model_constructed == False
         # Solar System Properties -- Newly Added
         mod = gmat.Moderator.Instance()
@@ -86,8 +126,8 @@ class FermiSatelliteModel():
     
         self.sat.SetField("Epoch", self.t0) # 19:31:54:000") 
         self.sat.SetField("DryMass", 3995.6)
-        self.sat.SetField("Cd", 2.1)
-        self.sat.SetField("Cr", 0.75)
+        self.sat.SetField("Cd", Cd0)
+        self.sat.SetField("Cr", Cr0)
         #self.sat.SetField("CrSigma", 0.1)
         self.sat.SetField("DragArea", 14.18)
         self.sat.SetField("SRPArea", 14.18)
@@ -124,8 +164,8 @@ class FermiSatelliteModel():
         # A 70x70 EGM96 Gravity Model
         self.earthgrav = gmat.Construct("GravityField")
         self.earthgrav.SetField("BodyName","Earth")
-        self.earthgrav.SetField("Degree",70)
-        self.earthgrav.SetField("Order",70)
+        self.earthgrav.SetField("Degree", 70)
+        self.earthgrav.SetField("Order", 70)
         self.earthgrav.SetField("PotentialFile","EGM96.cof")
         self.earthgrav.SetField("TideModel", "SolidAndPole")
         # The Point Masses
@@ -136,7 +176,7 @@ class FermiSatelliteModel():
         # Solar Radiation Pressure
         if with_SRP:
             self.srp = gmat.Construct("SolarRadiationPressure")
-            #srp.SetField("SRPModel", "Spherical")
+            self.srp.SetField("SRPModel", "Spherical")
             self.srp.SetField("Flux", 1370.052)
         # Drag Model
         if with_jacchia:
@@ -240,6 +280,19 @@ class FermiSatelliteModel():
         self.pdprop.PrepareInternals()
         self.gator = self.pdprop.GetPropagator() # refresh integrator
         self.gator.SetTime(iter * self.dt)
+    
+    def reset_state_with_ellapsed_time(self, x, ellapsed_time):
+        assert x.size == (6 + len(self.solve_for_states))
+        for j in range(len(self.solve_for_states)):
+            self.solve_for_states[j] = x[6+j]
+            val = self.solve_for_nominals[j] * ( 1 + self.solve_for_states[j] )
+            self.sat.SetField(self.solve_for_fields[j], val)
+        self.sat.SetState(*x[0:6])
+        self.fm.BuildModelFromMap()
+        self.fm.UpdateInitialData()
+        self.pdprop.PrepareInternals()
+        self.gator = self.pdprop.GetPropagator() # refresh integrator
+        self.gator.SetTime(ellapsed_time)
 
     def reset_initial_state(self, x):
         self.x0 = x[0:6].copy()
@@ -291,20 +344,19 @@ class FermiSatelliteModel():
             Jac = self.solve_for_state_jacobians(Jac, dx_dt[3:])
         return Jac
 
-    def get_transition_matrix(self, taylor_order):
+    def get_transition_matrix(self, taylor_order, use_units_km = True):
         num_sf = len(self.solve_for_states)
         num_x = 6 + num_sf
         Jac = self.get_jacobian_matrix()
+        if not use_units_km:
+            Jac[3:6,6] *= 1000 # convert Jac to meter-based Jacobian
         Phi = np.eye(num_x) + Jac * self.dt
         for i in range(2, taylor_order+1):
             Phi += np.linalg.matrix_power(Jac, i) * self.dt**i / math.factorial(i)
         return Phi
 
-    def step(self, noisy_prop_solve_for = False, new_step_dt = None):
-        if new_step_dt is None:
-            self.gator.Step(self.dt)
-        else:
-            self.gator.Step(new_step_dt)
+    def step(self, noisy_prop_solve_for = False):
+        self.gator.Step(self.dt)
         num_sf = len(self.solve_for_states)
         xk = np.zeros(6 + num_sf)
         xk[0:6] = np.array(self.gator.GetState())
@@ -454,4 +506,76 @@ class FermiSatelliteModel():
         # Reset Simulation to x0, and return state info
         self.reset_state(x0, 0)
         return np.array(states), np.array(msmts), np.array(proc_noises), np.array(msmt_noises)
-    
+
+
+def transform_coordinate_system(r3vec, date, mode = "ei2b", sat_handle = None):
+    assert(sat_handle is not None)
+    # Create Transformed GPS Msmt in Earth MJ2000Eq Coordinates
+    _rvec = list([r3vec[0], r3vec[1], r3vec[2], 0, 0, 0])
+    rvec = gmat.Rvector6( *_rvec )
+    fixedState = gmat.Rvector6()
+    time_dic_a1 = time_convert(date, "UTC", "A1")
+    time_a1mjd = time_dic_a1["out_mjd"]
+    if mode == "ei2b":
+        sat_handle.csConverter.Convert(time_a1mjd, rvec, sat_handle.eci, fixedState, sat_handle.ecf)
+        body_3vec = np.array([ fixedState[0], fixedState[1], fixedState[2] ])
+        return body_3vec
+    elif mode == "eb2i":
+        sat_handle.csConverter.Convert(time_a1mjd, rvec, sat_handle.ecf, fixedState, sat_handle.eci)
+        inertial_3vec = np.array([ fixedState[0], fixedState[1], fixedState[2] ])
+        return inertial_3vec
+    else:
+        print("{} is not an option! Enter 'ei2b' -> earth inertial to body, or 'eb2i' -> earth body to inertial. Exiting!".format(mode))
+        exit(1)
+
+def transform_coordinate_system_jacobian_H(r3vec, date, mode = "ei2b", sat_handle = None): 
+    assert(sat_handle is not None)
+    H = cd4_gvf(r3vec, transform_coordinate_system, other_params=(date, mode, sat_handle))
+    H = np.hstack((H,np.zeros((3,4))))
+    return H
+
+# Set convert_Jac_to_meters to True if the Jacobian comes in w.r.t km and you wanna convert it to meters before the Power Series
+def get_transition_matrix(Jac, dt, taylor_order, convert_Jac_to_meters = False):
+    n = Jac.shape[0]
+    if convert_Jac_to_meters:
+        Jac[3:6,6] *= 1000 # convert Jac to meter-based Jacobian
+    Phi = np.eye(n) + Jac * dt
+    for i in range(2, taylor_order+1):
+        Phi += np.linalg.matrix_power(Jac, i) * dt**i / math.factorial(i)
+    return Phi
+
+def get_along_cross_radial_rotation_matrix(x):
+    # position and velocity 3-vector components
+    rh = x[0:3]
+    vh = x[3:6]
+    rhn = np.linalg.norm(rh)
+    vhn = np.linalg.norm(vh)
+    # Radial Direction -- direction of position vector
+    ur = rh / rhn # z-axis
+    # Cross Track -- in the direction of the angular momentum vector (P cross V)
+    uc = np.cross(rh, vh) # y-axis - cross track direction is radial direction cross_prod along track direction
+    uc /= np.linalg.norm(uc)
+    # Along Track -- will be coincident with the velocity vector for a perfectly circular orbit.    
+    ua = np.cross(uc,ur)
+    ua /= np.linalg.norm(ua)
+    # Along, Cross, Radial
+    R = np.vstack( (ua,uc,ur) )
+    return R
+
+def get_along_cross_radial_state_cov(xhat, Phat):
+    R = get_along_cross_radial_rotation_matrix(xhat)
+    # Error w.r.t track frame
+    x_track = R @ xhat
+    # Error Covariance w.r.t track frame
+    P_track = R @ Phat @ R.T
+    return x_track, P_track, R
+
+def get_along_cross_radial_errors_cov(xhat, Phat, xt):
+    R = get_along_cross_radial_rotation_matrix(xhat)
+    # Error w.r.t input coordinate frame 
+    e = xt[0:3] - xhat[0:3]
+    # Error w.r.t track frame
+    e_track = R @ e
+    # Error Covariance w.r.t track frame
+    P_track = R @ Phat @ R.T
+    return e_track, P_track, R

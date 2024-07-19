@@ -14,7 +14,7 @@ typedef double __complex__ C_COMPLEX_TYPE; // This is actually buggy, and cannot
 // TP Settings
 const double COALIGN_TP_EPS = 1e-8;
 // MU Settings
-const double MU_EPS = 1e-12;
+const double MU_EPS = 1e-10;
 const double COALIGN_MU_EPS = COALIGN_TP_EPS;
 const bool SKIP_LAST_STEP = true; // SHOULD BE SET TO TRUE UNLESS OTHERWISE NEEDED
 const bool WITH_MSMT_UPDATE_ORTHOG_WARNING = false;
