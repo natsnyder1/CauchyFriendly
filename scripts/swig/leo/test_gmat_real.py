@@ -245,7 +245,84 @@ def load_ephem_file(fpath, glast_info = None):
         with open(pickle_fpath, "wb") as handle:
             pickle.dump((times, PosVels, PosVelCovars), handle)
     return times, PosVels, PosVelCovars 
+
+def load_STMs(stm_path, ekf_times_means):
+
+    sp_root, _ = stm_path.rsplit(".", 1)#split(".") 
+    cache_path = sp_root + ".pickle"
+    if os.path.isfile(cache_path):
+        with open(cache_path, "rb") as handle:
+            print("Loading Cached STMS from ", cache_path)
+            ts, dts, xs, STMs = pickle.load(handle)
+            return ts, dts, xs, STMs
+
+    with open(stm_path, 'r') as handle:
+        lines = handle.readlines()
+        t0_sep = lines[1].split()[0:4]
+        t_last = t0_sep[0] + ' ' + t0_sep[1] + ' ' + t0_sep[2] + ' ' + t0_sep[3]
+        t_last = time_string_2_datetime(t_last)
+        x_tlast_idx = find_time_match(t_last, ekf_times_means[0], start_idx = 0)
+        x_tlast = ekf_times_means[1][x_tlast_idx]
+        blank_new_entry = ['1','0','0','0','0','0']
+        # Get state size 
+        n = 1
+        while lines[n+1][0] == ' ':
+            n += 1
+        count = 1+n
+        num_lines = len(lines)
         
+        # In the STM Log File, the STM for x_k+1 = \Phi_k x_k + w_k is associated with the time t_k+1, which corresponds to the time of the measurement z_k+1
+        # Here, however we associate the time t_k with \Phi_k and x_k
+        ts = [t_last]
+        xs = [x_tlast]
+        STMs = []
+        dts = []
+        while count < num_lines:
+            line = lines[count]
+            assert(line[0] != ' ')
+            line_split = line.split()
+            tk_sep = line_split[0:4]
+            is_new_entry = line_split[4:] != blank_new_entry
+            if is_new_entry:
+                stm_row_sep = line_split[4:]
+                t_new = tk_sep[0] + ' ' + tk_sep[1] + ' ' + tk_sep[2] + ' ' + tk_sep[3]
+                t_new = time_string_2_datetime(t_new)
+                STM_k = np.zeros((n,n))
+                for i in range(n):
+                    STM_k[0, i] = float(stm_row_sep[i])
+                for i in range(1, n):
+                    line = lines[count + i].split()
+                    for j in range(n):
+                        STM_k[i, j] = float(line[j])
+                # Find the EKF state associated with t_last
+                x_tlast_idx = find_time_match(t_new, ekf_times_means[0], start_idx = x_tlast_idx)
+                x_tnew = ekf_times_means[1][x_tlast_idx]
+                # Save and continue
+                ts.append(t_new)
+                xs.append(x_tnew)
+                STMs.append(STM_k)
+                dts.append((t_new-t_last).total_seconds())
+                t_last = t_new
+            else:
+                t_prop = tk_sep[0] + ' ' + tk_sep[1] + ' ' + tk_sep[2] + ' ' + tk_sep[3]
+                t_prop = time_string_2_datetime(t_prop)
+                x_tlast_idx = find_time_match(t_prop, ekf_times_means[0], start_idx = x_tlast_idx)
+                x_tprop = ekf_times_means[1][x_tlast_idx]
+                dts.append((t_prop-t_last).total_seconds())
+                ts.append(t_prop)
+                xs.append(x_tprop)
+                STMs.append(None)
+                t_last = t_prop
+            count += n
+    handle.close()
+    STMs.append(None)
+    dts.append(None)
+
+    # Cache if you get here
+    with open(cache_path, 'wb') as handle:
+        pickle.dump((ts, dts, xs, STMs),handle)
+    return ts, dts, xs, STMs
+                    
 # If provided, scan GLAST csv to find the a-priori state/covariance closest to the first GPS reading (returns state before first GPS reading)
 def find_restart_point(fpath, gps_datetime):
     fprefix, fname = fpath.rsplit("/", 1)
@@ -619,7 +696,7 @@ def run_fermi_mce(gps_msmts, t0, _x0, _P0, run_dic,
         mce_dz1 = z1_ebf - z1bar_ebf
         mce_A0, mce_p0, mce_b0 = ce.speyers_window_init(mce_dx1, kf_P1, H_ebf[0], mce_gamma[0], mce_dz1[0])
     else:
-        mce_Phi0 = get_transition_matrix(fermSat.get_jacobian_matrix(), mce_dt0, gmce.global_STM_taylor_order, convert_Jac_to_meters = True)
+        mce_Phi0 = fermSat.get_transition_matrix(taylor_order=gmce.global_STM_taylor_order, use_units_km=False)
         # CHANGE BELOW
         #mce_A0 = mce_Phi0.T 
         #mce_p0 = gmce.mce_naive_p0.copy() 
@@ -892,8 +969,8 @@ def get_propagated_filter_estimates_and_compare_to_smoother_ephemeris(t0, dt_pre
         while dt_sm > 0:
             if dt_sm < dt_pred:
                 fermi_sat.dt = dt_sm
-            Phik = fermi_sat.get_transition_matrix(taylor_order = gmce.global_STM_taylor_order, use_units_km = True)
-            Pk = Phik @ Pk @ Phik.T
+            #Phik = fermi_sat.get_transition_matrix(taylor_order = gmce.global_STM_taylor_order, use_units_km = True)
+            Phik = fermi_sat.get_simple_transition_matrix(taylor_order = gmce.global_STM_taylor_order, use_units_km = True)
             xk = fermi_sat.step()
             dt_sm -= dt_pred
         xs_kf_pred.append( xk.copy( ) )
@@ -932,7 +1009,7 @@ def get_propagated_filter_estimates_and_compare_to_smoother_ephemeris(t0, dt_pre
             while dt_sm > 0:
                 if dt_sm < dt_pred:
                     fermi_sat.dt = dt_sm
-                Phik = fermi_sat.get_transition_matrix(taylor_order = gmce.global_STM_taylor_order, use_units_km = True)
+                Phik = fermi_sat.get_simple_transition_matrix(taylor_order = gmce.global_STM_taylor_order, use_units_km = True)
                 Pk = Phik @ Pk @ Phik.T
                 xk = fermi_sat.step()
                 dt_sm -= dt_pred
@@ -1132,10 +1209,10 @@ def test_pred_def_overlap_3day(gps_path, restart_ekf_path, restart_smoother_path
     mce_naive_p0 = None if with_mce_kf_init else gmce.mce_naive_p0.copy()
 
     # Number of steps to run the EKF/MCE before running prediction
-    filter_run_steps = 15
+    filter_run_steps = 30
 
     # Number of Ensemble runs
-    days_ensemble = 3
+    days_ensemble = 5
 
     # Prediction Constants
     days_lookahead = 3

@@ -344,7 +344,7 @@ class FermiSatelliteModel():
             Jac = self.solve_for_state_jacobians(Jac, dx_dt[3:])
         return Jac
 
-    def get_transition_matrix(self, taylor_order, use_units_km = True):
+    def _get_transition_matrix(self, taylor_order, use_units_km = True):
         num_sf = len(self.solve_for_states)
         num_x = 6 + num_sf
         Jac = self.get_jacobian_matrix()
@@ -354,6 +354,47 @@ class FermiSatelliteModel():
         for i in range(2, taylor_order+1):
             Phi += np.linalg.matrix_power(Jac, i) * self.dt**i / math.factorial(i)
         return Phi
+    
+    def get_simple_transition_matrix(self, taylor_order, use_units_km = True):
+        num_sf = len(self.solve_for_states)
+        num_x = 6 + num_sf
+        Jac = self.get_jacobian_matrix()
+        if not use_units_km:
+            Jac[3:6,6] *= 1000 # convert Jac to meter-based Jacobian
+        Phi = np.eye(num_x) + Jac * self.dt
+        for i in range(2, taylor_order+1):
+            Phi += np.linalg.matrix_power(Jac, i) * self.dt**i / math.factorial(i)
+        return Phi
+    
+    def get_transition_matrix(self, taylor_order, use_units_km = True):
+        return self.get_precision_transition_matrix(taylor_order = taylor_order, use_units_km=use_units_km, dt_nom_step = 5.0)
+    
+    def get_ellapsed_time(self):
+        return self.gator.GetTime()
+    
+    def get_precision_transition_matrix(self, taylor_order, use_units_km=True, dt_nom_step = 5.0):
+        dt = self.dt
+        x0 = self.get_state()
+        ellapsed_time = self.gator.GetTime()
+        sub_steps = int(dt + dt_nom_step - 1) // int(dt_nom_step)
+        #sub_steps = 12
+        dt_sub = dt / sub_steps
+        self.dt = dt_sub
+        n = 6 + len(self.solve_for_nominals)
+        TAYLOR_ORDER = taylor_order
+        STM_AVG_JAC = np.eye(n)
+        for i in range(sub_steps):
+            # Get Jacobians and STMs over time step DT_SUB
+            Jac_i = self.get_jacobian_matrix()
+            self.step()
+            Jac_ip1 = self.get_jacobian_matrix()
+            Jac_avg = (Jac_i+Jac_ip1)/2
+            if not use_units_km:
+                Jac_avg[3:6,6:] *= 1000
+            STM_AVG_JAC = get_STM(Jac_avg, dt_sub, TAYLOR_ORDER) @ STM_AVG_JAC
+        self.dt = dt
+        self.reset_state_with_ellapsed_time(x0, ellapsed_time)
+        return STM_AVG_JAC
 
     def step(self, noisy_prop_solve_for = False):
         self.gator.Step(self.dt)
@@ -535,7 +576,7 @@ def transform_coordinate_system_jacobian_H(r3vec, date, mode = "ei2b", sat_handl
     return H
 
 # Set convert_Jac_to_meters to True if the Jacobian comes in w.r.t km and you wanna convert it to meters before the Power Series
-def get_transition_matrix(Jac, dt, taylor_order, convert_Jac_to_meters = False):
+def _get_transition_matrix(Jac, dt, taylor_order, convert_Jac_to_meters = False):
     n = Jac.shape[0]
     if convert_Jac_to_meters:
         Jac[3:6,6] *= 1000 # convert Jac to meter-based Jacobian
@@ -543,6 +584,9 @@ def get_transition_matrix(Jac, dt, taylor_order, convert_Jac_to_meters = False):
     for i in range(2, taylor_order+1):
         Phi += np.linalg.matrix_power(Jac, i) * dt**i / math.factorial(i)
     return Phi
+
+def get_STM(Jac, dt, taylor_order, convert_Jac_to_meters = False):
+    return _get_transition_matrix(Jac, dt, taylor_order, convert_Jac_to_meters = convert_Jac_to_meters)
 
 def get_along_cross_radial_rotation_matrix(x):
     # position and velocity 3-vector components

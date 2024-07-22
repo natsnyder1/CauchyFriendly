@@ -146,8 +146,10 @@ def work_Large_DT_Get_Phi_Gam_Fast4(As, sub_dt, taylor_order):
     Gamma_k = Large_DT_Gamma_Fast4(pow_Jacks4, sub_dt)
     return Phi_k, Gamma_k 
 
+'''
 def Regular_DT_Get_xbar_Phi_Gam():
     # Set Phi and Gamma  
+
     Jac = global_leo.get_jacobian_matrix()
     Jac[3:6,6] *= 1000 # km to m
     dt = global_leo.dt
@@ -176,11 +178,59 @@ def Large_DT_Get_xbar_Phi_Gam_Fast4():
     global_leo.dt = dt
     x_bar[0:6] *= 1000 # km -> m
     return x_bar, Phi_k, Gamma_k
+'''
+
+def Regular_DT_Get_xbar_Phi_Gam():
+    global global_leo
+    # Set Phi and Gamma  
+    Phi_k = global_leo.get_transition_matrix(taylor_order = global_STM_taylor_order, use_units_km = False)
+    #state = global_leo.get_state()
+    #ellapsed_time = global_leo.get_ellapsed_time()
+    Jac1 = global_leo.get_jacobian_matrix()
+    Jac1[3:6,6:] *= 1000 # km to m
+    x_bar = global_leo.step()
+    x_bar[0:6] *= 1000
+    Jac2 = global_leo.get_jacobian_matrix()
+    Jac2[3:6,6:] *= 1000 # km to m
+    Jac = (Jac1 + Jac2) / 2.0
+    #global_leo.reset_state_with_ellapsed_time(state, ellapsed_time)
+    dt = global_leo.dt
+    pow_Jacs = Get_Power_Jacobians(Jac, global_STM_taylor_order)
+    IPhi_k = Get_Integral_Of_Matrix_Exponential(pow_Jacs, dt)
+    Gamma_k = IPhi_k[:, -1]
+    return x_bar, Phi_k, Gamma_k
+
+def Large_DT_Get_xbar_Phi_Gam_Fast4():
+    global global_leo
+    dt = global_leo.dt
+    num_substeps = 4 
+    assert(num_substeps == 4)
+    # Get STM Phik
+    Phi_k = global_leo.get_transition_matrix( taylor_order = global_STM_taylor_order, use_units_km = False)
+    # Get Approx for Gammak, return x_bar
+    sub_dt = dt / num_substeps
+    global_leo.dt = sub_dt
+    As = []  # Jacobians
+    Jac1 = global_leo.get_jacobian_matrix()
+    Jac1[3:6,6] *= 1000 # km to m
+    for i in range(num_substeps):
+        x_bar = global_leo.step()
+        Jac2 = global_leo.get_jacobian_matrix()
+        Jac2[3:6,6] *= 1000 # km to m
+        A = (Jac1 + Jac2) / 2.0
+        As.append(A)
+        Jac1 = Jac2.copy()
+    pow_Jacks4 = Large_DT_Get_Power_Jacobians_Fast4(As, taylor_order=global_STM_taylor_order)
+    Gamma_k = Large_DT_Gamma_Fast4(pow_Jacks4, sub_dt)
+    global_leo.dt = dt
+    x_bar[0:6] *= 1000 # km -> m
+    return x_bar, Phi_k, Gamma_k
+
 
 def ece_dynamics_update_callback(c_duc):
     pyduc = ce.Py_CauchyDynamicsUpdateContainer(c_duc)
     global global_leo
-    if global_leo.dt < 70:
+    if global_leo.dt < 15:
         x_bar, Phi_k, Gamma_k = Regular_DT_Get_xbar_Phi_Gam()
     else:
         x_bar, Phi_k, Gamma_k = Large_DT_Get_xbar_Phi_Gam_Fast4() # divys the large dt into four pieces
@@ -817,6 +867,7 @@ class GmatMCE():
             x_reset = self.xhat.copy()
             x_reset[0:6] /= 1000
             global_leo.reset_state_with_ellapsed_time(x_reset, ellapsed_time)
+            '''
             Phi_total = np.eye(7)
             for dtss in dt_sub_steps:
                 global_leo.dt = dtss 
@@ -827,6 +878,10 @@ class GmatMCE():
                     Phi_k += np.linalg.matrix_power(Jac, i) * global_leo.dt**i / math.factorial(i)
                 Phi_total = Phi_k @ Phi_total
                 xprop = global_leo.step()
+            '''
+            global_leo.dt = np.sum(dt_sub_steps)
+            Phi_total = global_leo.get_transition_matrix(taylor_order=global_STM_taylor_order, use_units_km=False)
+            xprop = global_leo.step()
             self.cauchyEsts[0].deterministic_transform(Phi_total, np.zeros(7))
             pyduc = self.cauchyEsts[0].get_pyduc()
             xprop[0:6] *= 1000
@@ -846,6 +901,7 @@ class GmatMCE():
                     xhat[0:6] /= 1000
                     global_leo.reset_state_with_ellapsed_time(xhat, ellapsed_time)
                     Phi_total = np.eye(7)
+                    '''
                     for dtss in dt_sub_steps:
                         global_leo.dt = dtss 
                         Jac = global_leo.get_jacobian_matrix()
@@ -855,6 +911,10 @@ class GmatMCE():
                             Phi_k += np.linalg.matrix_power(Jac, j) * global_leo.dt**j / math.factorial(j)
                         Phi_total = Phi_k @ Phi_total
                         xprop = global_leo.step()
+                    '''
+                    global_leo.dt = np.sum(dt_sub_steps)
+                    Phi_total = global_leo.get_transition_matrix(taylor_order=global_STM_taylor_order, use_units_km=False)
+                    xprop = global_leo.step()
                     self.cauchyEsts[i].deterministic_transform( Phi_total, np.zeros(7) )
                     pyduc = self.cauchyEsts[i].get_pyduc()
                     xprop[0:6] *= 1000
