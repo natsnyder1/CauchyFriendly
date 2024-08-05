@@ -83,7 +83,7 @@ classdef MSlidingWindowManager < handle
             i_step = int32(step);
             d_dt = double(dt);
             for i = 1:obj.num_windows
-                obj.cauchyEsts{i}.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma, i_step + i, d_dt);
+                obj.cauchyEsts{i}.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma, i_step + i-1, d_dt);
                 obj.cauchyEsts{i}.set_window_number(i);
             end
             obj.is_initialized = true;
@@ -96,9 +96,39 @@ classdef MSlidingWindowManager < handle
             % Placeholder for initialize_ltv method
         end
         
-        function initialize_nonlin(obj, varargin)
-            % Placeholder for initialize_nonlin method
+        
+        function initialize_nonlin(obj, x0, A0, p0, b0, beta, gamma, dynamics_update_callback, nonlinear_msmt_model, extended_msmt_update_callback, cmcc, dt, step, reinit_func)
+            if nargin < 14
+                reinit_func = [];
+            end
+            if nargin < 13
+                step = 0;
+            end
+            if nargin < 12
+                dt = 0;
+            end
+            if isscalar(p0)
+                error('[Error MyClassName:] Do not use this class for scalar systems! Use the MyClassForScalar instead!');
+            end
+            if ~strcmp(obj.mode, "nonlin")
+                fprintf('Attempting to call initialize_nonlin method when mode was set to %s is not allowed! You must call initialize_%s ... or reset the mode altogether!\n', obj.mode, obj.mode);
+                disp('Nonlin initialization not successful!');
+                return;
+            end
+            obj.reinit_func = reinit_func;
+            new_dt = double(dt);
+            new_step = int32(step);
+            for i = 1:obj.num_windows
+                obj.cauchyEsts{i}.initialize_nonlin(x0, A0, p0, b0, beta, gamma, dynamics_update_callback, nonlinear_msmt_model, extended_msmt_update_callback, cmcc, new_dt, new_step + i - 1);
+                obj.cauchyEsts{i}.set_window_number(i); 
+            end
+            obj.is_initialized = true;
+            obj.set_dimensions();
+            fprintf('Nonlin initialization successful! You can use the step(msmts, controls) method now to run the Sliding Window Manager!\n');
+            fprintf('Note: Conditional Mean/Variance will be a function of the last %d time-steps, %d measurements per step == %d total!\n', ...
+                obj.num_windows, obj.p, obj.p * obj.num_windows);
         end
+
         
         function [best_idx, okays] = best_window_est(obj)
             W = obj.num_windows;

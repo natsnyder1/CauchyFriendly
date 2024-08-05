@@ -91,12 +91,12 @@ classdef M_CauchyDynamicsUpdateContainer < handle
         end
 
         function obj = cset_is_xbar_set_for_ece(obj)
-            obj.cduc = mcauchy_dynamics_set_is_xbar_set_for_ece(obj.cduc, true);
+            mcauchy_dynamics_set_is_xbar_set_for_ece(obj.cduc, true);
         end
         
         function obj = cset_zbar(obj, c_zbar, zbar)
             assert(isvector(zbar) && length(zbar) == obj.p, 'zbar must be a vector of length p.');
-            obj.cduc = mcauchy_dynamics_set_zbar(obj.cduc, c_zbar, zbar, obj.p);
+            mcauchy_dynamics_set_zbar(obj.cduc, c_zbar, zbar, obj.p);
         end
         
     end

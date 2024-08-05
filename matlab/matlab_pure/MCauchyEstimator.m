@@ -36,9 +36,15 @@ classdef MCauchyEstimator < handle
         gamma
         mcauchy_handle
         is_initialized = false
+        % initialize_nonlin
+        x0
+        f_duc_ptr1
+        f_duc_ptr2
+        f_duc_ptr3
         % step
         msmts
         controls
+        free_names_ptr
     end
     
     methods (Access = public)
@@ -59,6 +65,7 @@ classdef MCauchyEstimator < handle
             assert(obj.num_steps > 0, 'Number of steps must be positive.');
 
             obj.debug_print = logical(debug_print);
+
         end
 
         
@@ -291,7 +298,7 @@ classdef MCauchyEstimator < handle
             end
             
             [msmts, controls] = obj.msmts_controls_checker(msmts, controls);
-            obj.msmts = msmts; % In MATLAB, no need to explicitly copy
+            obj.msmts = msmts;
             obj.controls = controls;
             
             [xk, Pk] = obj.call_step(msmts, controls, full_info);
@@ -335,8 +342,8 @@ classdef MCauchyEstimator < handle
                 A0 = mcauchy_get_reinitialization_statistics(obj.mcauchy_handle, reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma);
                 A0 = reshape(A0, [obj.n, obj.n]);
             else
-                reinit_xbar = obj.xbar((msmt_idx*obj.n)+1:(msmt_idx+1)*obj.n);
-                reinit_zbar = obj.zbar(msmt_idx+1);
+                reinit_xbar = obj.xbar(((msmt_idx-1)*obj.n)+1:(msmt_idx)*obj.n);
+                reinit_zbar = obj.zbar(msmt_idx);
                 dx = reinit_xhat - reinit_xbar;
                 dz = reinit_msmt - reinit_zbar;
                 [A0, p0, b0] = mcauchy_get_reinitialization_statistics(obj.mcauchy_handle, dz, dx, reinit_Phat, reinit_H, reinit_gamma);
@@ -448,6 +455,10 @@ classdef MCauchyEstimator < handle
         end
     
         function shutdown(obj)
+            if obj.free_names_ptr ~= 0
+                mcauchy_free_names(obj.free_names_ptr);
+            end
+            obj.free_names_ptr = 0;
             if ~obj.is_initialized
                 error('Cannot shutdown estimator before it has been initialized!');
             end
@@ -462,6 +473,10 @@ classdef MCauchyEstimator < handle
                 obj.shutdown();
                 obj.is_initialized = false;
             end
+            if obj.free_names_ptr ~= 0
+                mcauchy_free_names(obj.free_names_ptr);
+            end
+            obj.free_names_ptr = 0;
         end
 
 
@@ -631,10 +646,78 @@ classdef MCauchyEstimator < handle
             % Insert code for LTV initialization
         end
 
-        % Placeholder for 'initialize_nonlin' method
         function initialize_nonlin(obj, x0, A0, p0, b0, beta, gamma, dynamics_update_callback, nonlinear_msmt_model, extended_msmt_update_callback, cmcc, dt, step)
-            disp('initialize_nonlin method is not yet implemented.');
-            % Insert code for Nonlinear initialization
+            if nargin < 13
+                step = 0;
+            end
+            if nargin < 12
+                dt = 0;
+            end
+            
+            if ~strcmp(obj.mode, "nonlin")
+                fprintf('Attempting to call initialize_lti method when mode was set to %s is not allowed! You must call initialize_%s ... or reset the mode altogether!\n', obj.mode, obj.mode);
+                fprintf('NonLin initialization not successful!\n');
+                return;
+            end
+
+            if isstring(dynamics_update_callback)
+                f_duc_name1 = char(dynamics_update_callback);
+            else
+                f_duc_name1 = dynamics_update_callback;
+            end
+            if isstring(nonlinear_msmt_model)
+                f_duc_name2 = char(nonlinear_msmt_model);
+            else
+                f_duc_name2 = nonlinear_msmt_model;
+            end
+            if isstring(extended_msmt_update_callback)
+                f_duc_name3 = char(extended_msmt_update_callback);
+            else
+                f_duc_name3 = extended_msmt_update_callback;
+            end
+            
+            obj.n = obj.init_params_checker(A0, p0, b0);  
+            
+            if isempty(beta)
+                obj.pncc = 0;
+            else
+                assert(isvector(beta), 'beta must be a vector.');
+                obj.pncc = length(beta);
+            end
+            assert(isvector(gamma), 'gamma must be a vector.');
+            obj.p = length(gamma);
+            obj.cmcc = int32(cmcc);
+            assert(numel(x0) == obj.n, 'Size of x0 must match the system dimension.');
+
+            if obj.free_names_ptr ~= 0
+                mcauchy_free_names(obj.free_names_ptr);
+            end
+            obj.free_names_ptr = 0;
+
+            [obj.f_duc_ptr1, obj.f_duc_ptr2, obj.f_duc_ptr3, obj.free_names_ptr] = ...
+                mcauchy_get_nonlin_function_pointers(f_duc_name1, f_duc_name2, f_duc_name3);
+
+            obj.x0 = double(x0(:));
+            obj.A0 = double(A0(:));
+            obj.p0 = double(p0(:));
+            obj.b0 = double(b0(:));
+            if ~isempty(beta) 
+                obj.beta = double(beta(:));
+            else 
+                obj.beta = [];
+            end
+            obj.gamma = double(gamma(:));
+            
+            dt = double(dt);
+            step = int32(step);
+            
+            obj.mcauchy_handle = mcauchy_initialize_nonlin(obj.num_steps, obj.x0, obj.A0, obj.p0, obj.b0, obj.beta, obj.gamma, obj.f_duc_ptr1, obj.f_duc_ptr2, obj.f_duc_ptr3, obj.cmcc, dt, step, obj.debug_print);
+            
+            obj.is_initialized = true;
+            
+            fprintf('Nonlin initialization successful! You can use the step(msmts, controls) method now to run the Cauchy Estimator!\n');
+            fprintf('Note: You can call the step function %d time-steps, %d measurements per step == %d total times!\n', ...
+                    obj.num_steps, obj.p, obj.num_steps * obj.p);
         end
 
         % Placeholder for 'step_asynchronous' method

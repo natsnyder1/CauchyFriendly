@@ -11,7 +11,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexErrMsgIdAndTxt("MATLAB:mcauchy_dynamics_set_is_xbar_set_for_ece:nlhs", "No outputs expected.");
     }
 
-    CauchyDynamicsUpdateContainer *cduc = (CauchyDynamicsUpdateContainer *)mxGetData(prhs[0]);
+    uint64_t pointerValue = *((uint64_t*)mxGetData(prhs[0]));
+    CauchyDynamicsUpdateContainer *cduc = (CauchyDynamicsUpdateContainer *)pointerValue;
+    
     mxLogical *is_set = mxGetLogicals(prhs[1]);
 
     cduc->is_xbar_set_for_ece = is_set[0];

@@ -11,7 +11,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexErrMsgIdAndTxt("MATLAB:mcauchy_dynamics_get_Gam:nlhs", "One output required.");
     }
 
-    CauchyDynamicsUpdateContainer *cduc = (CauchyDynamicsUpdateContainer *)mxGetData(prhs[0]);
+    uint64_t pointerValue = *((uint64_t*)mxGetData(prhs[0]));
+    CauchyDynamicsUpdateContainer *cduc = (CauchyDynamicsUpdateContainer *)pointerValue;
+    
     int n = cduc->n;
     int pncc = cduc->pncc;
     plhs[0] = mxCreateDoubleMatrix(n, pncc, mxREAL);

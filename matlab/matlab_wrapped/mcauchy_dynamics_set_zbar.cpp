@@ -11,9 +11,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexErrMsgIdAndTxt("MATLAB:mcauchy_dynamics_set_zbar:nlhs", "No output expected.");
     }
 
-    CauchyDynamicsUpdateContainer *cduc = (CauchyDynamicsUpdateContainer *)mxGetData(prhs[0]);
-    uint64_t pointerValue = *((uint64_t*)mxGetData(prhs[1]));
-    double *c_zbar = (double *)pointerValue;
+    uint64_t pointerValue0 = *((uint64_t*)mxGetData(prhs[0]));
+    CauchyDynamicsUpdateContainer *cduc = (CauchyDynamicsUpdateContainer *)pointerValue0;
+
+    uint64_t pointerValue1 = *((uint64_t*)mxGetData(prhs[1]));
+    double *c_zbar = (double *)pointerValue1;
     double *input_zbar = mxGetPr(prhs[2]);
     mwSize numElements = mxGetNumberOfElements(prhs[2]);
     double p = mxGetScalar(prhs[3]);

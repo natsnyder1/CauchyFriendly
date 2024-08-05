@@ -12,7 +12,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
         mexErrMsgIdAndTxt("MATLAB:mcauchy_dynamics_set_gamma:nlhs", "No outputs expected.");
     }
     
-    CauchyDynamicsUpdateContainer *cduc = (CauchyDynamicsUpdateContainer *)mxGetData(prhs[0]);
+    uint64_t pointerValue = *((uint64_t*)mxGetData(prhs[0]));
+    CauchyDynamicsUpdateContainer *cduc = (CauchyDynamicsUpdateContainer *)pointerValue;
+    
     double *input_gamma = mxGetPr(prhs[1]);
     mwSize numElements = mxGetNumberOfElements(prhs[1]);
     
