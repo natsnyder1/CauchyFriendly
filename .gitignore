@@ -3,3 +3,6 @@
 *.mex*
 *.o
 *.mat
+*.txt
+*.bin
+*.asv
