@@ -73,7 +73,6 @@ classdef M_CauchyDynamicsUpdateContainer < handle
 
         function H = cget_H(obj)
             H = mcauchy_dynamics_get_H(obj.cduc);
-            H = H';
         end
 
         function obj = cset_H(obj, H)

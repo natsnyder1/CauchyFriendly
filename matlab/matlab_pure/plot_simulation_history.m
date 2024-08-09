@@ -162,8 +162,9 @@ function plot_simulation_history(cauchy_moment_info, simulation_history, kf_hist
         subplot(3, 1, 2);
         semilogy(T(cd+1:plot_len), cerr_covars, 'k');
         
+        abs_cerr_norm_factors = abs(cerr_norm_factors);
         subplot(3, 1, 3);
-        semilogy(T(cd+1:plot_len), cerr_norm_factors, 'k');
+        semilogy(T(cd+1:plot_len), abs_cerr_norm_factors, 'k');
     end
     
 end
