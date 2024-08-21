@@ -1679,6 +1679,9 @@ def plot_simulation_history(cauchy_moment_info, simulation_history, kf_history, 
         plt.semilogy(T[cd:plot_len], cerr_norm_factors, 'g')
     plt.show()
 
+def plot_state_errors( sim_tuple, list_est_tuples):
+    pass 
+
 def plot_2D_pointwise_cpdfs(XYZ_list, cond_means_list, colors):
         GRID_HEIGHT = 8
         GRID_WIDTH = 2

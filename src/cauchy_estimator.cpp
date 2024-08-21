@@ -69,8 +69,8 @@ void test_cauchy_2_state_moshe()
   //PointWise2DCauchyCPDF cpdf(log_dir,-1.5, 1.5, 0.25, -3, 1, 0.25);
   //PointWise2DCauchyCPDF cpdf(log_dir,.1, 1, .2, .2, 1, .2);
 
-  PointWiseNDimCauchyCPDF cpdf(&cauchyEst);
-  CauchyCPDFGridDispatcher2D grid2d(&cpdf, -2, 2, .025, -2, 2, .025);
+  //PointWiseNDimCauchyCPDF cpdf(&cauchyEst);
+  //CauchyCPDFGridDispatcher2D grid2d(&cpdf, -2, 2, .025, -2, 2, .025);
 
   double zs[steps] = {0.0338, 0.2049, -2.3543, -0.6042, -0.2662, 0.1307, -0.2250, 0.1951, -0.2191, 0.0996};
                       //-1.7507202433585822, -1.3984154994099112, -1.7541436172809546, -1.8796017689052031, 
@@ -78,9 +78,11 @@ void test_cauchy_2_state_moshe()
   for(int i = 0; i < steps-SKIP_LAST_STEP; i++)
   {
     cauchyEst.step(zs[i], Phi, Gamma, beta, H, gamma[0], NULL, NULL);
+    
     //cpdf.evaluate_point_wise_cpdf(&cauchyEst); //, NUM_CPUS);
     //printf("x=%.2lf, y=%.2lf, z=%.6E\n", cpdf.cpdf_points[0].x, cpdf.cpdf_points[0].y, cpdf.cpdf_points[0].z );
-    grid2d.evaluate_point_grid(0, 1, 2,true);
+    
+    //grid2d.evaluate_point_grid(0, 1, 8, true);
     //printf("x=%.2lf, y=%.2lf, z=%.6E\n", grid2d.points[0].x, grid2d.points[0].y, grid2d.points[0].z);
   }
 }

@@ -1209,10 +1209,10 @@ def test_pred_def_overlap_3day(gps_path, restart_ekf_path, restart_smoother_path
     mce_naive_p0 = None if with_mce_kf_init else gmce.mce_naive_p0.copy()
 
     # Number of steps to run the EKF/MCE before running prediction
-    filter_run_steps = 30
+    filter_run_steps = 8
 
     # Number of Ensemble runs
-    days_ensemble = 5
+    days_ensemble = 1
 
     # Prediction Constants
     days_lookahead = 3
@@ -1643,7 +1643,7 @@ if __name__ == "__main__":
     # USER: Choose Your Subdirectory Name...
     # Either ... Create a new Subdirectory 
     #        ... or Append Data to an Existing Subdirectory
-    ensemble_sub_dir_name = "run_foo" #"run_beta_small30" # your choice
+    ensemble_sub_dir_name = "_run_beta_russell_w5" #"run_beta_small30" # your choice
 
     # Run Ensemble
     #'''
@@ -1652,17 +1652,17 @@ if __name__ == "__main__":
     print("Data Was Stored In Directory: ", ensemble_fpath)
     #'''
 
-    #'''
+    '''
     # Plot Ensemble
     override_sigma = None # set to [1,2,3...] if you have a hankering to see plots with various sigmas besides the set sigma
     with_plot_mce_best = False
     with_plot_mce_avg = True
     plot_pred_def_overlap_3day(ensemble_sub_dir_name, override_sigma, with_plot_mce_best, with_plot_mce_avg)
     foobar=2
-    #'''
+    '''
 
     # Store Daily Plots
-    store_daily_plots(ensemble_sub_dir_name)
+    #store_daily_plots(ensemble_sub_dir_name)
 
     # View Single Plot on Chosen Day
     #view_selected_daily_plot(ensemble_sub_dir_name, day = 3)

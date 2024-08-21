@@ -270,7 +270,7 @@ def fermi_sat_prop(r_sat = 550e3):
 
 # Process Noise Model 
 def leo6_process_noise_model(dt):
-    q = 8e-21; # Process noise ncertainty in the process position and velocity
+    q = 1e-18 #8e-21; # Process noise ncertainty in the process position and velocity
     W = np.zeros((6,6))
     W[0:3,0:3] = q * np.eye(3) * dt**3 / 3 
     W[0:3,3:6] = q * np.eye(3) * dt**2 / 2 
@@ -861,6 +861,8 @@ def test_gmat_ekf6():
     foobar = 2
 
 def test_gmat_ekf7():
+    np.random.seed(10)
+    junk = np.random.randn(3000)
     r_sat = 550e3 #km
     r_earth = 6378.1e3
     M = 5.9722e24 # Mass of earth (kg)
@@ -874,9 +876,9 @@ def test_gmat_ekf7():
 
     # Convert to kilometers
     x0 /= 1e3 # kilometers
-    std_gps_noise = 7.5 / 1e3 # kilometers
+    std_gps_noise = 7.5e-3 #7.5 / 1e10 # kilometers
     dt = 60 
-    num_orbits = 1
+    num_orbits = 10
     # Process Noise Model
     W = leo6_process_noise_model(dt)
     # Create Satellite Model 
@@ -886,24 +888,25 @@ def test_gmat_ekf7():
     std_Cd = 0.0013
     tau_Cd = 21600
     fermiSat.set_solve_for("Cd", "sas", std_Cd, tau_Cd, alpha=1.3)
-    std_Cr = 0.0013
-    tau_Cr = 21600
+    #fermiSat.set_solve_for("Cd", "gauss", std_Cd, tau_Cd)
+    #std_Cr = 0.0013
+    #tau_Cr = 21600
     #fermiSat.set_solve_for("Cr", "gauss", std_Cr, tau_Cr)#, alpha=1.3)
-    xs, zs, ws, vs = fermiSat.simulate(num_orbits, W=W)
+    xs, zs, ws, vs = fermiSat.simulate(num_orbits, W=0*W)
 
     n = 6 + len(fermiSat.solve_for_states)
     Wn = np.zeros((n,n))
     # Process noise for Position and Velocity
     Wn[0:6,0:6] = W.copy()
-    Wn[0:6,0:6] *= 1000 # Tunable w/ altitude
+    #Wn[0:6,0:6] *= 1000 # Tunable w/ altitude
     # Process Noise for changes in Cd
     if n > 6:
-        Wn[6,6] = (1.3898 * std_Cd)**2
-        Wn[6,6] *= 1000#0 # Tunable w/ altitude
+        Wn[6,6] = std_Cd #(1.3898 * std_Cd)**2 #50*(1.3898 * std_Cd)**2
+        #Wn[6,6] *= 1000#0 # Tunable w/ altitude
     # Process Noise for changes in Cr
-    if n > 7:
-        Wn[7,7] = (1.3898 * std_Cr)**2
-        #Wn[7,7] *= 100#0 # Tunable w/ altitude
+    #if n > 7:
+    #    Wn[7,7] = (1.3898 * std_Cr)**2
+    #    #Wn[7,7] *= 100#0 # Tunable w/ altitude
 
     V = np.eye(3) * std_gps_noise**2
     I = np.eye(n)
@@ -2367,9 +2370,9 @@ if __name__ == "__main__":
     #test_reset_influence()
     #test_solve_for_state_derivatives_influence()
     #test_gmat_ekf6()
-    #test_gmat_ekf7()
+    test_gmat_ekf7()
     #test_gmat_ekfs7()
-    test_gmat_ece7()
+    #test_gmat_ece7()
     #test_prediction_results()
     #test_point_in_ellipse()
     #test_mc_trial_logger()

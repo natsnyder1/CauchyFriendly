@@ -43,9 +43,6 @@ def datetime_2_time_string(t):
 def time_string_2_datetime(t):
     return datetime.strptime(t, "%d %b %Y %H:%M:%S.%f")
 
-MonthDic = {"Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12}
-MonthDic2 = {v:k for k,v in MonthDic.items()}
-
 # Time conversion function using GMAT
 def time_convert(time_in, type_in, type_out):
     if type(time_in) == datetime:
@@ -73,12 +70,12 @@ def time_convert(time_in, type_in, type_out):
     assert type_out in time_types.keys()
     time_code_in = time_types[type_in]
     time_code_out = time_types[type_out]
-    time_out_mjt = timecvt.Convert(time_in_mjd, time_code_in, time_code_out)
-    time_out_greg = timecvt.ConvertMjdToGregorian(time_out_mjt)
+    time_out_mjd = timecvt.Convert(time_in_mjd, time_code_in, time_code_out)
+    time_out_greg = timecvt.ConvertMjdToGregorian(time_out_mjd)
     time_dic = {"in_greg" : time_in_greg, 
                 "in_mjd" : time_in_mjd, 
                 "out_greg": time_out_greg, 
-                "out_mjd": time_out_mjt}
+                "out_mjd": time_out_mjd}
     return time_dic
 
 

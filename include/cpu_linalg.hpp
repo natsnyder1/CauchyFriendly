@@ -1059,6 +1059,48 @@ void forward_solve(double *L, double *b, double *x, const int M, const int N, bo
 
 }
 
+// forward solves the system of equations b = Lx 
+// Note: L can (possibly) be in row-wise upper triag form -> ie: the matrix is stored in memory as a U and not a L.
+// This is for the case the user wishes to solve b = U.T @ x but does not wish to explicitly transpose U
+// If this is so, is_lower must be set to false
+void forward_solve_nrhs(double *L, double *B, double *X, const int n, const int nrhs)
+{
+    // Normal Case. L is stored row-wise lower triangular in memory
+    for(int k = 0; k < nrhs; k++)
+    {
+        for(int i = 0; i < n; i++) // M
+        {
+            double sol = B[i*nrhs + k];
+            if(i > 0)
+            {
+                for(int j = 0; j < i; j++)
+                    sol -= L[i*n + j] * X[j*nrhs + k];
+            }
+            X[i*nrhs + k] = sol / L[i*n + i];
+        }
+    }
+}
+
+// back solves the system of equations b = Ux 
+// Note: U can (possibly) be in row-wise lower triag form -> ie: the matrix is stored in memory as a L and not a U
+// This is for the case the user wishes to solve b = L.T @ x but does not wish to explicitly transpose L
+// If this is so, is_upper must be set to false
+void back_solve_nrhs(double *U, double *B, double *X, const int n, const int nrhs)
+{
+    int top = n-1;
+    for(int k = 0; k < nrhs; k++)
+    {
+        for(int i = top; i >= 0; i--)
+        {
+            double sol = B[i*nrhs + k];
+            if(i < top)
+                for(int j = top; j > i; j--)
+                    sol -= U[i * n + j] * X[j*nrhs + k];
+            X[i*nrhs + k] = sol / U[i * n + i];
+        }
+    }
+}
+
 // back solves the system of equations b = Ux 
 // Note: U can (possibly) be in row-wise lower triag form -> ie: the matrix is stored in memory as a L and not a U
 // This is for the case the user wishes to solve b = L.T @ x but does not wish to explicitly transpose L
