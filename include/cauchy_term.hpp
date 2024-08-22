@@ -3,7 +3,7 @@
 
 #include "cauchy_types.hpp"
 #include "eval_gs.hpp"
-#include "cpu_linalg.hpp"
+#include "cauchy_linalg.hpp"
 #include "gtable.hpp"
 
 struct ChildTermWorkSpace

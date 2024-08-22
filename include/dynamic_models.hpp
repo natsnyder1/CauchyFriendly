@@ -1,14 +1,14 @@
 #ifndef _DYNAMIC_MODELS_HPP_
 #define _DYNAMIC_MODELS_HPP_
 
-#include <cstring>
+#include <string.h>
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <assert.h>
 
-#include "cpu_linalg.hpp"
+#include "cauchy_linalg.hpp"
 #include "random_variables.hpp"
 
 // Container used to update the Dynamics of the Kalman Filter when the model is LTI, LTV, or non-linear

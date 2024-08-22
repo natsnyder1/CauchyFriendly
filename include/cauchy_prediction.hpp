@@ -6,7 +6,7 @@
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"
 #include "cauchy_util.hpp"
-#include "cpu_linalg.hpp"
+#include "cauchy_linalg.hpp"
 #include "cpdf_ndim.hpp"
 #include "cpu_timer.hpp"
 #include "random_variables.hpp"

@@ -11,6 +11,7 @@ CFLAGS=""
 #$(INC_LAPACK) $(LIB_LAPACK)
 
 LIB_LAPACK = -llapacke -llapack -lblas -lm -lpthread
+LIB_MATH_PTHREAD = -lm -lpthread
 #LIB_LAPACK= -Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl
 
 
@@ -22,25 +23,32 @@ else
 endif
 
 bin/cauchy_estimator : src/cauchy_estimator.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK) 
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_MATH_PTHREAD)
+#$(LIB_LAPACK) 
 
 bin/window_manager : src/window_manager.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_MATH_PTHREAD)
+#$(LIB_LAPACK)  
 
 bin/leo_satellite_5state : src/leo_satellite_5state.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_MATH_PTHREAD)
+#$(LIB_LAPACK)  
 
 bin/homing_missile : src/homing_missile.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_MATH_PTHREAD)
+#$(LIB_LAPACK)
 
 bin/leo_satellite_7state : src/leo_satellite_7state.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_MATH_PTHREAD)
+#$(LIB_LAPACK)  
 
 bin/leo_satellite_5state_gps : src/leo_satellite_5state_gps.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_MATH_PTHREAD)
+#$(LIB_LAPACK)  
 
 bin/leo_satellite_7state_gps : src/leo_satellite_7state_gps.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)  
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_MATH_PTHREAD)
+#$(LIB_LAPACK)  
 
 cauchy : bin/cauchy_estimator
 window : bin/window_manager

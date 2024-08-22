@@ -52,15 +52,15 @@ def simulate_pendulum(x0, steps):
     for i in range(steps):
         _, Gamma_k = c2d_linearized_dynamics(xk)
         # Some different ways of creating the process noise matrix, or sampling from it 
-        wk = np.random.standard_cauchy() * np.sqrt(pend.PSD/pend.dt) * ce.GAUSSIAN_TO_CAUCHY_NOISE
+        #wk = np.random.standard_cauchy() * np.sqrt(pend.PSD/pend.dt) * ce.GAUSSIAN_TO_CAUCHY_NOISE
 
         #Wk = 1.0/pend.dt * Gamma_k @ np.atleast_2d(pend.PSD) @ Gamma_k.T #1
         #wk = Gamma_k.reshape(-1) * np.random.randn() * np.sqrt(pend.PSD/pend.dt) #1a
         #wk = np.random.multivariate_normal(np.zeros(2), Wk) #1b
 
         # Qk and Wk come out very similar, except that Qk is full rank and Wk is not
-        #_,_,Qk = ce.discretize_nl_sys( ce.cd4_gvf(xk, pend_ode), np.array([[0.0,1.0]]).T, np.atleast_2d(pend.PSD), pend.dt, 2) #2
-        #wk = np.random.multivariate_normal(np.zeros(2), Qk)
+        _,_,Qk = ce.discretize_nl_sys( ce.cd4_gvf(xk, pend_ode), np.array([[0.0,1.0]]).T, np.atleast_2d(pend.PSD), pend.dt, 2) #2
+        wk = np.random.multivariate_normal(np.zeros(2), Qk)
         
         xk = nonlin_transition_model(xk) + wk
         xs.append(xk)
@@ -134,7 +134,7 @@ gamma = (np.sqrt(V) * ce.GAUSSIAN_TO_CAUCHY_NOISE).reshape(-1) #/ np.sqrt(2) # t
 #for i in range(6):
 #print("Testing windows of {}!".format(3+i))
 ce.set_tr_search_idxs_ordering([1,0])
-num_windows = 8 #3 + i
+num_windows = 6 #3 + i
 num_controls = 0
 swm_print_debug = True
 win_print_debug = False

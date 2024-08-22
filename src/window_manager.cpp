@@ -49,7 +49,7 @@ void test_3state_window_manager()
     kduc.W = W; kduc.V = V;
     kduc.step = 0; kduc.dt = 0; kduc.other_stuff = NULL; kduc.x = NULL;
 
-    int num_steps = 100;
+    int num_steps = 200;
     SimulationLogger* sim_log;
     if(is_gaussian_sim)
         sim_log = new SimulationLogger(log_dir, num_steps, x0_kf, &kduc, gaussian_lti_transition_model, gaussian_lti_measurement_model);
@@ -60,7 +60,7 @@ void test_3state_window_manager()
     
     // New Sliding Window Manager
     int total_steps = num_steps+1; // including estimation for x0 (i.e, z0 -> first MU)
-    int num_windows = 9;
+    int num_windows = 6;
     const bool WINDOW_PRINT_DEBUG = false;
     const bool WINDOW_LOG_SEQUENTIAL = false;
     const bool WINDOW_LOG_FULL = false;

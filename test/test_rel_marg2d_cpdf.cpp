@@ -502,7 +502,7 @@ bool ubc3_check_hess_g(double* H)
     double evecs[4];
     memset(evals,0, 2*sizeof(double));
     memset(evecs,0, 4*sizeof(double));
-    lapacke_sym_eig(H, evals, evecs, 2);
+    sym_eig(H, evals, evecs, 2);
     if( (evals[0] >= -1e-15) && (evals[1]>= -1e-15) )
         return true;
     else

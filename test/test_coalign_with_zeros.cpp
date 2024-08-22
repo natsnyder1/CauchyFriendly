@@ -1,12 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "../include/cpu_linalg.hpp"
+#include "../include/cauchy_linalg.hpp"
 
 const double ZERO_EPSILON = 1e-10;
 const int ZERO_HP_MARKER_VALUE = 32;
-
-
 
 int marg2d_remove_zeros_and_coalign(double* work_A, double* work_p, double* work_A2, double* work_p2, int* c_map, int* cs_map, int m)
 {

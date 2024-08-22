@@ -1,9 +1,9 @@
 #ifndef _ARRAY_LOGGING_HPP_
 #define _ARRAY_LOGGING_HPP_
 
-#include "stdlib.h"
+#include <stdlib.h>
 #include <assert.h>
-#include <cstring>
+#include <string.h>
 #include <stdio.h>
 #include <dirent.h>
 #include <errno.h>

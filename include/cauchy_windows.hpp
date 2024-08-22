@@ -5,9 +5,10 @@
 #include "cauchy_constants.hpp"
 #include "cauchy_estimator.hpp"
 #include "cauchy_types.hpp"
-#include "cpu_linalg.hpp"
+#include "cauchy_linalg.hpp"
 #include "cpu_timer.hpp"
 #include "dynamic_models.hpp"
+#include "eig_solve.hpp"
 
 //#include <cstdio>
 //#include <sys/types.h>
@@ -359,11 +360,18 @@ void speyers_window_init(const int N, double* x1_hat, double* Var,
     if(window_var_boost != NULL)
         for(int i = 0; i < N; i++)
             Var[i*N+i] += window_var_boost[i];
+    
     // Check for positive definiteness of Var
-    memcpy(work, Var, N*N*sizeof(double));
-    memset(work2, 0, N*sizeof(double));
-    LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', N, work, N, work2);
-    double min_eig = work2[0];
+    
+    // LAPACKE CODE
+    //memcpy(work, Var, N*N*sizeof(double));
+    //memset(work2, 0, N*sizeof(double));
+    //LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', N, work, N, work2);
+    //double min_eig = work2[0];
+    // STAND ALONE EVAL/VEC CODE
+    sym_eig(Var, work2, work, N);
+    double min_eig = array_min<double>(work2, N);
+
     for(int i = 0; i < N; i++)
     {    
 	    if(work2[i] < COV_EIGENVALUE_TOLERANCE)
@@ -400,7 +408,11 @@ void speyers_window_init(const int N, double* x1_hat, double* Var,
     // var_work2 = Var + Var @ H^T @ H @ Var / ( gamma^2 + (z_1 - H @ x1_hat)^2)
 
     // Form A_0 using lapack's (d)ouble (sy)metric (ev)al/vec routine 
-    LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', N, A_0, N, eigs);
+    // LAPACKE CODE
+    //LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', N, A_0, N, eigs);
+    // STAND ALONE EVAL/VEC CODE
+    memcpy(work, A_0, N*N*sizeof(double));
+    sym_eig(work, eigs, A_0, N); // A_0 holds the eigenvectors (transposed to rows below)
 
     // Form b_0
     double scale2 = (z_1 - Hx1_hat) / scale;

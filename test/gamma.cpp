@@ -28,7 +28,7 @@ void test_dce_helper()
     const int m_max = 6;
     const int cmcc = 3;
     DiffCellEnumHelper dce_helper;
-    dce_helper.init(m_max, d, 2, cmcc); 
+    dce_helper.init(m_max, d, 2); 
     dce_helper.print_tp_info();
     dce_helper.deinit();
 }

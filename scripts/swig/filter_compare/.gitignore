@@ -3,4 +3,5 @@
 #gaussian_filters.py
 #pycauchy.py
 __pycache__
+bin/*
 */*

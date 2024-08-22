@@ -649,6 +649,7 @@ void pycauchy_single_step_deterministic_transform(
 {
      PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
      CauchyEstimator* cauchyEst = pcdh->cauchyEst;
+     cauchyEst->set_function_pointers();
      cauchyEst->deterministic_time_prop(Trans, NULL, NULL);
      cauchyEst->shift_cf_by_bias(bias);
 }
@@ -819,6 +820,7 @@ void pycauchy_get_marginal_2D_pointwise_cpdf(
 {
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
     CauchyEstimator* cauchyEst = pcdh->cauchyEst;
+    cauchyEst->set_function_pointers();
     if(pcdh->cpdf == NULL)
     {
         pcdh->cpdf = new PointWiseNDimCauchyCPDF(cauchyEst); //PointWise2DCauchyCPDF(log_dir, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);
@@ -884,6 +886,7 @@ void pycauchy_get_marginal_1D_pointwise_cpdf(
 {
     PyCauchyDataHandler* pcdh = (PyCauchyDataHandler*) _pcdh;
     CauchyEstimator* cauchyEst = pcdh->cauchyEst;
+    cauchyEst->set_function_pointers();
     if(pcdh->cpdf == NULL)
     {
         pcdh->cpdf = new PointWiseNDimCauchyCPDF(cauchyEst); //PointWise2DCauchyCPDF(log_dir, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution);

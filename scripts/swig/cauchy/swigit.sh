@@ -8,6 +8,8 @@ INCLUDE_FILE=${FILE_NAME}.hpp
 # Nats computer
 PYTHON_INC_PATH="-I/usr/local/include/python3.7m/"
 LIB_LAPACK="-llapacke -llapack -lblas -lm -lpthread"
+LIB_MATH_PTHREAD="-lm -lpthread"
+
 # For cluster
 #PYTHON_INC_PATH="-I/home/natsnyder1/.local/lib/python3.7/site-packages/numpy/core/include -I/cm/local/apps/python37/include/python3.7m"
 #LIB_LAPACK="-Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl"
@@ -32,7 +34,7 @@ if [ $? -eq 1 ]; then
     echo "[ERROR:] g++ -fpic -c ${FILE_NAME}_wrap.cxx $PYTHON_INC_PATH command returned with failure!"
     exit 1
 fi
-g++ -shared ${FILE_NAME}_wrap.o -lstdc++ $LIB_LAPACK -o _${FILE_NAME}.so
+g++ -shared ${FILE_NAME}_wrap.o -lstdc++ $LIB_MATH_PTHREAD -o _${FILE_NAME}.so
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] g++ -shared ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so -lstdc++ command returned with failure!"
     exit 1

@@ -1,7 +1,8 @@
 #ifndef _MPC_LINALG_HPP_
 #define _MPC_LINALG_HPP_
 
-#include "../../../include/cpu_linalg.hpp"
+#include "../../../include/cauchy_linalg.hpp"
+#include "../../../include/lapacke_linalg.hpp"
 #include "../../../include/random_variables.hpp"
 
 class Mat;

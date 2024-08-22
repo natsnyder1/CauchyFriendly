@@ -7,7 +7,7 @@
 #include "cauchy_types.hpp"
 #include "cauchy_util.hpp"
 #include "cell_enumeration.hpp"
-#include "cpu_linalg.hpp"
+#include "cauchy_linalg.hpp"
 #include "eval_gs.hpp"
 #include "gtable.hpp"
 #include "random_variables.hpp"
@@ -1184,6 +1184,7 @@ struct CauchyEstimator
     // Main function that is called
     int step(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma, double* B, double* u)
     {
+        set_function_pointers();
         if( numeric_moment_errors & (1<<ERROR_FZ_NEGATIVE) )
         {
             printf(RED "[Window %d:] ERROR_FZ_NEGATIVE triggered. Cannot continue stepping until this estimator has been reset!"

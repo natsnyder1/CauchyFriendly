@@ -4,7 +4,8 @@
 #include "cauchy_constants.hpp"
 #include "cauchy_term.hpp"
 #include "cauchy_types.hpp"
-#include "cpu_linalg.hpp"
+#include "cauchy_linalg.hpp"
+#include "eig_solve.hpp"
 #include "gtable.hpp"
 #include "array_logging.hpp"
 #include "dynamic_models.hpp"
@@ -1795,9 +1796,16 @@ int covariance_checker(C_COMPLEX_TYPE* covariance, const int d, const int win_nu
   // If any imaginary values of the covariance is larger than the hard limit, flag |= (1<<3)
 
   // Check positivity of eigenvalues
-  memcpy(cov_work, cov_real, d_squared*sizeof(double));
-  memset(cov_eigs, 0, d*sizeof(double));
-  LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', d, cov_work, d, cov_eigs);
+  
+  // LAPACKE CODE
+  //memcpy(cov_work, cov_real, d_squared*sizeof(double));
+  //memset(cov_eigs, 0, d*sizeof(double));
+  //LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', d, cov_work, d, cov_eigs);
+  
+  // STAND ALONE EVAL/VEC CODE
+  sym_eig(cov_real, cov_eigs, cov_work, d);
+
+
   for(int i = 0; i < d; i++)
   {
     if(cov_eigs[i] < COV_EIGENVALUE_TOLERANCE)

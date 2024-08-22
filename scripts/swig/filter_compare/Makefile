@@ -21,10 +21,12 @@ else
 	CFLAGS = $(GCC_RELEASE)
 endif
 
-mpc : mpc.cpp
-	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK) 
+bin/test_mpc : test_mpc.cpp
+	$(CC) $(CFLAGS) $^ -o $@ $(LIB_LAPACK)
 
-all : mpc
+mpc : bin/test_mpc
+
+all : bin/test_mpc
 
 clean : 
-	rm mpc
+	rm -f bin/test_mpc

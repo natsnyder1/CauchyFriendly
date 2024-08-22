@@ -1,23 +1,25 @@
+#ifndef _EIG_SOLVE_HPP_
+#define _EIG_SOLVE_HPP_
+
 #include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-#define RADIX 2.0
-#define SQR(a) ((a)*(a))
-#define SWAP(a,b) do { double t = (a); (a) = (b); (b) = t; } while (0)
-#define SIGN(a,b) ((b) >= 0.0 ? fabs(a) : -fabs(a))
+#define EVS_RADIX 2.0
+#define EVS_SQR(a) ((a)*(a))
+#define EVS_SWAP(a,b) do { double t = (a); (a) = (b); (b) = t; } while (0)
+#define EVS_SIGN(a,b) ((b) >= 0.0 ? fabs(a) : -fabs(a))
 
 /*************************
  * balance a real matrix *
  *************************/
 
-static void balanc(double **a, int n)
+static void evs_balanc(double **a, int n)
 {
 	int             i, j, last = 0;
 	double          s, r, g, f, c, sqrdx;
 
-	sqrdx = RADIX * RADIX;
+	sqrdx = EVS_RADIX * EVS_RADIX;
 	while (last == 0) {
 		last = 1;
 		for (i = 0; i < n; i++) {
@@ -28,16 +30,16 @@ static void balanc(double **a, int n)
 					r += fabs(a[i][j]);
 				}
 			if (c != 0.0 && r != 0.0) {
-				g = r / RADIX;
+				g = r / EVS_RADIX;
 				f = 1.0;
 				s = c + r;
 				while (c < g) {
-					f *= RADIX;
+					f *= EVS_RADIX;
 					c *= sqrdx;
 				}
-				g = r * RADIX;
+				g = r * EVS_RADIX;
 				while (c > g) {
-					f /= RADIX;
+					f /= EVS_RADIX;
 					c /= sqrdx;
 				}
 				if ((c + r) / f < 0.95 * s) {
@@ -53,12 +55,11 @@ static void balanc(double **a, int n)
 	}
 }
 
-
 /*****************************************************
  * convert a non-symmetric matrix to Hessenberg form *
  *****************************************************/
 
-static void elmhes(double **a, int n)
+static void evs_elmhes(double **a, int n)
 {
 	int             i, j, m;
 	double          y, x;
@@ -74,9 +75,9 @@ static void elmhes(double **a, int n)
 		}
 		if (i != m) {
 			for (j = m - 1; j < n; j++)
-				SWAP(a[i][j], a[m][j]);
+				EVS_SWAP(a[i][j], a[m][j]);
 			for (j = 0; j < n; j++)
-				SWAP(a[j][i], a[j][m]);
+				EVS_SWAP(a[j][i], a[j][m]);
 		}
 		if (x != 0.0) {
 			for (i = m + 1; i < n; i++) {
@@ -97,7 +98,7 @@ static void elmhes(double **a, int n)
  * QR algorithm for Hessenberg matrix *
  **************************************/
 
-static void hqr(double **a, int n, double *wr, double *wi)
+static void evs_hqr(double **a, int n, double *wr, double *wi)
 {
 	int             nn, m, l, k, j, its, i, mmin;
 	double          z, y, x, w, v, u, t, s, r, q, p, anorm;
@@ -134,7 +135,7 @@ static void hqr(double **a, int n, double *wr, double *wi)
 					z = sqrt(fabs(q));
 					x += t;
 					if (q >= 0.0) {
-						z = p + SIGN(z, p);
+						z = p + EVS_SIGN(z, p);
 						wr[nn - 1] = wr[nn] = x + z;
 						if (z != 0.0)
 							wr[nn] = x - w / z;
@@ -146,7 +147,7 @@ static void hqr(double **a, int n, double *wr, double *wi)
 					nn -= 2;
 				} else {
 					if (its == 30) {
-						fprintf(stderr, "[hqr] too many iterations.\n");
+						fprintf(stderr, "[evs_hqr] too many iterations.\n");
 						break;
 					}
 					if (its == 10 || its == 20) {
@@ -194,7 +195,7 @@ static void hqr(double **a, int n, double *wr, double *wi)
 								r /= x;
 							}
 						}
-						if ((s = SIGN(sqrt(p * p + q * q + r * r), p)) != 0.0) {
+						if ((s = EVS_SIGN(sqrt(p * p + q * q + r * r), p)) != 0.0) {
 							if (k == m) {
 								if (l != m)
 									a[k][k - 1] = -a[k][k - 1];
@@ -237,29 +238,29 @@ static void hqr(double **a, int n, double *wr, double *wi)
  * calculate eigenvalues for a non-symmetric real matrix *
  *********************************************************/
 
-void n_eigen(double *_a, int n, double *wr, double *wi)
+void evs_n_eigen(double *_a, int n, double *wr, double *wi)
 {
 	int             i;
 	double        **a = (double **) calloc(n, sizeof(void *));
 	for (i = 0; i < n; ++i)
 		a[i] = _a + i * n;
-	balanc(a, n);
-	elmhes(a, n);
-	hqr(a, n, wr, wi);
+	evs_balanc(a, n);
+	evs_elmhes(a, n);
+	evs_hqr(a, n, wr, wi);
 	free(a);
 }
 
 /* convert a symmetric matrix to tridiagonal form */
-static double pythag(double a, double b)
+static double evs_pythag(double a, double b)
 {
 	double absa, absb;
 	absa = fabs(a);
 	absb = fabs(b);
-	if (absa > absb) return absa * sqrt(1.0 + SQR(absb / absa));
-	else return (absb == 0.0 ? 0.0 : absb * sqrt(1.0 + SQR(absa / absb)));
+	if (absa > absb) return absa * sqrt(1.0 + EVS_SQR(absb / absa));
+	else return (absb == 0.0 ? 0.0 : absb * sqrt(1.0 + EVS_SQR(absa / absb)));
 }
 
-static void tred2(double **a, int n, double *d, double *e)
+static void evs_tred2(double **a, int n, double *d, double *e)
 {
 	int             l, k, j, i;
 	double          scale, hh, h, g, f;
@@ -329,7 +330,7 @@ static void tred2(double **a, int n, double *d, double *e)
 }
 
 /* calculate the eigenvalues and eigenvectors of a symmetric tridiagonal matrix */
-static void tqli(double *d, double *e, int n, double **z)
+static void evs_tqli(double *d, double *e, int n, double **z)
 {
 	int             m, l, iter, i, k;
 	double          s, r, p, g, f, dd, c, b;
@@ -347,18 +348,18 @@ static void tqli(double *d, double *e, int n, double **z)
 			}
 			if (m != l) {
 				if (iter++ == 30) {
-					fprintf(stderr, "[tqli] Too many iterations in tqli.\n");
+					fprintf(stderr, "[evs_tqli] Too many iterations in evs_tqli.\n");
 					break;
 				}
 				g = (d[l + 1] - d[l]) / (2.0 * e[l]);
-				r = pythag(g, 1.0);
-				g = d[m] - d[l] + e[l] / (g + SIGN(r, g));
+				r = evs_pythag(g, 1.0);
+				g = d[m] - d[l] + e[l] / (g + EVS_SIGN(r, g));
 				s = c = 1.0;
 				p = 0.0;
 				for (i = m - 1; i >= l; i--) {
 					f = s * e[i];
 					b = c * e[i];
-					e[i + 1] = (r = pythag(f, g));
+					e[i + 1] = (r = evs_pythag(f, g));
 					if (r == 0.0) {
 						d[i + 1] -= p;
 						e[m] = 0.0;
@@ -387,68 +388,17 @@ static void tqli(double *d, double *e, int n, double **z)
 	}
 }
 
-int n_eigen_symm(double *_a, int n, double *eval)
+int evs_n_eigen_symm(double *_a, int n, double *eval)
 {
 	double **a, *e;
 	int i;
 	a = (double**)calloc(n, sizeof(void*));
 	e = (double*)calloc(n, sizeof(double));
 	for (i = 0; i < n; ++i) a[i] = _a + i * n;
-	tred2(a, n, eval, e);
-	tqli(eval, e, n, a);
+	evs_tred2(a, n, eval, e);
+	evs_tqli(eval, e, n, a);
 	free(a); free(e);
 	return 0;
-}
-
-void test_eigs_default()
-{
-    int             i, j;
-	static double   u[5], v[5];
-	static double   a[5][5] = {{1.0, 6.0, -3.0, -1.0, 7.0},
-	{8.0, -15.0, 18.0, 5.0, 4.0}, {-2.0, 11.0, 9.0, 15.0, 20.0},
-	{-13.0, 2.0, 21.0, 30.0, -6.0}, {17.0, 22.0, -5.0, 3.0, 6.0}};
-
-	static double b[5][5]={ {10.0,1.0,2.0,3.0,4.0},
-							{1.0,9.0,-1.0,2.0,-3.0},
-							{2.0,-1.0,7.0,3.0,-5.0},
-							{3.0,2.0,3.0,12.0,-1.0},
-							{4.0,-3.0,-5.0,-1.0,15.0}};
-
-
-	printf("Non-Symmetric MAT A IS:\n");
-	for (i = 0; i <= 4; i++) {
-		for (j = 0; j <= 4; j++)
-			printf("%.8lf ", a[i][j]);
-		printf("\n");
-	}
-	printf("\nEig Solve:\nEigenvalues:\n");
-	n_eigen(a[0], 5, u, v);
-	for (i = 0; i <= 4; i++)
-		printf("%.8lf +J %.8lf\n", u[i], v[i]);
-    printf("\nEigenvectors (THIS IS INCOMPLETE!):\n");
-	for (i = 0; i <= 4; i++) {
-		for (j = 0; j <= 4; j++)
-			printf("%.8lf ", a[i][j]);
-		printf("\n");
-	}
-
-    printf("\nSymmetric MAT B IS:\n");
-	for (i = 0; i <= 4; i++) {
-		for (j = 0; j <= 4; j++)
-			printf("%.8lf ", b[i][j]);
-		printf("\n");
-	}
-	printf("\nSym Eig Solve:\nEigenvalues:\n");
-	n_eigen_symm(b[0], 5, u);
-	for (i = 0; i <= 4; i++)
-		printf("%.8lf\n", u[i]);
-	printf("\nEigenvectors:\n");
-	for (i = 0; i <= 4; i++) {
-		for (j = 0; j <= 4; j++)
-			printf("%.8lf ", b[i][j]);
-		printf("\n");
-	}
-	printf("\n");
 }
 
 int sym_eig(double* A, double* evals, double* evecs, const int n)
@@ -464,8 +414,8 @@ int sym_eig(double* A, double* evals, double* evecs, const int n)
     memset(evals, 0, n*sizeof(double)); // unneccessary, I believe
     memset(evecs, 0, n*n*sizeof(double)); // unneccessary, I believe
     // Solve
-    tred2(_A, n, evals, work);
-	tqli(evals, work, n, _A);
+    evs_tred2(_A, n, evals, work);
+	evs_tqli(evals, work, n, _A);
     for(int i = 0; i < n; i++)
         memcpy(evecs + i*n, _A[i], n*sizeof(double));
     // Free
@@ -476,52 +426,4 @@ int sym_eig(double* A, double* evals, double* evecs, const int n)
     return 0;
 }
 
-// This is the format which the cauchy estimator would use
-void test_eigs_sym_nat()
-{
-    const int n = 5;
-    double B[n*n]={  10.0,1.0,2.0,3.0,4.0,
-                    1.0,9.0,-1.0,2.0,-3.0,
-                    2.0,-1.0,7.0,3.0,-5.0,
-                    3.0,2.0,3.0,12.0,-1.0,
-                    4.0,-3.0,-5.0,-1.0,15.0};
-    double evals[n];
-    double evecs[n*n];
-
-    // Nats addition 
-    sym_eig(B, evals, evecs, n);
-
-    printf("--------- Nats Mod to Sym Eig: -------\n\n");
-
-    printf("\nSymmetric MAT B IS:\n");
-	for (int i = 0; i < n; i++) {
-		for (int j = 0; j < n; j++)
-			printf("%.8lf ", B[i*n + j]);
-		printf("\n");
-	}
-	printf("\nSym Eig Solve:\nEigenvalues:\n");
-	for (int i = 0; i < n; i++)
-		printf("%.8lf\n", evals[i]);
-	printf("\nEigenvectors:\n");
-	for (int i = 0; i < n; i++) {
-		for (int j = 0; j < n; j++)
-			printf("%.8lf ", evecs[i*n + j]);
-		printf("\n");
-	}
-	printf("\n");
-}
-
-int main(void)
-{
-	test_eigs_default();
-    test_eigs_sym_nat();
-    return 0;
-}
-
-/* correct output: possibly in a arbitrarily permuted ordering w.r.t another library
-4.2961008e+01 +J 0.0000000e+00
--6.6171383e-01 +J 0.0000000e+00
--1.5339638e+01 +J -6.7556929e+00
--1.5339638e+01 +J 6.7556929e+00
-1.9379983e+01 +J 0.0000000e+00
-*/
+#endif // _EIG_SOLVE_HPP_
