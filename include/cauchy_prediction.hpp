@@ -11,7 +11,7 @@
 #include "cpu_timer.hpp"
 #include "random_variables.hpp"
 #include <complex.h>
-#include <cstdlib>
+#include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
 

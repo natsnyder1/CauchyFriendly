@@ -8,11 +8,6 @@
 #include "cell_enumeration.hpp"
 #include "cpu_timer.hpp"
 #include "eval_gs.hpp"
-#include <cstddef>
-#include <cstdlib>
-#include <pthread.h>
-
-//#include <sys/types.h>
 
 //// HASHTABLE
 // Returns G values per face of each term.

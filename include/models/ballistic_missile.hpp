@@ -2,8 +2,6 @@
 #define _BALLISTIC_MISSILE_HPP_
 
 #include "../dynamic_models.hpp"
-#include <ctime>
-#include <math.h>
 
 const double _RADAR_TO_GAUSS_NOISE = 1.4112;
 const double _GAUSS_TO_CAUCHY_NOISE = 1.0 / 1.3898;

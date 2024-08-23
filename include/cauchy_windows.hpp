@@ -9,13 +9,6 @@
 #include "cpu_timer.hpp"
 #include "dynamic_models.hpp"
 #include "eig_solve.hpp"
-
-//#include <cstdio>
-//#include <sys/types.h>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <math.h>
 #include <sys/wait.h>
 
 
