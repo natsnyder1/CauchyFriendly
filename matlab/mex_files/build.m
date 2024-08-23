@@ -42,8 +42,12 @@ setenv('CFLAGS', '-fno-omit-frame-pointer -fsanitize=address');
 setenv('LDFLAGS', '-fsanitize=protect-initialized-data -fsanitize=leak -fsanitize=address');
 
 % The following two lines are specific to Nishad's computer. Please change depending on your own locations
-includePath = '-I/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/scripts/swig/cauchy -I/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/include';
+%includePath = '-I/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/scripts/swig/cauchy -I/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/include';
+includePath = '-I/Users/natsnyder/Desktop/CauchyFriendly/scripts/swig/cauchy -I/Users/natsnyder/Desktop/CauchyFriendly/include';
 libraryPath = '-lm -lpthread';
+
+
+
 
 eval(['mex -g ', includePath, ' ', libraryPath, ' ../matlab_wrapped/mcauchy_initialize_lti.cpp']);
 eval(['mex -g ', includePath, ' ', libraryPath, ' ../matlab_wrapped/mcauchy_step.cpp']);

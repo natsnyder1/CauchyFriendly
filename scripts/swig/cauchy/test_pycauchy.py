@@ -242,7 +242,7 @@ def test_3state_lti_window_manager():
     (xs, zs, ws, vs) = ce.simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, V, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
 
     # Run Cauchy Estimator
-    num_windows = 8
+    num_windows = 6
     #log_dir = file_dir + "/../../../log/python/swig_3state_lti"
     swm_debug_print = True
     win_debug_print = False
@@ -586,12 +586,12 @@ def test_2state_smoothing():
     print("Last Smoothed Cov:\n", P_hats[-1])
 
 if __name__ == "__main__":
-    test_1state_lti()
+    #test_1state_lti()
     #test_2state_cpdfs()
     #test_2state_lti_single_window()
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
-    #test_3state_lti_window_manager()
+    test_3state_lti_window_manager()
     #test_3state_marginal_cpdfs()
     #test_3state_reset()
     #test_2state_smoothing()

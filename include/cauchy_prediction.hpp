@@ -267,7 +267,11 @@ void eval_rel_sys_moments_for_term(
 
 
     for(int i = 0; i < d; i++)
-        yei[i] = -tmp_yei[i] + I*rel_b[i]; //yei[j] = CMPLX(-tmp_yei[j], b[j]);
+    {
+        //yei[i] = -tmp_yei[i] + I*rel_b[i]; 
+        yei[i] = MAKE_CMPLX(-tmp_yei[i], rel_b[i]);
+    }
+        
 
     // Evaluate contribution to the conditional mean and covariance
     *rel_norm_factor += g_val;
@@ -283,7 +287,8 @@ void eval_rel_sys_moments_for_term(
 void finalize_rel_sys_moments(C_COMPLEX_TYPE* rel_norm_factor, C_COMPLEX_TYPE* rel_cond_mean, C_COMPLEX_TYPE* rel_cond_covar, int d)
 {
     C_COMPLEX_TYPE fz = (*rel_norm_factor);
-    C_COMPLEX_TYPE Ifz = I * fz; //CMPLX(cimag(fz), creal(fz)); // imaginary fz
+    //C_COMPLEX_TYPE Ifz = I * fz; // imaginary fz
+    C_COMPLEX_TYPE Ifz = MAKE_CMPLX(0, creal(fz)); // imaginary fz
     for(int i = 0; i < d; i++)
         rel_cond_mean[i] /= Ifz;
 
@@ -946,8 +951,10 @@ C_COMPLEX_TYPE eval_rel_marg2d_cached_term_for_cpdf(Cached2DCPDFTerm* cached_ter
     const bool check_gamma1 = fabs(gam1_imag) < INTEGRAL_GAMMA_EPS;
     for(int i = 0; i < cells; i++)
     {
-        gamma1 = gam1_reals[i] + I*gam1_imag;
-        gamma2 = gam2_reals[i] + I*gam2_imag;
+        //gamma1 = gam1_reals[i] + I*gam1_imag;
+        //gamma2 = gam2_reals[i] + I*gam2_imag;
+        gamma1 = MAKE_CMPLX(gam1_reals[i], gam1_imag);
+        gamma2 = MAKE_CMPLX(gam2_reals[i], gam2_imag);
         sin_t1 = sin_thetas[i];
         cos_t1 = cos_thetas[i];
         sin_t2 = sin_thetas[i+1];

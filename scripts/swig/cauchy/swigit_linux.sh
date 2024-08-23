@@ -5,7 +5,7 @@ printf "This script wraps a C++ header only file to have a python interface thro
 FILE_NAME="pycauchy" 
 SWIG_FILE=${FILE_NAME}.i
 INCLUDE_FILE=${FILE_NAME}.hpp
-# Nats computer
+# Nats Linux computer
 PYTHON_INC_PATH="-I/usr/local/include/python3.7m/"
 LIB_LAPACK="-llapacke -llapack -lblas -lm -lpthread"
 LIB_MATH_PTHREAD="-lm -lpthread"

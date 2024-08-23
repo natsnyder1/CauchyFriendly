@@ -8,8 +8,14 @@
 
 #define PI M_PI
 const double RECIPRICAL_TWO_PI = 1.0 / (2.0 * PI);
-typedef double __complex__ C_COMPLEX_TYPE; // This is actually buggy, and cannot change for the moment
 
+#if (__linux__ || __APPLE__)
+    typedef double __complex__ C_COMPLEX_TYPE; 
+#elif __WIN32
+    typedef double _Complex C_COMPLEX_TYPE;
+#else 
+    #error "[COMPILATION ERROR:] Determining system OS (MAC/Linux/Windows) has failed. Please look in cauchy_constants.hpp to define the C_COMPLEX_TYPE yourself!"
+#endif
 
 // TP Settings
 const double COALIGN_TP_EPS = 1e-8;

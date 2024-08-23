@@ -638,7 +638,8 @@ struct PointWiseNDimCauchyCPDF
         int size_gtable_p = GTABLE_SIZE_MULTIPLIER * term->cells_gtable_p;
         C_COMPLEX_TYPE gp = lookup_g_numerator(enc_lp, two_to_phc_minus1, rev_phc_mask, term->gtable_p, size_gtable_p, true);
         C_COMPLEX_TYPE gm = lookup_g_numerator(enc_lm, two_to_phc_minus1, rev_phc_mask, term->gtable_p, size_gtable_p, false);
-        C_COMPLEX_TYPE g_val = gp / (term->p[0] + I*term->b[0]) - gm / (-term->p[0] + I*term->b[0]);
+        //C_COMPLEX_TYPE g_val = gp / (term->p[0] + I*term->b[0]) - gm / (-term->p[0] + I*term->b[0]);
+        C_COMPLEX_TYPE g_val = gp / MAKE_CMPLX(term->p[0], term->b[0]) - gm / MAKE_CMPLX(-term->p[0], term->b[0]);
         return g_val;
     }
 
@@ -1286,7 +1287,8 @@ struct PointWiseNDimCauchyCPDF
                         }
                         C_COMPLEX_TYPE g_num_lhs = lookup_g_numerator(enc_sv_num_lhs, two_to_m_minus1, rev_m_mask, parent->gtable_p, parent->cells_gtable_p * GTABLE_SIZE_MULTIPLIER, true);
                         C_COMPLEX_TYPE g_num_rhs = lookup_g_numerator(enc_sv_num_rhs, two_to_m_minus1, rev_m_mask, parent->gtable_p, parent->cells_gtable_p * GTABLE_SIZE_MULTIPLIER, true);
-                        C_COMPLEX_TYPE g_val = g_num_lhs / (I*b_c + p_cc) - g_num_rhs / (I*b_c - p_cc);
+                        //C_COMPLEX_TYPE g_val = g_num_lhs / (I*b_c + p_cc) - g_num_rhs / (I*b_c - p_cc);
+                        C_COMPLEX_TYPE g_val = g_num_lhs / MAKE_CMPLX(p_cc, b_c) - g_num_rhs / MAKE_CMPLX(-p_cc, b_c);
                         fx_unnormalized += creal(g_val);
                         if(setup_cache)
                         {
@@ -1403,7 +1405,8 @@ struct PointWiseNDimCauchyCPDF
             printf("Marginal 2D CPDF for states (%d,%d) took %d ms to process %d terms!\n", marg_idx1, marg_idx2, tmr.cpu_time_used, cauchyEst->Nt);
         
         double fx_normalized = 2 * fx_unnormalized * RECIPRICAL_TWO_PI * RECIPRICAL_TWO_PI / norm_factor;
-        return fx_normalized + 0*I;
+        //return fx_normalized + 0*I;
+        return MAKE_CMPLX(fx_normalized, 0);
     }
 
     void reset_2D_marginal_cpdf()
@@ -1533,8 +1536,10 @@ struct PointWiseNDimCauchyCPDF
             cos_t1 = cos(theta1);
             sin_t2 = sin(theta2);
             cos_t2 = cos(theta2);
-            gamma1 = gam1_real + I*gam1_imag;
-            gamma2 = gam2_real + I*gam2_imag;
+            //gamma1 = gam1_real + I*gam1_imag;
+            //gamma2 = gam2_real + I*gam2_imag;
+            gamma1 = MAKE_CMPLX(gam1_real, gam1_imag);
+            gamma2 = MAKE_CMPLX(gam2_real, gam2_imag);
             if(setup_cache)
             {
                 cached_term->sin_thetas[i] = sin_t1;
@@ -1624,8 +1629,10 @@ struct PointWiseNDimCauchyCPDF
             cos_t1 = cos_thetas[i];
             sin_t2 = sin_thetas[i+1];
             cos_t2 = cos_thetas[i+1];
-            gamma1 = gam1_reals[i] + I*gam1_imag;
-            gamma2 = gam2_reals[i] + I*gam2_imag;
+            //gamma1 = gam1_reals[i] + I*gam1_imag;
+            //gamma2 = gam2_reals[i] + I*gam2_imag;
+            gamma1 = MAKE_CMPLX(gam1_reals[i], gam1_imag);
+            gamma2 = MAKE_CMPLX(gam2_reals[i], gam2_imag);
 
             // Evaluating the piece-wise integral within this cell
             bool fast_int_method = true;

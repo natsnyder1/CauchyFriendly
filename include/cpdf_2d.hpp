@@ -149,8 +149,10 @@ C_COMPLEX_TYPE eval_term_for_2D_ucpdf_v2(double x1, double x2, double* A, double
         }
         
         // 3.) Form gamma1 and gamma2 and evaluate the analytic form of the integral
-        gamma1 = gam1_real + I*gam1_imag;
-        gamma2 = gam2_real + I*gam2_imag;
+        //gamma1 = gam1_real + I*gam1_imag;
+        //gamma2 = gam2_real + I*gam2_imag;
+        gamma1 = MAKE_CMPLX(gam1_real, gam1_imag);
+        gamma2 = MAKE_CMPLX(gam2_real, gam2_imag);
 
         // Faster integral, some caching has been added
         //sin(theta) / (gamma1*gamma1*cos(theta) + gamma1*gamma2*sin(theta));
@@ -169,7 +171,8 @@ C_COMPLEX_TYPE eval_term_for_2D_ucpdf_v2(double x1, double x2, double* A, double
         integral_over_cell *= g_val;
         term_integral += creal(integral_over_cell);
     }
-    return (2 * term_integral * RECIPRICAL_TWO_PI_SQUARED) + 0*I;
+    //return (2 * term_integral * RECIPRICAL_TWO_PI_SQUARED) + 0*I;
+    return MAKE_CMPLX(2 * term_integral * RECIPRICAL_TWO_PI_SQUARED, 0);
 }
 
 // Non-Optimized version of eval_term_for_2D_ucpdf
@@ -239,8 +242,10 @@ C_COMPLEX_TYPE _eval_term_for_2D_ucpdf_v2(double x1, double x2, double* A, doubl
         }
         
         // 3.) Form gamma1 and gamma2 and evaluate the analytic form of the integral
-        gamma1 = gam1_real + I*gam1_imag;
-        gamma2 = gam2_real + I*gam2_imag;
+        //gamma1 = gam1_real + I*gam1_imag;
+        //gamma2 = gam2_real + I*gam2_imag;
+        gamma1 = MAKE_CMPLX(gam1_real, gam1_imag);
+        gamma2 = MAKE_CMPLX(gam2_real, gam2_imag);
 
         // Faster integral, some caching has been added
         //sin(theta) / (gamma1*gamma1*cos(theta) + gamma1*gamma2*sin(theta));
@@ -266,8 +271,10 @@ C_COMPLEX_TYPE _eval_term_for_2D_ucpdf_v2(double x1, double x2, double* A, doubl
 double eval_2D_ucpdf_at_x(double x1, double x2, CauchyEstimator* cauchyEst)
 {
     double norm_factor = creal(cauchyEst->fz); // should always be one, or veryy close
-    C_COMPLEX_TYPE term_ucpdf_val = 0 + 0*I;
-    C_COMPLEX_TYPE ucpdf_val = 0 + 0*I;
+    //C_COMPLEX_TYPE term_ucpdf_val = 0 + 0*I;
+    //C_COMPLEX_TYPE ucpdf_val = 0 + 0*I;
+    C_COMPLEX_TYPE term_ucpdf_val = MAKE_CMPLX(0,0);
+    C_COMPLEX_TYPE ucpdf_val = MAKE_CMPLX(0,0);
 
     for(int m = 1; m < cauchyEst->shape_range; m++)
     {

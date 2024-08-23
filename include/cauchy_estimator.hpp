@@ -336,7 +336,8 @@ struct CauchyEstimator
     void finalize_cached_moments()
     {
         G_SCALE_FACTOR = RECIPRICAL_TWO_PI / creal(fz);
-        C_COMPLEX_TYPE Ifz = I*fz; //CMPLX(cimag(fz), creal(fz)); // imaginary fz
+        //C_COMPLEX_TYPE Ifz = I*fz; // imaginary fz
+        C_COMPLEX_TYPE Ifz = MAKE_CMPLX(0, creal(fz)); //MAKE_CMPLX(cimag(fz), creal(fz)); // imaginary fz
         for(int i = 0; i < d; i++)
             conditional_mean[i] /= Ifz;
 
@@ -557,7 +558,7 @@ struct CauchyEstimator
         assert(creal(fz) > 0);
         G_SCALE_FACTOR = RECIPRICAL_TWO_PI / creal(fz);
 
-        C_COMPLEX_TYPE Ifz = I*fz; //CMPLX(cimag(fz), creal(fz)); // imaginary fz
+        C_COMPLEX_TYPE Ifz = MAKE_CMPLX(0, creal(fz)); //I*fz; //MAKE_CMPLX(cimag(fz), creal(fz)); // imaginary fz
         for(int i = 0; i < d; i++)
             conditional_mean[i] /= Ifz;
 
@@ -1150,7 +1151,10 @@ struct CauchyEstimator
             compute_moments(false);
         }
         else
-            fz = 1 + 0*I;
+        {
+            //fz = 1 + 0*I;
+            fz = MAKE_CMPLX(1,0);
+        }
     }
 
     void step_first(double msmt, double* H, double gamma)
@@ -1175,7 +1179,10 @@ struct CauchyEstimator
         if(print_basic_info)
             compute_moments(false);
         else
-            fz = 1 + 0*I;;
+        {
+            //fz = 1 + 0*I;
+            fz = MAKE_CMPLX(1,0);
+        }
         memcpy(last_conditional_mean, conditional_mean, d*sizeof(C_COMPLEX_TYPE));
         memcpy(last_conditional_variance, conditional_variance, d*d*sizeof(C_COMPLEX_TYPE));
         last_fz = fz;
