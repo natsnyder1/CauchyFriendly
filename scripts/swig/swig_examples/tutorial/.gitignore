@@ -5,4 +5,4 @@ gfg_wrap.c
 gfg_wrap.o
 gfg.py
 __pycache__
-
+.DS_Store

@@ -3,4 +3,4 @@ pycauchy_wrap.cxx
 pycauchy_wrap.o
 pycauchy.py 
 __pycache__
-
+.DS_Store

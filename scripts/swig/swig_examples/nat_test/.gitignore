@@ -4,4 +4,4 @@ hello_swig_wrap.o
 hello_swig.py 
 hello_swig.pyc 
 __pycache__
-
+.DS_Store
