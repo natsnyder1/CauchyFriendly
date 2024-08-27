@@ -45,11 +45,11 @@ void print_mat(double **A, const int M, const int N)
             double val = A[i][j];
             if( fabs(val) < 1e-14 )
                 val = 0.0;
-            std::cout << val << ", ";
+            printf("%.5lf, ", val);
         }
-        std::cout << std::endl;
+        printf("\n");
     }
-    std::cout << std::endl;
+    printf("\n");
 }
 
 void print_mat(double *A, const int M, const int N)
@@ -61,11 +61,11 @@ void print_mat(double *A, const int M, const int N)
             double val = A[i*N + j];
             if( fabs(val) < 1e-14 )
                 val = 0.0;
-            std::cout << val << ", ";
+            printf("%.5lf, ", val);
         }
-        std::cout << std::endl;
+        printf("\n");
     }
-    std::cout << std::endl;
+    printf("\n");
 }
 
 void print_mat(double *A, const int M, const int N, const int precision)
@@ -137,11 +137,12 @@ void print_mat(int *A, const int M, const int N)
     {
         for(int j = 0; j < N; j++)
         {
-            std::cout << A[i*N + j] << ", ";
+            double val = A[i*N + j];
+            printf("%.5lf, ", val);
         }
-        std::cout << std::endl;
+        printf("\n");
     }
-    std::cout << std::endl;
+    printf("\n");
 }
 
 // Prints A assuming data is stored in column major ordering
@@ -166,12 +167,11 @@ void print_vec(double *x, const int M)
         if( fabs(val) < 1e-14 )
             val = 0.0;
         if(i < M - 1)
-            std::cout << val << ", ";
+            printf("0.5%lf, ", val);
         else
-            std::cout << val;
+            printf("0.5%lf", val);
     }
-    std::cout << std::endl;
-    std::cout << std::endl;
+    printf("\n\n");
 }
 
 void print_vec(double *x, const int N, const int precision)

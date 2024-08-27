@@ -1,4 +1,5 @@
-CC=g++
+CC=clang++
+#g++
 
 GCC_DEBUG = -g -Wall -Wextra
 GCC_RELEASE = -O3 # It is seen that -O3 compilation sometimes causes a seg fault due to the compiler optimizations attempted

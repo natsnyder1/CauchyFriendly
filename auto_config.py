@@ -8,13 +8,19 @@ RED_START = "\033[31m"
 RED_END = "\033[0m"
 GREEN_START = "\033[32m"
 GREEN_END = "\033[0m"
+YELLOW_START="\033[93m"
+YELLOW_END="\033[0m"
+
 
 # Naming conventions for eveything below may need to change for windows...certainly paths
-
-def get_python_version():
+def get_python_version(major = False):
     version_info = sys.version
     py_version = version_info.split(' ')[0]
-    return py_version
+    if major:
+        py_version_pieces = py_version.split(".")
+        return py_version_pieces[0] + "." + py_version_pieces[1]
+    else:
+        return py_version
 
 def get_operating_sys():
     os_name = platform.system()
@@ -66,10 +72,43 @@ def get_python_lib_path(os_type):
         elif ".a" in libpython_so_name:
             libpython_so_tag_prefix = libpython_so_name.split('.a')[0]
             libpython_so_tag = '-l' + libpython_so_tag_prefix[3:]
+        else:
+            print(RED_START+"[ERROR get_python_lib_path:] libpython_so_name extension {} not (.a,.so,.dylib). Debug here. Exiting!"+RED_END)
+            exit(1)
         return libpython_path, libpython_so_name, libpython_so_tag
     else:
-        print("NOT IMPLEMENTED! EXITING!")
-        exit(1)
+        libpython_path = sysconfig.get_config_var('LIBDIR')
+        if not libpython_path:
+            print(RED_START+"[ERROR get_python_lib_path:] libpython_path could not be found. Exiting!"+RED_END)
+            exit(1)
+        # walk through directory and store shared lib versions
+        shr_libs = [] 
+        for dirpath, dirnames, filenames in os.walk(libpython_path):
+            for filename in filenames:
+                if (".dylib" in filename) and ("libpython{}".format(get_python_version(major=True)) in filename):
+                    shr_libs.append(filename)
+                if (".so" in filename) and ("libpython{}".format(get_python_version(major=True)) in filename):
+                    shr_libs.append(filename)
+            break 
+        # Form full path for selected shr_lib 
+        libpython_so_name = shr_libs[0]
+        #libpython_path += "/{}".format(libpython_so_name)
+        if not libpython_so_name:
+            print(RED_START+"[ERROR get_python_lib_path:] libpython_so_name could not be found. Exiting!"+RED_END)
+            exit(1)
+        if ".so" in libpython_so_name:
+            libpython_so_tag_prefix = libpython_so_name.split('.so')[0]
+            libpython_so_tag = '-l' + libpython_so_tag_prefix[3:]
+        elif ".dylib" in libpython_so_name:
+            libpython_so_tag_prefix = libpython_so_name.split('.dylib')[0]
+            libpython_so_tag = '-l' + libpython_so_tag_prefix[3:]
+        elif ".a" in libpython_so_name:
+            libpython_so_tag_prefix = libpython_so_name.split('.a')[0]
+            libpython_so_tag = '-l' + libpython_so_tag_prefix[3:]
+        else:
+            print(RED_START+"[ERROR get_python_lib_path:] libpython_so_name extension {} not (.a,.so,.dylib). Debug here. Exiting!"+RED_END)
+            exit(1)
+        return libpython_path, libpython_so_name, libpython_so_tag
 
 def download_numpy_i_file(url, local_filepath):
     # Send a GET request to the URL
@@ -101,23 +140,114 @@ def download_file(url, local_filename):
 
 # Path to your .m file
 def run_matlab_script(matlab_script):
+    os_name = get_operating_sys()
     # Command to run MATLAB with the .m file
     command = ['matlab', '-batch', f"run('{matlab_script}')"]
-
     # Run the MATLAB script
-    result = subprocess.run(command, check=True)
+    try:
+        result = subprocess.run(command, check=True)
+        # Check the return code to see if the script executed successfully
+        if result.returncode == 0:
+            print("MATLAB script executed successfully!")
+            return 0
+        else:
+            print(f"MATLAB script failed with return code {result.returncode}")
+            return 1
+    except Exception:
+        print(YELLOW_START+"The matlab command is not found!"+YELLOW_END)
+        print(YELLOW_START+"Attempting to auto-locate it..."+YELLOW_END)
+        # Lets try and find it automatically
+        app_dir = "/Applications" if os_name == "mac" else "/usr/opt..."
+        matlab_versions = []
+        for dirpath, dirnames, filenames in os.walk(app_dir):
+            for dirname in dirnames:
+                fn = dirname.lower()
+                if ("matlab" in fn) and (".app" in fn):
+                    matlab_versions.append(dirname)
+                    print(GREEN_START+"  Found matlab version {}".format(dirname) + GREEN_END)
+            break
+        if len(matlab_versions) == 0:
+            print(RED_START+"Cannot auto-locate matlab! Not seen in Applications directory..."+RED_END)
+            # Ask user to specify the matlab executable folder
+            while True:
+                response = input("Specify the path to the matlab executable below (for example, /YOUR/PATH/TO/MATLAB_2022a/bin/matlab), otherwise enter q to quit and see the simple manual Matlab Wrapper installation steps.\nEnter path or quit:")
+                if response == 'q':
+                    return 1
+                elif "/" in response:
+                     command = [matlab_exec_path, '-batch', f"run('{matlab_script}')"]
+                     break
+                else:
+                    print("Invalid input:")
+        elif len(matlab_versions) == 1:
+            matlab_exec_path = "{}/{}/{}/matlab".format(app_dir, matlab_versions[0], "bin")
+            print("Using Matlab executable: {}".format(matlab_exec_path))
+            command = [matlab_exec_path, '-batch', f"run('{matlab_script}')"]
+            
+        elif len(matlab_versions) > 1:
+            print("Located the following matlab versions: ")
+            for i,mv in enumerate(matlab_versions):
+                print("{}.) {}".format(i+1, mv))
+            while True:
+                response = int(input("Enter {} to {} to select the corresponding Matlab version above:".format(1,len(matlab_versions))) )
+                if (response >= 1) and (response <= len(matlab_versions)):
+                    matlab_version = matlab_versions[response-1]
+                    break 
+                else:
+                    print("Invalid input: Enter the number {} to {} corresponding to your Matlab version above".format(1,len(matlab_version)))
+            matlab_exec_path = "{}/{}/{}/matlab".format(app_dir, matlab_version, "bin")
+            command = [matlab_exec_path, '-batch', f"run('{matlab_script}')"]
+        # Try subprocess call again
+        try:
+            print(YELLOW_START+"Running Matlab Wrapper Build Script..."+YELLOW_END)
+            result = subprocess.run(command, check=True)
+            # Check the return code to see if the script executed successfully
+            if result.returncode == 0:
+                print(GREEN_START+"MATLAB script executed successfully!"+GREEN_END)
+                return 0
+            else:
+                print(RED_START+"MATLAB script failed with return code {}".format(result.returncode)+RED_END)
+                return 1
+        except Exception:
+            print(RED_START+"Matlab script did not compile correctly!"+RED_END)
+            return 0
 
-    # Check the return code to see if the script executed successfully
+def unix_setup_c_examples():
+    print(GREEN_START+"--- Building Cauchy Estimator C++ Examples ---"+GREEN_END)
+    os_name = get_operating_sys()
+    cwd = os.getcwd()
+    auto_config_path = get_auto_config_path()
+    os.chdir(auto_config_path)
+    c_examples_src_path = auto_config_path + "/src"
+    c_examples_bin_path =  auto_config_path + "/bin"
+    # Change g++ to clang++ for mac and clang++ to g++ for linux
+    count = 0
+    make_path = auto_config_path + "/Makefile" 
+    with open(make_path, 'r') as handle:
+        lines = handle.readlines()
+        num_lines = len(lines)
+    for i in range(num_lines):
+        if os_name == "mac":
+            lines[i] = lines[i].replace("CC=g++","CC=clang++") #overkill but quick
+        else:
+            lines[i] = lines[i].replace("CC=clang++","CC=g++") #overkill but quick
+    with open(make_path, 'w') as handle:
+        handle.writelines(lines)
+    print(YELLOW_START+"Running: make clean"+YELLOW_END)
+    result = subprocess.run(["make", "clean"], check=True)
+    print(YELLOW_START+"Running: make all D=0"+YELLOW_END)
+    result = subprocess.run(["make", "all", "D=0"], check=True)
+    os.chdir(cwd)
     if result.returncode == 0:
-        print("MATLAB script executed successfully!")
-        return 0
+        print(GREEN_START+"C++ examples from\n {} have build successful in\n {}".format(c_examples_src_path, c_examples_bin_path)+GREEN_END)
     else:
-        print(f"MATLAB script failed with return code {result.returncode}")
-        return 1
+        print(RED_END+"C++ examples did not compile successfully! Please look at print out above and assess problem." + RED_END)
+        exit(1)       
+    print(GREEN_START+"-----------------------------------------"+GREEN_END) 
 
 def unix_setup_python_wrapper():
+    cwd = os.getcwd()
     os_name = get_operating_sys()
-    assert(os_name in "max linux")
+    assert(os_name in "mac linux")
     # Check Python Version >= 3
     py_ver = get_python_version()
     py_ver_maj = py_ver[:3]
@@ -132,7 +262,7 @@ def unix_setup_python_wrapper():
     auto_config_path = get_auto_config_path()
     # Find Python include and lib paths
     py_include_path = get_python_include_path()
-    py_lib_path, py_lib_so_name, py_lib_so_tag = get_python_lib_path('linux')
+    py_lib_path, py_lib_so_name, py_lib_so_tag = get_python_lib_path(os_name)
     # Get Numpy include path 
     np_include_path = get_numpy_include_path() 
     print(GREEN_START+"--- Auto Configuration Script Found The Following Paths: ---"+GREEN_END)
@@ -144,11 +274,10 @@ def unix_setup_python_wrapper():
     print("  Numpy Include Path: ", np_include_path)
     print(GREEN_START+"---------------------------------------------------"+GREEN_END)
 
-
-    # Configure swigit_linux.sh, keep a backup temporarily in case the configure ran into errors
-    swigit_file = "swigit_linux.sh" if os_name == "linux" else "swigit_mac.sh"
+    # Configure swigit_unix.sh
+    swigit_file = "swigit_unix.sh"
     swigit_path = auto_config_path + "/scripts/swig/cauchy/" + swigit_file
-    print(GREEN_START+"--- Auto Configuration Script Formatting Swig Install File:\n Located: {}".format(swigit_path) + GREEN_END)
+    print(YELLOW_START+"Configuring Swig Install File:\n Located: {}".format(swigit_path)+YELLOW_END)
     with open(swigit_path, 'r') as handle:
         lines = handle.readlines()
         num_lines = len(lines)
@@ -182,11 +311,12 @@ def unix_setup_python_wrapper():
         # Change g++ line 
         for i in range(num_lines):
             if os_name == "mac":
-                if ("g++" in lines[i]) or ("clang" in lines[i]) :
-                    #lines[i] = lines[i].replace("g++", "clang") #?
-                    lines[i] = lines[i].replace("-shared", "-dynamiclib")
+                if lines[i][0:3] == "g++":
+                        lines[i] = lines[i].replace("g++", "clang++") 
+                lines[i] = lines[i].replace("-shared", "-dynamiclib")
             else: # linux
-                lines[i] = lines[i].replace("clang", "g++") #?
+                if lines[i][0:7] == "clang++":
+                        lines[i] = lines[i].replace("clang++", "g++") 
                 lines[i] = lines[i].replace("-dynamiclib", "-shared")
     # All done -- Write Lines
     try:
@@ -195,7 +325,7 @@ def unix_setup_python_wrapper():
     except Exception:
         print(RED_START+"Could not write to {}! System permissive settings limited! Please fix write capabilities and try again! Exiting!".format(swigit_path) + RED_END)
         exit(1)
-    print(GREEN_START+"---------------------------------------------------"+GREEN_END)
+    print(GREEN_START+"Updated\n {}\nwith new paths!".format(swigit_path))
 
     # Download the correct numpy file matching their numpy version 
     numpy_maj_version = get_numpy_version(maj_only=True)
@@ -212,7 +342,7 @@ def unix_setup_python_wrapper():
     os.symlink(numpy_i_local_path, numpy_i_local_default)
     print(GREEN_START+"---------------------------------------------------"+GREEN_END)
 
-    # swigit_linux/mac.sh configured -- now download swig+pcre versions
+    # swigit_unix.sh configured -- now download swig+pcre versions
     swig_local_dir = auto_config_path + "/scripts/swig/swig_download"
     print(GREEN_START + "--- Auto Configuration Script Downloading swig, pcre and installing... ---" + GREEN_END)
     if not os.path.isdir(swig_local_dir):
@@ -260,7 +390,7 @@ def unix_setup_python_wrapper():
             print("make install command for swig executed successfully!")
         # build path to swig executable
         swig_exec = swig_install_dir + "/bin/swig"
-        # write out executable path to swigit_linux/mac.sh
+        # write out executable path to swigit_unix.sh
         with open(swigit_path, 'r') as handle:
             lines = handle.readlines()
             num_lines = len(lines)
@@ -279,23 +409,26 @@ def unix_setup_python_wrapper():
         with open(swigit_path, 'w') as handle:
             handle.writelines(lines)
     
-    # Call swigit_linux/mac.sh
+    # Call swigit_unix.sh
     swigit_run_path = auto_config_path + "/scripts/swig/cauchy/"
     os.chdir(swigit_run_path)
     result = subprocess.run([swigit_path], check=True)
+    os.chdir(cwd)
     if result.returncode == 0:
-        print("swigit_{}.sh executed successfully!".format(os_name))
-
+        print(GREEN_START+"swigit_unix.sh executed successfully!"+GREEN_END)
+    else:
+        print(RED_START + "swigit_unix.sh did not execute successfully!" + RED_END)
+        return
     print(GREEN_START+"---------------------------------------------------"+GREEN_END)
     pycauchy_ce_path = auto_config_path + "/scripts/swig/cauchy/cauchy_estimator.py"
     pycauchy_tut1_path = auto_config_path + "/scripts/tutorial/lit_systems.ipynb"
     pycauchy_tut2_path = auto_config_path + "/scripts/tutorial/nonlin_systems.ipynb"
-    print("Python Wrapper build script completed:\nThe module:\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(pycauchy_ce_path, pycauchy_tut1_path, pycauchy_tut2_path) )
+    print(GREEN_START+"Python Wrapper build script completed:\nThe module:\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(pycauchy_ce_path, pycauchy_tut1_path, pycauchy_tut2_path) +GREEN_END)
 
 def unix_setup_matlab_wrapper():
     # Get path to this file 
     os_name = get_operating_sys()
-    assert(os_name in "max linux")
+    assert(os_name in "mac linux")
     auto_config_path = get_auto_config_path()
     swig_cauchy_include_path = "-I" + auto_config_path + "/scripts/swig/cauchy" 
     swig_cauchy_include_path += " -I" + auto_config_path + "/include"
@@ -330,50 +463,40 @@ def unix_setup_matlab_wrapper():
         print("Matlab build script completed: The modules:\n {}\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path) )
     # If unsuccessful to call matlab: 
     else:
-        print("[Error unix_setup_matlab_wrapper:] Matlab executable not found from command line: you could add the matlab executable path to your PATH, or follow the below instructions:")
-        print("1.) Open this workspace in the Matlab GUI and navigate to matlab/mex_files")
-        print("2.) Run the build.m file (i.e, type the word build) in the matlab command window")
-        print("The build process will generate the modules:\n {}\n {}\n and can be included in your projects... Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path) )
+        print(RED_START+"[Error unix_setup_matlab_wrapper:] Matlab executable not found from command line: you could add the matlab executable path to your PATH, or follow the below instructions:"+RED_END)
+        print(YELLOW_START+"  1.) Open this workspace in the Matlab GUI and navigate to matlab/mex_files"+YELLOW_END)
+        print(YELLOW_START+"  2.) Run the build.m file (i.e, type the word build) in the matlab command window", YELLOW_END)
+        print(YELLOW_START+"The build process will generate the modules:\n {}\n {}\n and can be included in your projects... Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path) + YELLOW_END)
     print(GREEN_START + "----------------------------------------" + GREEN_END)
 
-def unix_build_c_examples():
-    auto_config_path = get_auto_config_path()
-    os.chdir(auto_config_path)
-    # change Makefile for mac/linux...
-    #
-    # ... enter above 
-    c_examples_src_path = auto_config_path + "/src"
-    c_examples_bin_path =  auto_config_path + "/bin"
-    result = subprocess.run(["make", "all", "D=0"], check=True)
-    if result.returncode == 0:
-        print("C++ examples from\n {} have build successful in\n {}".format(c_examples_src_path, c_examples_bin_path))
-    else:
-        print(RED_END+"C++ examples did not compile successfully! Please look at print out above and assess problem." + RED_END)
-        exit(1)
+def windows_setup_c_examples():
+    assert(False)
 
 def windows_setup_python_wrapper():
-    pass
+    assert(False)
 
 def windows_setup_matlab_wrapper():
-    pass
+    assert(False)
 
 if __name__ == '__main__':
-    # Build C-Code Examples
+    # Build C++ Examples
     while True:
         run_cpp = input("Would you like to compile the C++ build examples?\nThis is a good first step, as the Python/Matlab bindings will not work unless the C-code can compile:\nTo build C++ Examples, Enter: 'y' for yes or 'n' for no...")
-        if run_cpp.lower() in ['y', 'n']:
+        run_cpp = run_cpp.lower()
+        if run_cpp in ['y', 'n']:
             break
         else:
             print("Unknown input {}, Enter y for yes or n for no. Try again!")
-    if run_cpp and (get_operating_sys() != "windows"): 
-        unix_build_c_examples()
-    elif run_cpp and (get_operating_sys() == "windows"):
-        assert(False)
-
-    # Python Wrapper
+    if run_cpp == 'y' and (get_operating_sys() != "windows"): 
+        unix_setup_c_examples()
+    elif run_cpp == 'y' and (get_operating_sys() == "windows"):
+        windows_setup_c_examples()
+    
+    # Build Python Wrapper
     while True:
         run_py = input("This script can also build the Python wrapper:\nWould you like to build it? Enter 'y' for yes or 'n' for no...")
-        if run_py.lower() in ['y', 'n']:
+        run_py = run_py.lower()
+        if run_py in ['y', 'n']:
             break
         else:
             print("Unknown input {}, Enter y for yes or n for no. Try again!")
@@ -382,10 +505,11 @@ if __name__ == '__main__':
     if (run_py == 'y') and (get_operating_sys() == "windows"):
         windows_setup_python_wrapper()
     
-    # MatLab Wrapper
+    # Build Matlab Wrapper
     while True:
         run_ml = input("\nWould you like to build the Matlab Wrapper? Enter 'y' for yes or 'n' for no...")
-        if run_ml.lower() in ['y', 'n']:
+        run_ml = run_ml.lower()
+        if run_ml in ['y', 'n']:
             break
         else:
             print("Unknown input {}, Enter y for yes or n for no. Try again!")

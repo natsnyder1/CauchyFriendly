@@ -6,17 +6,17 @@ FILE_NAME="pycauchy"
 SWIG_FILE=${FILE_NAME}.i
 INCLUDE_FILE=${FILE_NAME}.hpp
 
-# Nats Linux Computer
+# Include + Library path symbols
 LIB_MATH_PTHREAD="-lm -lpthread"
-INC_PYTHON=-I"/usr/local/include/python3.7m"
-LIB_PYTHON=-L"/usr/local/lib -lpython3.7m"
-INC_NUMPY=-I"/usr/local/lib/python3.7/site-packages/numpy/core/include"
-#INC_LAPACK="-I/usr/include/"
-#LIB_LAPACK="-L/usr/lib -llapacke -llapack -lblas -lm -lpthread"
+INC_PYTHON=-I"/Library/Frameworks/Python.framework/Versions/3.7/include/python3.7m"
+LIB_PYTHON=-L"/Library/Frameworks/Python.framework/Versions/3.7/lib -lpython3.7"
+INC_NUMPY=-I"/Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages/numpy/core/include"
+
 
 # For cluster
 #INC_PYTHON="-I/home/natsnyder1/.local/lib/python3.7/site-packages/numpy/core/include -I/cm/local/apps/python37/include/python3.7m"
 #LIB_LAPACK="-Xlinker -start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Xlinker -end-group -lgomp -lpthread -lm -ldl"
+
 
 rm _${FILE_NAME}.so
 rm ${FILE_NAME}_wrap.cxx
@@ -28,19 +28,19 @@ echo "All temp files / libraries initially deleted"
 #sleep 1
 echo "Creating new temp files / libraries..."
 
-/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/scripts/swig/swig_download/install_swig/bin/swig -c++ -python ${SWIG_FILE}
+/Users/natsnyder/Desktop/CauchyFriendly/scripts/swig/swig_download/install_swig/bin/swig -c++ -python ${SWIG_FILE}
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] swig -c++ -python ${SWIG_FILE} command returned with failure!"
     exit 1
 fi
-g++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY
+clang++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY
 if [ $? -eq 1 ]; then 
-    echo "[ERROR:] g++ -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY command returned with failure!"
+    echo "[ERROR:] clanclang++ -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY command returned with failure!"
     exit 1
 fi
-g++ $LIB_PYTHON -shared -lstdc++ $LIB_MATH_PTHREAD ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so
+clang++ $LIB_PYTHON -dynamiclib -lstdc++ $LIB_MATH_PTHREAD ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so
 if [ $? -eq 1 ]; then 
-    echo "[ERROR:] g++ -shared ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so -lstdc++ command returned with failure!"
+    echo "[ERROR:] clanclang++ -dynamiclib ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so -lstdc++ command returned with failure!"
     exit 1
 fi
 printf "All temp files / libraries (re)created!\nModule ${FILE_NAME}.py is now ready for use!\n"
