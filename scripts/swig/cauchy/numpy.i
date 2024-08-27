@@ -1,1 +1,1 @@
-/Users/natsnyder/Desktop/CauchyFriendly/scripts/swig/cauchy/numpy_1.21.i
+/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/scripts/swig/cauchy/numpy_1.21.i

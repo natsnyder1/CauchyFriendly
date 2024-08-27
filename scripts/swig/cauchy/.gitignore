@@ -4,7 +4,6 @@ pycauchy_wrap.o
 pycauchy.py 
 __pycache__
 .DS_Store
-numpy_*
 numpy.i
 old_swigit_linux.sh
 old_swigit_mac.sh

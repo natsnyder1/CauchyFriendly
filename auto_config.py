@@ -358,19 +358,20 @@ def unix_setup_python_wrapper():
         download_file(url_pcre, pcre_tar_path)
     # Extract Swig
     swig_untar_path = auto_config_path + "/scripts/swig/swig_download/swig-4.1.0"
+    swig_install_dir = auto_config_path + "/scripts/swig/swig_download/install_swig"
     if not os.path.isdir(swig_untar_path):
         print("Installing and configuring swig...")
         # create swig's install folder
-        swig_install_dir = auto_config_path + "/scripts/swig/swig_download/install_swig"
         if not os.path.isdir(swig_install_dir):
             os.mkdir(swig_install_dir)
         # Untar 
         with tarfile.open(swig_tar_path, 'r:gz') as tar:
             tar.extractall(path=swig_local_dir)
         os.chdir(swig_untar_path)
-        # Move pcre into untar swig
+        # copy pcre into untar swig
         pcre_mv_tar_path = swig_untar_path + "/{}".format(pcre_tar_name)
-        os.rename(pcre_tar_path, pcre_mv_tar_path)
+        shutil.copyfile(pcre_tar_path, pcre_mv_tar_path)
+        
         # Call the swig-4.1.0/Tools/pcre-build.sh script
         swig_pcre_helper_path = swig_untar_path + "/Tools/pcre-build.sh"
         result = subprocess.run([swig_pcre_helper_path], check=True)
@@ -388,26 +389,26 @@ def unix_setup_python_wrapper():
         result = subprocess.run(["make", "install"], check=True)
         if result.returncode == 0:
             print("make install command for swig executed successfully!")
-        # build path to swig executable
-        swig_exec = swig_install_dir + "/bin/swig"
-        # write out executable path to swigit_unix.sh
-        with open(swigit_path, 'r') as handle:
-            lines = handle.readlines()
-            num_lines = len(lines)
-        # Change swig executable location
-        count = 0
-        while True:
-            if "swig -c++ -python" in lines[count]:
-                if lines[count][0:8] != "[ERROR:]":
-                    break
-            count += 1
-            if count == num_lines:
-                print(RED_START+"[ERROR unix_setup_python_wrapper:] swig executable could not be found in swigit_{}.sh...indicating file corruption...please redownload this file and rerun auto_config.py...Exiting!".format(os_name) + RED_END)
-                exit(1)
-        swig_exec_swigit = swig_exec + " -c++ -python ${SWIG_FILE}\n"
-        lines[count] = swig_exec_swigit
-        with open(swigit_path, 'w') as handle:
-            handle.writelines(lines)
+    # build path to swig executable
+    swig_exec = swig_install_dir + "/bin/swig"
+    # write out executable path to swigit_unix.sh
+    with open(swigit_path, 'r') as handle:
+        lines = handle.readlines()
+        num_lines = len(lines)
+    # Change swig executable location
+    count = 0
+    while True:
+        if "swig -c++ -python" in lines[count]:
+            if lines[count][0:8] != "[ERROR:]":
+                break
+        count += 1
+        if count == num_lines:
+            print(RED_START+"[ERROR unix_setup_python_wrapper:] swig executable could not be found in swigit_{}.sh...indicating file corruption...please redownload this file and rerun auto_config.py...Exiting!".format(os_name) + RED_END)
+            exit(1)
+    swig_exec_swigit = swig_exec + " -c++ -python ${SWIG_FILE}\n"
+    lines[count] = swig_exec_swigit
+    with open(swigit_path, 'w') as handle:
+        handle.writelines(lines)
     
     # Call swigit_unix.sh
     swigit_run_path = auto_config_path + "/scripts/swig/cauchy/"
