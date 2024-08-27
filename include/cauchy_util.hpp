@@ -1902,4 +1902,10 @@ void set_tr_search_idxs_ordering(const int* const ordering, int n)
 		TR_SEARCH_IDXS_ORDERING[i] = ordering[i];
 }
 
+// Util Is Nan 
+bool CHECK_IS_NAN(double x) 
+{
+    return x != x;
+}
+
 #endif

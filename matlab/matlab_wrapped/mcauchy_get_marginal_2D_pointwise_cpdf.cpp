@@ -2,9 +2,9 @@
 #include "pycauchy.hpp"
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
-    if (nrhs != 10) {
+    if (nrhs != 11) {
         mexErrMsgIdAndTxt("MATLAB:validation:nrhs",
-                          "Ten input arguments required.");
+                          "Eleven input arguments required.");
     }
 
     // Extract the pointer from the first input argument
@@ -25,6 +25,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     double gridy_high = mxGetScalar(prhs[7]);
     double gridy_resolution = mxGetScalar(prhs[8]);
     char *log_dir = mxArrayToString(prhs[9]);
+    bool reset_cache = static_cast<int>(mxGetScalar(prhs[10]));
     if (log_dir == NULL) {
         mexErrMsgIdAndTxt("MATLAB:conversionFailed", "Could not convert input to string.");
     }
@@ -38,6 +39,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     gridx_low, gridx_high, gridx_resolution, 
     gridy_low, gridy_high, gridy_resolution, 
     log_dir, 
+    reset_cache,
     &out_cpdf_data, &size_out_cpdf_data, &out_num_gridx, &out_num_gridy
     );
 

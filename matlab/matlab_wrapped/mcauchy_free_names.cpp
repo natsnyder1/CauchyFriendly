@@ -1,4 +1,6 @@
 #include "mex.h"
+//#include <stdio.h>
+#include <stdint.h>
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (nrhs != 1) {

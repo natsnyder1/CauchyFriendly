@@ -10,10 +10,6 @@
 #include "cpdf_ndim.hpp"
 #include "cpu_timer.hpp"
 #include "random_variables.hpp"
-#include <complex.h>
-#include <stdlib.h>
-#include <math.h>
-#include <pthread.h>
 
 
 // Unfinished
@@ -1096,7 +1092,7 @@ CauchyPoint3D* grid_eval_marg2d_relative_and_transformed_cpdf(
             if(FULL_SOLVE)
             {
                 double imag_cpdf = cimag(cpdf_eval);
-                if( (fabs(imag_cpdf) > 1e-10) || isnan(imag_cpdf) )
+                if( (fabs(imag_cpdf) > 1e-10) || CHECK_IS_NAN(imag_cpdf) )
                     printf("We have a large-ish imaginary part: x=%.2E, y=%.2E, cpdf_eval=%.4E+%.4Ej\n", points[i].x, points[i].y, creal(cpdf_eval), cimag(cpdf_eval));
             }
         }

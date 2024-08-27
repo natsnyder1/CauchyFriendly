@@ -866,7 +866,8 @@ void pycauchy_get_2D_pointwise_cpdf(
     void* _pcdh, 
     double gridx_low, double gridx_high, double gridx_resolution, 
     double gridy_low, double gridy_high, double gridy_resolution, 
-    char* log_dir, bool reset_cache,
+    char* log_dir, 
+    bool reset_cache,
     double** out_cpdf_data, int* size_out_cpdf_data, int* out_num_gridx, int* out_num_gridy)
 {
     pycauchy_get_marginal_2D_pointwise_cpdf(

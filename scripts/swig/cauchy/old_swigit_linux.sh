@@ -8,9 +8,9 @@ INCLUDE_FILE=${FILE_NAME}.hpp
 
 # Nats Linux Computer
 LIB_MATH_PTHREAD="-lm -lpthread"
-INC_PYTHON=-I"/usr/local/include/python3.7m"
-LIB_PYTHON=-L"/usr/local/lib -lpython3.7m"
-INC_NUMPY=-I"/usr/local/lib/python3.7/site-packages/numpy/core/include"
+INC_PYTHON="-I/usr/local/include/python3.7m"
+LIB_PYTHON="-L/usr/local/lib -lpython3.7m"
+INC_NUMPY="-I/usr/local/lib/python3.7/site-packages/numpy/core/include"
 #INC_LAPACK="-I/usr/include/"
 #LIB_LAPACK="-L/usr/lib -llapacke -llapack -lblas -lm -lpthread"
 
@@ -28,7 +28,7 @@ echo "All temp files / libraries initially deleted"
 #sleep 1
 echo "Creating new temp files / libraries..."
 
-/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/scripts/swig/swig_download/install_swig/bin/swig -c++ -python ${SWIG_FILE}
+swig -c++ -python ${SWIG_FILE}
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] swig -c++ -python ${SWIG_FILE} command returned with failure!"
     exit 1
