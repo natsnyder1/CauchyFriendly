@@ -78,6 +78,13 @@ def get_python_lib_path(os_type):
         return libpython_path, libpython_so_name, libpython_so_tag
     else:
         libpython_path = sysconfig.get_config_var('LIBDIR')
+        if not os.path.isdir(libpython_path):
+            libpython_path = sysconfig.get_paths()["stdlib"]
+            if libpython_path[-3:] != "lib":
+                libpython_path = libpython_path.rsplit("/", 1)[0]
+            if not os.path.isdir(libpython_path):
+                print(RED_START+"Cannot Locate libpython{}.dylib or a closely named library. Please debug here! Exiting!"+RED_END)
+                exit(1)
         if not libpython_path:
             print(RED_START+"[ERROR get_python_lib_path:] libpython_path could not be found. Exiting!"+RED_END)
             exit(1)
@@ -336,9 +343,15 @@ def unix_setup_python_wrapper():
     if not os.path.isfile(numpy_i_local_path):
         url_numpy_i = "https://raw.githubusercontent.com/numpy/numpy/maintenance/{}.x/tools/swig/numpy.i".format(numpy_maj_version)
         download_file(url_numpy_i, numpy_i_local_path)
-    # Regardless, just re-symlink 
-    if os.path.isfile(numpy_i_local_default):
+    # Regardless, just re-symlink
+    try:
         os.remove(numpy_i_local_default)
+    except FileNotFoundError:
+        pass 
+    except PermissionError:
+        print("Permission denied, {} could not be removed".format(numpy_i_local_default))
+    except Exception:
+        pass
     os.symlink(numpy_i_local_path, numpy_i_local_default)
     print(GREEN_START+"---------------------------------------------------"+GREEN_END)
 
@@ -465,9 +478,9 @@ def unix_setup_matlab_wrapper():
     # If unsuccessful to call matlab: 
     else:
         print(RED_START+"[Error unix_setup_matlab_wrapper:] Matlab executable not found from command line: you could add the matlab executable path to your PATH, or follow the below instructions:"+RED_END)
-        print(YELLOW_START+"  1.) Open this workspace in the Matlab GUI and navigate to matlab/mex_files"+YELLOW_END)
-        print(YELLOW_START+"  2.) Run the build.m file (i.e, type the word build) in the matlab command window", YELLOW_END)
-        print(YELLOW_START+"The build process will generate the modules:\n {}\n {}\n and can be included in your projects... Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path) + YELLOW_END)
+        print("  1.) Open this workspace in the Matlab GUI and navigate to matlab/mex_files")
+        print("  2.) Run the build.m file (i.e, type the word build) in the matlab command window")
+        print("The build process will generate the modules:\n {}\n {}\n and can be included in your projects... Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path))
     print(GREEN_START + "----------------------------------------" + GREEN_END)
 
 def windows_setup_c_examples():

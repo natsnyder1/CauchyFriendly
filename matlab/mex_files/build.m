@@ -1,12 +1,12 @@
 mex -setup c++
-delete cpp_mexapi_version.o mcauchy_*
+delete 'cpp_*_version.o' mcauchy_*
 
 % Allow lldb to watch for memory leaks
 setenv('CFLAGS', '-fno-omit-frame-pointer -fsanitize=address');
 setenv('LDFLAGS', '-fsanitize=protect-initialized-data -fsanitize=leak -fsanitize=address');
 
 % The following two lines are specific to Nishad's computer. Please change depending on your own locations
-includePath = '-I/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/scripts/swig/cauchy -I/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/include';
+includePath = '-I/Users/juliekhil/Desktop/CauchyFriendly/scripts/swig/cauchy -I/Users/juliekhil/Desktop/CauchyFriendly/include';
 libraryPath = '-lm -lpthread';
 
 

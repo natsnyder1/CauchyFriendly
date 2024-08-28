@@ -3,7 +3,7 @@ import cauchy_estimator as ce
 import gaussian_filters as gf
 import math
 import matplotlib
-matplotlib.use('TkAgg',force=True)
+#matplotlib.use('TkAgg',force=True)
 
 class PendulumParams:
     L = 0.3 # meters

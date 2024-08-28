@@ -60,7 +60,7 @@ void test_3state_window_manager()
     
     // New Sliding Window Manager
     int total_steps = num_steps+1; // including estimation for x0 (i.e, z0 -> first MU)
-    int num_windows = 6;
+    int num_windows = 8;
     const bool WINDOW_PRINT_DEBUG = false;
     const bool WINDOW_LOG_SEQUENTIAL = false;
     const bool WINDOW_LOG_FULL = false;

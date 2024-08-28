@@ -8,9 +8,9 @@ INCLUDE_FILE=${FILE_NAME}.hpp
 
 # Include + Library path symbols
 LIB_MATH_PTHREAD="-lm -lpthread"
-INC_PYTHON=-I"/usr/local/include/python3.7m"
-LIB_PYTHON=-L"/usr/local/lib -lpython3.7m"
-INC_NUMPY=-I"/usr/local/lib/python3.7/site-packages/numpy/core/include"
+INC_PYTHON=-I"/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/include/python3.9"
+LIB_PYTHON=-L"/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib -lpython3.9"
+INC_NUMPY=-I"/Users/juliekhil/Library/Python/3.9/lib/python/site-packages/numpy/_core/include"
 
 
 # For cluster
@@ -28,19 +28,19 @@ echo "All temp files / libraries initially deleted"
 #sleep 1
 echo "Creating new temp files / libraries..."
 
-/home/natsubuntu/Desktop/SysControl/estimation/CauchyCPU/CauchyEst_Nat/CauchyFriendly/scripts/swig/swig_download/install_swig/bin/swig -c++ -python ${SWIG_FILE}
+/Users/juliekhil/Desktop/CauchyFriendly/scripts/swig/swig_download/install_swig/bin/swig -c++ -python ${SWIG_FILE}
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] swig -c++ -python ${SWIG_FILE} command returned with failure!"
     exit 1
 fi
-g++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY
+clang++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] clanclang++ -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY command returned with failure!"
     exit 1
 fi
-g++ $LIB_PYTHON -shared -lstdc++ $LIB_MATH_PTHREAD ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so
+clang++ $LIB_PYTHON -dynamiclib -lstdc++ $LIB_MATH_PTHREAD ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so
 if [ $? -eq 1 ]; then 
-    echo "[ERROR:] clanclang++ -shared ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so -lstdc++ command returned with failure!"
+    echo "[ERROR:] clanclang++ -dynamiclib ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so -lstdc++ command returned with failure!"
     exit 1
 fi
 printf "All temp files / libraries (re)created!\nModule ${FILE_NAME}.py is now ready for use!\n"

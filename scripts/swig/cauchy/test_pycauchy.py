@@ -4,7 +4,7 @@ import cauchy_estimator as ce
 import gaussian_filters as gf
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('TkAgg',force=True)
+#matplotlib.use('TkAgg',force=True)
 
 file_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -242,7 +242,7 @@ def test_3state_lti_window_manager():
     (xs, zs, ws, vs) = ce.simulate_gaussian_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, W, H, V, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
 
     # Run Cauchy Estimator
-    num_windows = 6
+    num_windows = 8
     #log_dir = file_dir + "/../../../log/python/swig_3state_lti"
     swm_debug_print = True
     win_debug_print = False
