@@ -1,1 +1,0 @@
-/Users/juliekhil/Desktop/CauchyFriendly/scripts/swig/cauchy/numpy_2.0.i
