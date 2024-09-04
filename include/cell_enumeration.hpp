@@ -227,7 +227,11 @@ void make_new_child_btable(CauchyTerm* term,
     }
     
     int pbc = term->pbc;
-    int bit_mask[pbc];
+	#if _WIN32
+		int bit_mask[MAX_HP_SIZE];
+	#else 
+		int bit_mask[pbc];
+	#endif
     
     uint8_t* c_map = term->c_map;
     memset(B_mu_hash, kByteEmpty, size_B_mu_hash * sizeof(KeyValue));
@@ -624,8 +628,12 @@ void tp_enu_warnings_check(double* A, double* b, double* v,
     int* combo, int* anti_combo,
     const int m, const int n, const int term_idx, const int combo_num)
 {
-    double warn_work[m];
-    matvecmul(A, v, warn_work, m, n);
+	#if _WIN32
+		double warn_work[MAX_HP_SIZE];
+	#else 
+		double warn_work[m];
+	#endif
+	matvecmul(A, v, warn_work, m, n);
     sub_vecs(warn_work, b, m);
 
     double max_resid_combo = 0;
@@ -683,12 +691,23 @@ void make_time_prop_btable(CauchyTerm* term, DiffCellEnumHelper* dce_helper)
     int combo_counts = dce_helper->combo_counts[m];
     int* anti_combos = dce_helper->anti_combos[m];
     int num_anti_combo = m - d;
-    double Ac[d*d];
-    double work[d*d]; // workspace for Ac when solving
-    int P[d]; // Perm. Matrix for PLU solving
-    double bc[d];
-    double vertex[d];
-    double b_pert[m];
+	
+	#if _WIN32
+		double Ac[MAX_HP_SIZE*MAX_HP_SIZE];
+		double work[MAX_HP_SIZE*MAX_HP_SIZE]; // workspace for Ac when solving
+		int P[MAX_HP_SIZE]; // Perm. Matrix for PLU solving
+		double bc[MAX_HP_SIZE];
+		double vertex[MAX_HP_SIZE];
+		double b_pert[MAX_HP_SIZE];
+	#else
+		double Ac[d*d];
+		double work[d*d]; // workspace for Ac when solving
+		int P[d]; // Perm. Matrix for PLU solving
+		double bc[d];
+		double vertex[d];
+		double b_pert[m];
+	#endif
+
     memcpy(b_pert, dce_helper->b_pert, m * sizeof(double));
     double* A = term->A;
     int two_to_d = 1 << d;
@@ -851,11 +870,21 @@ void make_time_prop_btable_fast(CauchyTerm* term, DiffCellEnumHelper* dce_helper
     // Otherwise, begin routine
     int d = term->d;
     int dm1 = d-1;
-    double Ac[d*d];
-    double work[d*d]; // workspace for Ac when solving
-    int P[d]; // Perm. Matrix for PLU solving
-    double bc[d];
-    double vertex[d];
+    
+	#if _WIN32
+		double Ac[MAX_HP_SIZE*MAX_HP_SIZE];
+		double work[MAX_HP_SIZE*MAX_HP_SIZE]; // workspace for Ac when solving
+		int P[MAX_HP_SIZE]; // Perm. Matrix for PLU solving
+		double bc[MAX_HP_SIZE];
+		double vertex[MAX_HP_SIZE];
+	#else 
+		double Ac[d*d];
+		double work[d*d]; // workspace for Ac when solving
+		int P[d]; // Perm. Matrix for PLU solving
+		double bc[d];
+		double vertex[d];
+	#endif
+
     double* A = term->A;
     memset(bc, 0, dm1*sizeof(double));
     bc[dm1] = -GAMMA_PERTURB_EPS;
@@ -883,7 +912,11 @@ void make_time_prop_btable_fast(CauchyTerm* term, DiffCellEnumHelper* dce_helper
         const int rev_phc_mask = (1<<phc)-1; // reverses sv of length phc with xor operator
         const int rev_m_mask = (1<<m)-1; // reverses sv of length m with xor operator
         const int gamma_mask = rev_phc_mask; // clears gamma bits with and operator
-        int zero_resids[m];
+		#if _WIN32
+			int zero_resids[MAX_HP_SIZE];
+		#else 
+			int zero_resids[m];
+		#endif
         memcpy(Ac + dm1*d, A + phc*d, d*sizeof(double)); // last HP in Ac is always constant (Gamma)
         memset(Btp_hash, kByteEmpty, Btp_hash_table_size * sizeof(BTABLE_TYPE));
         memset(F, 1, (1<<m) * sizeof(bool) );
@@ -1119,8 +1152,14 @@ void make_lowered_child_btable(CauchyTerm* term,
     
     memset(B_mu_hash, kByteEmpty, size_B_mu_hash * sizeof(KeyValue));
     memset(F, 1, cells_parent * sizeof(bool));
-    int bit_mask[phc];
-    bool is_child_coaligned = c_map != NULL;
+
+	#if _WIN32
+		int bit_mask[MAX_HP_SIZE];
+	#else
+		int bit_mask[phc];
+	#endif
+    
+	bool is_child_coaligned = c_map != NULL;
 
     // Step 1: Hash all Sign-Vectors of B_mu
     // If child is not coaligned, then we can directly fill enc_B with the result of the alg
@@ -1318,11 +1357,20 @@ int* make_enumeration_matrix(double* A, const int m, const int d, int* num_cells
         b_pert = dce_helper->b_pert;
     }
 
-    double Ac[d*d];
-    double work[d*d];
-    double bc[d];
-    double vertex[d];
-    int P[d];
+	#if _WIN32
+		double Ac[MAX_HP_SIZE*MAX_HP_SIZE];
+		double work[MAX_HP_SIZE*MAX_HP_SIZE];
+		double bc[MAX_HP_SIZE];
+		double vertex[MAX_HP_SIZE];
+		int P[MAX_HP_SIZE];
+	#else
+		double Ac[d*d];
+		double work[d*d];
+		double bc[d];
+		double vertex[d];
+		int P[d];
+	#endif
+
     int count_B_set = 0;
     int two_to_d = 1<<d;
     KeyValue kv;

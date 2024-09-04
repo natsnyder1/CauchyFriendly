@@ -428,8 +428,8 @@ void* threaded_merge(void* args)
 
 void merge_sorted_arrays(threadsort_struct* ts, const int nts)
 {
-    threadmerge_struct tms[nts/2];
-    pthread_t tids[nts/2];
+    threadmerge_struct* tms = (threadmerge_struct*) malloc(nts/2*sizeof(threadmerge_struct));
+    pthread_t* tids = (pthread_t*) malloc(nts/2*sizeof(pthread_t));
     int pow_2 = (int) (log2(nts)+0.999);
     for(int j = 0; j < pow_2; j++)
     {
@@ -448,6 +448,8 @@ void merge_sorted_arrays(threadsort_struct* ts, const int nts)
         for(int k = 0; k < compares; k++)
             pthread_join(tids[k], NULL);
     }
+	free(tms);
+	free(tids);
 }
 
 void threaded_pointmap_sort(PointMap* point_map_data, const int n, const int num_threads)
@@ -457,8 +459,8 @@ void threaded_pointmap_sort(PointMap* point_map_data, const int n, const int num
     int npt = n / num_threads;
     int csn = 0;
     PointMap** point_map_chunks = (PointMap**) malloc(num_threads * sizeof(PointMap*));
-    pthread_t tids[num_threads];
-    threadsort_struct tss[num_threads];
+	pthread_t* tids = (pthread_t*)malloc(num_threads*sizeof(pthread_t));
+    threadsort_struct* tss = (threadsort_struct*)malloc(num_threads * sizeof(threadsort_struct));
     for(int i = 0; i < num_threads; i++)
     {
         if( i == (num_threads-1) )
@@ -478,6 +480,8 @@ void threaded_pointmap_sort(PointMap* point_map_data, const int n, const int num
     memcpy(point_map_data, tss[0].point_map, n*sizeof(PointMap));
     free(tss[0].point_map);
     free(point_map_chunks);
+	free(tids);
+	free(tss);
 }
 
 struct bopm_struct
@@ -527,8 +531,8 @@ void threaded_build_ordered_point_maps(CauchyTerm* terms,
   double** ordered_points, int** forward_map, 
   int** backward_map, const int n, const int d, const int num_threads)
 {
-    pthread_t tids[d];
-    bopm_struct bopm[d];
+    pthread_t* tids = (pthread_t*) malloc(d*sizeof(pthread_t));
+    bopm_struct* bopm = (bopm_struct*)malloc(d * sizeof(bopm_struct));
     for(int i = 0; i < d; i++)
     {
         bopm[i].terms = terms;
@@ -542,6 +546,8 @@ void threaded_build_ordered_point_maps(CauchyTerm* terms,
     }
     for(int i = 0; i < d; i++)
         pthread_join(tids[i], NULL);
+	free(tids);
+	free(bopm);
 }
 
 
@@ -615,9 +621,11 @@ void* thread_merge_flag_arrays(void* args)
 void merge_flag_arrays(ftr_struct* ftr_args, const int num_threads)
 {
     assert(num_threads > 1);
-    FlagMergeStruct fms[num_threads/2];
-    pthread_t tids[num_threads/2];
-    assert((num_threads & (num_threads-1)) == 0); // must be a power of two
+
+    FlagMergeStruct* fms = (FlagMergeStruct*) malloc(num_threads/2*sizeof(FlagMergeStruct));
+    pthread_t* tids = (pthread_t*)malloc(num_threads / 2 * sizeof(pthread_t));
+    
+	assert((num_threads & (num_threads-1)) == 0); // must be a power of two
     int pow_2 = (int) (log2(num_threads)+0.999);
     for(int j = 0; j < pow_2; j++)
     {
@@ -636,6 +644,8 @@ void merge_flag_arrays(ftr_struct* ftr_args, const int num_threads)
         for(int k = 0; k < compares; k++)
             pthread_join(tids[k], NULL);
     }
+	free(fms);
+	free(tids);
 }
 
 void threaded_fast_term_reduction(
@@ -648,8 +658,8 @@ void threaded_fast_term_reduction(
   const int m, const int d,
   const int num_threads, const int chunk_size)
 {
-    pthread_t tids[num_threads];
-    ftr_struct ftr_args[num_threads];
+    pthread_t* tids = (pthread_t*)malloc(num_threads*sizeof(pthread_t));
+    ftr_struct* ftr_args = (ftr_struct*)malloc(num_threads * sizeof(ftr_struct));
     int** Fs = (int**) malloc(num_threads * sizeof(int*));
     // Divide fast term reduction into several chunks
     for(int i = 0; i < num_threads; i++)
@@ -680,6 +690,8 @@ void threaded_fast_term_reduction(
     for(int i = 0; i < num_threads; i++)
         free(Fs[i]);
     free(Fs);
+	free(tids);
+	free(ftr_args);
 }
 
 // ----- End Threaded Fast Term Reduction Method ----- //

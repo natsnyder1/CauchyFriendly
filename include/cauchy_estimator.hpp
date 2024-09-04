@@ -307,7 +307,11 @@ struct CauchyEstimator
     void cache_moments(CauchyTerm* parent, CauchyTerm* children, int num_children)
     {
         C_COMPLEX_TYPE g_val;
-        C_COMPLEX_TYPE yei[d];
+		#if _WIN32
+			C_COMPLEX_TYPE yei[MAX_HP_SIZE];
+		#else 
+			C_COMPLEX_TYPE yei[d];
+		#endif 
 
         // Cache parent term
         g_val = parent->eval_g_yei(root_point, yei, false);
@@ -531,7 +535,11 @@ struct CauchyEstimator
         tmr.tic();
         bool first_step = (master_step == 0);
         C_COMPLEX_TYPE g_val;
-        C_COMPLEX_TYPE yei[d];
+		#if _WIN32 
+			C_COMPLEX_TYPE yei[MAX_HP_SIZE];
+		#else 
+			C_COMPLEX_TYPE yei[d];
+		#endif
         fz = 0;
         memset(conditional_mean, 0, d*sizeof(C_COMPLEX_TYPE));
         memset(conditional_variance, 0, d*d*sizeof(C_COMPLEX_TYPE));
@@ -595,9 +603,14 @@ struct CauchyEstimator
 
     void step_tp_to_muc(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma, double* B, double* u)
     {
-        double tmp_Gamma[d*pncc];
-        double tmp_beta[pncc];
-        int tmp_pncc = 0;
+		#if _WIN32
+			double tmp_Gamma[MAX_HP_SIZE*MAX_HP_SIZE];
+			double tmp_beta[MAX_HP_SIZE];
+		#else
+			double tmp_Gamma[d*pncc];
+			double tmp_beta[pncc];
+		#endif
+		int tmp_pncc = 0;
         const bool with_tp = ((master_step % p) == 0);
         fz = 0;
         memset(conditional_mean, 0, d * sizeof(C_COMPLEX_TYPE));
@@ -820,8 +833,13 @@ struct CauchyEstimator
 
     void threaded_step_tp_to_muc(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma, double* B, double* u)
     {
-        double tmp_Gamma[d*pncc];
-        double tmp_beta[pncc];
+		#if _WIN32
+			double tmp_Gamma[MAX_HP_SIZE*MAX_HP_SIZE];
+			double tmp_beta[MAX_HP_SIZE];
+		#else 
+			double tmp_Gamma[d*pncc];
+			double tmp_beta[pncc];
+		#endif
         int tmp_pncc = 0;
         const bool with_tp = ((master_step % p) == 0);
         fz = 0;
@@ -836,7 +854,7 @@ struct CauchyEstimator
         int num_chunks = (Nt + MIN_TERMS_PER_THREAD_TP_TO_MUC -1) / MIN_TERMS_PER_THREAD_TP_TO_MUC;
         num_threads_tp_to_muc = num_chunks > NUM_CPUS ? NUM_CPUS : num_chunks;
 
-        pthread_t tids[num_threads_tp_to_muc];
+        pthread_t* tids = (pthread_t*)malloc(num_threads_tp_to_muc*sizeof(pthread_t));
         DIST_TP_TO_MUC_STRUCT* tid_args = (DIST_TP_TO_MUC_STRUCT*) malloc(num_threads_tp_to_muc * sizeof(DIST_TP_TO_MUC_STRUCT) );
         for(int i = 0; i < num_threads_tp_to_muc; i++)
         {
@@ -925,6 +943,7 @@ struct CauchyEstimator
                 free(tid_args[i].new_terms_per_shape);
         }
         free(tid_args);
+		free(tids);
         // Print Stats
         tmr_mu.toc(false);
         if(print_basic_info)
@@ -1345,7 +1364,12 @@ struct CauchyEstimator
         tmr_extnd.tic();
         if(!skip_post_mu)
         {
-            double delta_xk[d];
+			#if _WIN32
+				double delta_xk[MAX_HP_SIZE];
+			#else
+				double delta_xk[d];
+			#endif
+
             convert_complex_array_to_real(conditional_mean, delta_xk, d);
             for(int m = 1; m < shape_range; m++)
             {
@@ -1413,7 +1437,11 @@ void cache_moments(CauchyTerm* parent, CauchyTerm* children, int num_children,
     double* root_point, C_COMPLEX_TYPE* fz, C_COMPLEX_TYPE* conditional_mean, C_COMPLEX_TYPE* conditional_variance, const int d)
 {
     C_COMPLEX_TYPE g_val;
-    C_COMPLEX_TYPE yei[d];
+	#if _WIN32
+		C_COMPLEX_TYPE yei[MAX_HP_SIZE];
+	#else
+		C_COMPLEX_TYPE yei[d];
+	#endif
 
     // Cache parent term
     g_val = parent->eval_g_yei(root_point, yei, false);

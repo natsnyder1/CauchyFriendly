@@ -6,8 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <pthread.h>
+#if _WIN32
+	#include <Windows.h>
+	#include "../scripts/windows/pthread-win/pthreads.2/pthread.h"
+	#define sleep(ms) Sleep(1000*ms)
+#else 
+	#include <unistd.h>
+	#include <pthread.h>
+#endif
 #include "gtable.hpp"
 
 

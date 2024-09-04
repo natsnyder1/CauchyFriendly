@@ -416,7 +416,7 @@ void matmatmul(const C_COMPLEX_TYPE *A, const C_COMPLEX_TYPE *B, C_COMPLEX_TYPE 
         {
             for(int j = 0; j < NB; j++) // NB
             {
-                C_COMPLEX_TYPE sum = 0.0;
+                C_COMPLEX_TYPE sum = MAKE_CMPLX(0,0);
                 for(int k = 0; k < NA; k++)
                 {
                     sum += A[i * NA + k] * B[j + k * NB];
@@ -990,7 +990,11 @@ void back_solve(double *U, double *b, double *x, int* P, const int M, const int 
     assert(is_upper); // until transpose is tested
 
     int top = M >= N ? N-1 : M -1;
-    double tmp[N];
+	#if _WIN32
+		double* tmp = (double*)malloc(N*sizeof(double));
+	#else 
+		double tmp[N];
+	#endif
     for(int i = top; i >= 0; i--)
     {
         double sol = b[i];
@@ -1004,6 +1008,9 @@ void back_solve(double *U, double *b, double *x, int* P, const int M, const int 
     for(int i = 0; i < N; i++)
         x[P[i]] = tmp[i];
 
+	#if _WIN32
+		free(tmp);
+	#endif
 }
 
 // Gaussian Elimination of the system b = Ax
@@ -1060,7 +1067,12 @@ int gauss_elim(double *A, double *b, const int n, double eps = 1e-12)
 {
     int piv_idx;
     double piv_val, a;
-    double work[n];
+	#if _WIN32
+		double* work = (double*)malloc(n * sizeof(double));
+	#else 
+		double work[n];
+	#endif
+
     for(int i = 0; i < n; i++)
     {
         //row-swap criterion here
@@ -1095,6 +1107,10 @@ int gauss_elim(double *A, double *b, const int n, double eps = 1e-12)
                 A[j*n + k] -=  (ratio * A[i*n + k]);
         }
     }
+	#if _WIN32
+		free(work);
+	#endif
+
     return 0;
 }
 
@@ -1166,7 +1182,13 @@ int PLU(double* A, int *P, const int n, double tol = 1e-16)
   int i, j, k, pivot_ind;
   double pivot;
   double temp;
-  double temp_row[n]; 
+
+
+#if _WIN32
+  double* temp_row = (double*)malloc(n * sizeof(double));
+#else 
+  double temp_row[n];
+#endif
 
   for (j = 0; j < n; ++j) 
   {
@@ -1201,6 +1223,10 @@ int PLU(double* A, int *P, const int n, double tol = 1e-16)
         }
     }
   }
+  #if _WIN32
+    free(temp_row);
+  #endif
+
   return 0;
 }
 
@@ -1253,14 +1279,23 @@ void transpose_permutation_array(const int* P, int* P_T, const int n)
 // x is the solution vector
 void solve_trf(const double* LU, const int* P, const double* b, double* x, const int n)
 {
-    int Preg[n];
-    int P_T[n];
+	#if _WIN32 
+	int* Preg = (int*) malloc(n*sizeof(int));
+	int* P_T = (int*)malloc(n * sizeof(int));
+	#else
+	int Preg[n];
+	int P_T[n];
+	#endif
     lapack_to_regular_permutation_array(P, Preg, n);
     transpose_permutation_array(Preg, P_T, n);
     for(int i = 0; i < n; i++)
         x[P_T[i]] = b[i];
     forward_solve(LU, x, n);
     back_solve(LU, x, n);
+#if _WIN32
+	free(Preg);
+	free(P_T);
+#endif
 }
 
 double matrix_one_norm(double* A, const int m, const int n)
@@ -1301,7 +1336,15 @@ double matrix_inf_norm(double* A, const int m, const int n)
 // tol indicates what number for PLU factorization is considered too small...and DBL_MAX is returned.
 double cond(char norm, double* A, double* work, int* P, const int n, double tol)
 {
-    int Preg[n]; int P_T[n];
+    
+	#if _WIN32
+		int* Preg = (int*)malloc(n*sizeof(int)); 
+		int* P_T = (int*)malloc(n * sizeof(int));
+	#else
+		int Preg[n]; 
+		int P_T[n];
+	#endif
+
     int p, offset;
     double MAX_COND_NUM = DBL_MAX;
     double norm_val, inv_norm_val;
@@ -1339,6 +1382,10 @@ double cond(char norm, double* A, double* work, int* P, const int n, double tol)
     else
         inv_norm_val = matrix_inf_norm(work, n, n);
 
+	#if _WIN32
+		free(Preg);
+		free(P_T);
+	#endif 
     return norm_val * inv_norm_val;
 }
 
@@ -1371,21 +1418,23 @@ double determinant(double* A, const int n, const bool use_gauss_elim = false)
     {
         if(use_gauss_elim)
         {
-            double fake_b[n];
-            //double* A_ge = (double*) malloc(n*n*sizeof(double)); // chhange this if we have large matrices
-            double A_ge[n*n];
-            int P[n];
+            double* fake_b = (double*) malloc(n*sizeof(double));
+            double* A_ge = (double*) malloc(n*n*sizeof(double)); // chhange this if we have large matrices
+            //double A_ge[n*n];
+			int* P = (int*)malloc(n * sizeof(int));
             memcpy(A_ge, A, n*n*sizeof(double));
             gauss_elim(A_ge, fake_b, P, n, n);
             double sum = 1.0; 
             for(int i = 0; i < n; i++)
                 sum *= A_ge[i*n + i];
-            //free(A_ge);
+			free(fake_b);
+			free(A_ge);
+			free(P);
             return sum;
         }
         else 
         {
-            int P[n];
+			int* P = (int*)malloc(n * sizeof(int));
             PLU(A, P, n, 0);
             double det = 1;
             for(int i = 0; i < n; i++)
@@ -1396,6 +1445,7 @@ double determinant(double* A, const int n, const bool use_gauss_elim = false)
                 if(P[i] != i)
                     swaps += 1;
             int swap_sign = 1 - 2*(swaps % 2);
+			free(P);
             return det * swap_sign;
         }
 
@@ -1406,8 +1456,13 @@ double determinant(double* A, const int n, const bool use_gauss_elim = false)
 // matrix inverse
 int inv(const double* A, double* A_inv, double* work, const int n)
 {
-    int P[n];
-    int P2[n];
+	#if _WIN32
+		int* P = (int*)malloc(n * sizeof(int));
+		int* P2 = (int*)malloc(n * sizeof(int));
+	#else
+		int P[n];
+		int P2[n];
+	#endif
     int p, offset;
     double tol = 1e-16;
 
@@ -1428,6 +1483,10 @@ int inv(const double* A, double* A_inv, double* work, const int n)
         back_solve(work, A_inv + i*n, n);
     }
     reflect_array(A_inv, n, n);
+	#if _WIN32
+		free(P);
+		free(P2);
+	#endif
     return 0;
 }
 
@@ -1484,7 +1543,7 @@ void QR(double* A, double* Q, int M, int N)
 {
     if(M >= N)
     {
-        double v[M];
+		double* v = (double*)malloc(M * sizeof(double));
         double norm_v;
         for(int i = 0; i < N; i++)
         {
@@ -1515,10 +1574,11 @@ void QR(double* A, double* Q, int M, int N)
         //print_mat(A,M,N);
         //printf("Q:\n");
         //print_mat(Q,N,M);
+		free(v);
     }
     else 
     {
-        double v[N];
+		double* v = (double*)malloc(N * sizeof(double));
         double norm_v;
         for(int i = 0; i < M; i++)
         {
@@ -1549,6 +1609,7 @@ void QR(double* A, double* Q, int M, int N)
         //print_mat(A,M,N);
         //printf("Q:\n");
         //print_mat(Q,M,N);
+		free(v);
     }
 
 }
@@ -1621,8 +1682,8 @@ void ldlt_solve(double* A, double* B, double* X, const int N, const int NRHS)
 {
     double* L = (double*) malloc(N*N*sizeof(double));
     null_ptr_check(L);
-    double D[N];
-    double z[N];
+    double* D = (double*) malloc(N*sizeof(double));
+    double* z = (double*)malloc(N * sizeof(double));
 
     // Factor
     LDLT(A, L, D, N);
@@ -1650,6 +1711,8 @@ void ldlt_solve(double* A, double* B, double* X, const int N, const int NRHS)
         back_solve(L, z, X + i*N, N, N, false);
     }
     free(L);  
+	free(D);
+	free(z);
 }
 
 // Solves a positive definite system of equations A @ X = B with 'A' positive definite and (possibly) multiple RHS 'B',
@@ -1661,13 +1724,20 @@ void ldlt_solve(double* A, double* B, double* X, const int N, const int NRHS)
 // This also means that X is returned in transposed form (and needs transposing to yield A @ X = B for column-wise solutions X[:,i])
 void solve_pd(double* A, double* B, double* X, const int n, const int nrhs)
 {
-    double y[n];
+	#if _WIN32
+		double* y = (double*)malloc(n*sizeof(double));
+	#else 
+		double y[n];
+	#endif 
     cholesky(A, n);
     for(int i = 0; i < nrhs; i++)
     {
         forward_solve(A, B + i*n, y, n, n, true);
         back_solve(A, y, X + i*n, n, n, false);
     }
+	#if _WIN32
+		free(y);
+	#endif
 }
 
 // Computes the right hand sided Auto-Correlation for wide-sense stationary processes

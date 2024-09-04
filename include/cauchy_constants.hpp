@@ -3,19 +3,27 @@
 
 #include<stdint.h>
 #include<assert.h>
-#include<complex.h>
+#if _WIN32
+	//#include<iostream>
+	#include<complex>
+#else
+	#include<complex.h>
+#endif
 #include<math.h>
-
-#define PI M_PI
-const double RECIPRICAL_TWO_PI = 1.0 / (2.0 * PI);
 
 #if (__linux__ || __APPLE__)
     typedef double __complex__ C_COMPLEX_TYPE; 
-#elif __WIN32
-    typedef double _Complex C_COMPLEX_TYPE;
-#else 
-    #error "[COMPILATION ERROR:] Determining system OS (MAC/Linux/Windows) has failed. Please look in cauchy_constants.hpp to define the C_COMPLEX_TYPE yourself!"
+#else //__WIN32
+	typedef std::complex<double> C_COMPLEX_TYPE;
+    typedef unsigned int uint;
+	#define M_PI 3.14159265358979323846
+	#define MAX_HP_SIZE 32
+//#else 
+//    #error "[COMPILATION ERROR:] Determining system OS (MAC/Linux/Windows) has failed. Please look in cauchy_constants.hpp to define the C_COMPLEX_TYPE yourself!"
 #endif
+#define PI M_PI
+const double RECIPRICAL_TWO_PI = 1.0 / (2.0 * PI);
+
 
 // TP Settings
 const double COALIGN_TP_EPS = 1e-8;
@@ -68,10 +76,15 @@ const int MIN_TERMS_PER_THREAD_GTABLE = 1000;
 const double INTEGRAL_GAMMA_EPS = 1e-8;
 
 // Log Error Warnings and Colors
-#define RED "\e[0;31m"
-#define NC "\e[0m"
-#define YEL  "\e[0;33m" 
-
+#if _WIN32
+	#define RED "\\e[0;31m"
+	#define NC "\\e[0m"
+	#define YEL  "\\e[0;33m" 
+#else
+	#define RED "\e[0;31m"
+	#define NC "\e[0m"
+	#define YEL  "\e[0;33m" 
+#endif 
 // Numeric Moment Error Tolerances
 const double THRESHOLD_FZ_IMAG_TO_REAL = 1e-3;
 const double HARD_LIMIT_IMAGINARY_MEAN = 0.001; //0.1

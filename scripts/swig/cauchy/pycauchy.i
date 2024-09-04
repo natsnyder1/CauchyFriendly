@@ -76,6 +76,7 @@ import_array();
 %apply int* OUTPUT { int* out_swm_win_idx, int* out_swm_err_code };
 
 // Python Wrapper to step the C-side Sliding Window Manager
+#if (__linux__ || __APPLE__)
 void pycauchy_step(
     double* msmts, int size_msmts,
     double* controls, int size_controls,
@@ -87,6 +88,7 @@ void pycauchy_step(
     double* out_swm_cerr_Phat, 
     int* out_swm_win_idx, 
     int* out_swm_err_code);
+#endif
 
 void pycauchy_single_step_ltiv(
     void* _pcdh,
@@ -127,7 +129,7 @@ void pycauchy_single_step_nonlin(
     double** out_cerr_Phat, int* size_out_cerr_Phat,
     int** out_err_code, int* size_out_err_code);
 
-
+#if (__linux__ || __APPLE__)
 // Python Wrapper to initialize the C-side Sliding Window Manager for LTI systems
 void pycauchy_initialize_lti_window_manager(
     int num_windows, int num_sim_steps,
@@ -147,7 +149,7 @@ void pycauchy_initialize_lti_window_manager(
     double dt, 
     int init_step, 
     double* win_var_boost, int size_wvb);
-
+#endif
 
 %typemap(in) void (*f_dyn_update_callback)(CauchyDynamicsUpdateContainer*) {
     $1 = (void (*)(CauchyDynamicsUpdateContainer*))PyLong_AsVoidPtr($input);;
@@ -160,6 +162,7 @@ void pycauchy_initialize_lti_window_manager(
 }
 
 %{
+    #if (__linux__ || __APPLE__)
     // Python Wrapper to initialize the C-side Sliding Window Manager for Nonlinear systems
     void pycauchy_initialize_nonlin_window_manager(
         int num_windows, int num_sim_steps,
@@ -201,6 +204,7 @@ void pycauchy_initialize_lti_window_manager(
         double dt, 
         int init_step, 
         double* win_var_boost, int size_wvb);
+    #endif
 
     // Single Cauchy Estimator Instance 
 
@@ -235,6 +239,7 @@ void pycauchy_initialize_lti_window_manager(
         bool debug_print);
 %}
 
+#if (__linux__ || __APPLE__)
 // Python Wrapper to initialize the C-side Sliding Window Manager for Nonlinear systems
 void pycauchy_initialize_nonlin_window_manager(
     int num_windows, int num_sim_steps,
@@ -275,7 +280,7 @@ void pycauchy_initialize_ltv_window_manager(
     double dt, 
     int init_step, 
     double* win_var_boost, int size_wvb);
-
+#endif
 
 // Single Cauchy Estimator Instance 
 void* pycauchy_initialize_nonlin(
@@ -358,7 +363,10 @@ void pycauchy_single_step_set_master_step(void* _pcdh, int step);
 void* pycauchy_single_step_get_duc(void* _pcdh);
 
 // Python Wrapper to tear down the C-side Sliding Window Manager
+#if(__linux__ || __APPLE__)
 void pycauchy_shutdown();
+#endif 
+
 void pycauchy_single_step_shutdown(void *_pcdh);
 void pycauchy_single_step_set_window_number(void* _pcdh, int win_num);
 

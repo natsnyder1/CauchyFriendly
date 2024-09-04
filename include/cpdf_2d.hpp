@@ -94,10 +94,18 @@ C_COMPLEX_TYPE eval_term_for_2D_ucpdf_v2(double x1, double x2, double* A, double
     int enc_sv;
     const double RECIPRICAL_TWO_PI = 1.0 / (2.0*PI);
     const double RECIPRICAL_TWO_PI_SQUARED = RECIPRICAL_TWO_PI * RECIPRICAL_TWO_PI;
-    double thetas[two_m];
-    double SVs[m*m];
-    double* SV;
-    double A_scaled[m*d];
+    
+	#if _WIN32 
+		double thetas[2*MAX_HP_SIZE];
+		double SVs[MAX_HP_SIZE*MAX_HP_SIZE];
+		double A_scaled[MAX_HP_SIZE*MAX_HP_SIZE];
+	#else
+		double thetas[two_m];
+		double SVs[m*m];
+		double A_scaled[m*d];
+	#endif 
+	
+	double* SV;
     double* a;
     get_cell_wall_angles(thetas, A, m); // angles of cell walls
     get_SVs_of_2D_HPA(SVs, A, thetas, m, false); // SVs corresponding to cells within the above (sequential) cell walls
@@ -186,10 +194,16 @@ C_COMPLEX_TYPE _eval_term_for_2D_ucpdf_v2(double x1, double x2, double* A, doubl
     int enc_sv;
     const double RECIPRICAL_TWO_PI = 1.0 / (2.0*PI);
     const double RECIPRICAL_TWO_PI_SQUARED = RECIPRICAL_TWO_PI * RECIPRICAL_TWO_PI;
-    double thetas[two_m+1];
-    double SVs[2*m*m];
-    double* SV;
-    double A_scaled[m*d];
+	#if _WIN32
+		double thetas[2*MAX_HP_SIZE + 1];
+		double A_scaled[MAX_HP_SIZE*MAX_HP_SIZE];
+		double SVs[2*MAX_HP_SIZE*MAX_HP_SIZE];
+	#else
+		double thetas[two_m + 1];
+		double A_scaled[m*d];
+		double SVs[2 * m*m];
+	#endif 
+	double* SV;
     double* a;
     get_cell_wall_angles(thetas, A, m); // angles of cell walls
     get_SVs_of_2D_HPA(SVs, A, thetas, m, true); // SVs corresponding to cells within the above (sequential) cell walls
@@ -384,7 +398,12 @@ struct PointWise2DCauchyCPDF
             else 
             {
                 // Directory doesnt exist, create the directory
-                int success = mkdir(dirname, 0777);
+				int success;
+				#if (__linux__ || __APPLE__)
+					success = mkdir(dir_path, 0777);
+				#else 
+					success = _mkdir(dirname);
+				#endif
                 if(success == -1)
                 {
                     printf("Failure making the directory %s. mkdir returns %d. Exiting!\n", dirname, success);
@@ -482,8 +501,8 @@ struct PointWise2DCauchyCPDF
         const uint points_per_thread = (num_gridx * num_gridy) / num_threads;
         const uint last_thread_extra = (num_gridx * num_gridy) % num_threads;
         assert((points_per_thread*num_threads + last_thread_extra) == (num_gridx * num_gridy) );
-        pthread_t tids[num_threads];
-        ThreadedEvalPDF tepdf_args[num_threads];
+        pthread_t* tids = (pthread_t*) malloc(num_threads*sizeof(pthread_t));
+        ThreadedEvalPDF* tepdf_args = (ThreadedEvalPDF*) malloc(num_threads*sizeof(ThreadedEvalPDF));
         for(int i = 0; i < num_threads; i++)
         {
             tepdf_args[i].start = i*points_per_thread;
@@ -498,6 +517,8 @@ struct PointWise2DCauchyCPDF
             pthread_create(&tids[i], NULL, &threaded_evaluate_point_wise_cpdf, &tepdf_args[i]);
         for(int i = 0; i < num_threads; i++)
             pthread_join(tids[i], NULL);
+		free(tepdf_args);
+		free(tids);
         return 0;
     }
 

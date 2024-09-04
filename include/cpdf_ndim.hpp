@@ -41,9 +41,14 @@ void marg2d_extract_2D_HPA(double* A_ndim, double* b_ndim, double* A2, double* b
 
 int marg2d_remove_zeros_and_coalign(double* work_A, double* work_p, double* work_A2, double* work_p2, int* c_map, int* cs_map, int m, double ZERO_EPSILON, int ZERO_HP_MARKER_VALUE)
 {
-    bool F[m];
-    memset(F, 1, m * sizeof(bool));
-    int F_idxs[m];
+	#if _WIN32 
+		bool F[MAX_HP_SIZE];
+		int F_idxs[MAX_HP_SIZE];
+	#else 
+		bool F[m];
+		int F_idxs[m];
+	#endif 
+	memset(F, 1, m * sizeof(bool));
 
     // Normalize all HPs in work_A using 1-norm
     // Scale p[i] by the 1-norm of work_A[i,:]
@@ -451,7 +456,11 @@ struct PointWiseNDimCauchyCPDF
         int num_marg_states,
         int m, int d)
     {
-        double reorient_parent_A[m*d];
+		#if _WIN32
+			double reorient_parent_A[MAX_HP_SIZE*MAX_HP_SIZE];
+		#else 
+			double reorient_parent_A[m*d];
+		#endif 
         for(int i = 0; i < m; i++)
         {
             for(int j = 0; j < d; j++)
@@ -490,7 +499,11 @@ struct PointWiseNDimCauchyCPDF
         *enc_lambda_bar = _enc_lambda_bar;
         // form b[marg_reorient_idxs] - [0;marg_xk]
         int num_nu_zeros = d - num_marg_states;
-        double tmp_b[ldim];
+		#if _WIN32
+			double tmp_b[MAX_HP_SIZE];
+		#else 
+			double tmp_b[ldim];
+		#endif
         memcpy(tmp_b, parent->b, ldim * sizeof(double));
         for(int i = 0; i < num_marg_states; i++)
         {
@@ -523,12 +536,21 @@ struct PointWiseNDimCauchyCPDF
         // tild_b_lp = b[-1] - x[-1] (equation 6)
         // (Note that only for ldim == d do we need to subtract x from the bs)
         // lambda_bar = sgn(-A[:,-1]) (equation 18)
-        double A_lp[m * ldim_m1];
-        double A_ldim[m];
-        bool F_A_ldim_not_zero[m]; // This is much like the HA orthogonality flag in the cauchy estimator
-        double p_lp[m];
-        double b_lp[ldim_m1];
-        double tild_b_lp;
+		#if _WIN32
+			double A_lp[MAX_HP_SIZE*MAX_HP_SIZE];
+			double A_ldim[MAX_HP_SIZE];
+			bool F_A_ldim_not_zero[MAX_HP_SIZE]; // This is much like the HA orthogonality flag in the cauchy estimator
+			double p_lp[MAX_HP_SIZE];
+			double b_lp[MAX_HP_SIZE];
+		#else
+			double A_lp[m * ldim_m1];
+			double A_ldim[m];
+			bool F_A_ldim_not_zero[m]; // This is much like the HA orthogonality flag in the cauchy estimator
+			double p_lp[m];
+			double b_lp[ldim_m1];
+		#endif
+        
+		double tild_b_lp;
         int enc_lambda_bar; 
 
         // If we are integrating over all states, ordering does not matter
@@ -922,9 +944,16 @@ struct PointWiseNDimCauchyCPDF
         // Reorient the hyperplane arrangements 
         int dim = cauchyEst->d;
         int num_nu_zeros = dim - num_marg_state_idxs;
-        int reorient_indices[dim];
-        bool F_reorient_indices[dim];
-        memset(F_reorient_indices, 1, dim * sizeof(bool));
+
+		#if _WIN32
+				int reorient_indices[MAX_HP_SIZE];
+				bool F_reorient_indices[MAX_HP_SIZE];
+		#else 
+				int reorient_indices[dim];
+				bool F_reorient_indices[dim];
+		#endif 
+        
+		memset(F_reorient_indices, 1, dim * sizeof(bool));
         for(int i = 0; i < num_marg_state_idxs; i++)
         {
             assert(marg_state_idxs[i] < dim);
@@ -1147,12 +1176,19 @@ struct PointWiseNDimCauchyCPDF
         // At d=num_nu_zeros, evaluate the parent gs at a chosen value \bar{\nu[1:num_nu_zeros]}
         tmr.tic();
         int ldim = num_nu_zeros;
-        double nu_bar[ldim];
-        for(int i = 0; i < ldim; i++)
+
+		#if _WIN32
+			double nu_bar[MAX_HP_SIZE];
+			double work[MAX_HP_SIZE];
+		#else
+			double nu_bar[ldim];
+			double work[shape_range - 1];
+		#endif
+
+		for(int i = 0; i < ldim; i++)
             nu_bar[i] = 2*random_uniform() - 1; // [-1, 1]
         // For each term, compute sign vector w.r.t \bar{\nu[1:num_nu_zeros]}, then lookup g
         C_COMPLEX_TYPE unnormalized_f_x = 0;
-        double work[shape_range-1];
         for(int m = ldim; m < shape_range; m++)
         {
             if(terms_per_shape[m] > 0)
@@ -1368,12 +1404,21 @@ struct PointWiseNDimCauchyCPDF
         // Regular run, possibly with caching setup
         else 
         {
-            int c_map[shape_range-1]; // coalignment index + zero map
-            int cs_map[shape_range-1]; // coalignment sign orientation + zero map
-            double work_A[(shape_range-1) * 2];
-            double work_A2[(shape_range-1) * 2];
-            double work_p[shape_range-1];
-            double work_p2[shape_range-1];
+			#if _WIN32 
+				int c_map[MAX_HP_SIZE]; // coalignment index + zero map
+				int cs_map[MAX_HP_SIZE]; // coalignment sign orientation + zero map
+				double work_A[2*MAX_HP_SIZE];
+				double work_A2[2* MAX_HP_SIZE];
+				double work_p[MAX_HP_SIZE];
+				double work_p2[MAX_HP_SIZE];
+			#else 
+				int c_map[shape_range - 1]; // coalignment index + zero map
+				int cs_map[shape_range - 1]; // coalignment sign orientation + zero map
+				double work_A[(shape_range - 1) * 2];
+				double work_A2[(shape_range - 1) * 2];
+				double work_p[shape_range - 1];
+				double work_p2[shape_range - 1];
+			#endif
             double b[2];
             for(int m = 1; m < shape_range; m++)
             {
@@ -1442,18 +1487,31 @@ struct PointWiseNDimCauchyCPDF
         const int d = 2;
         const int two_m = 2*m;
         int enc_sv;
-        double thetas[two_m];
-        double SVs[m*m];
-        double* SV;
-        double A_scaled[m*d];
-        double* a;
+
+		#if _WIN32
+				double thetas[2*MAX_HP_SIZE];
+				double SVs[MAX_HP_SIZE*MAX_HP_SIZE];
+				double A_scaled[MAX_HP_SIZE*MAX_HP_SIZE];
+		#else
+				double thetas[two_m];
+				double SVs[m*m];
+				double A_scaled[m*d];
+		#endif
+
+		double* SV;
+		double* a;
         marg2d_get_cell_wall_angles(thetas, A, m); // angles of cell walls
         marg2d_get_SVs(SVs, A, thetas, m, false); // SVs corresponding to cells within the above (sequential) cell walls
         for(int i = 0; i < m; i++)
             for(int j = 0; j < d; j++)
                 A_scaled[i*d + j] = A[i*d + j] * p[i];
-
-        Cached2DCPDFTerm* cached_term;
+		
+		#if _WIN32
+			#pragma warning(push)
+			#pragma warning(disable: 4700)  // Disable warning C4700
+		#endif
+		
+        Cached2DCPDFTerm* cached_term = NULL;
         if(setup_cache)
         {
             cached_2d_terms.set_term_ptrs(m);
@@ -1593,6 +1651,9 @@ struct PointWiseNDimCauchyCPDF
             cached_term->cos_thetas[m] = cos_t2;
             cached_2d_terms.incr_cached_term_idx();
         }
+		#if _WIN32
+			#pragma warning(pop)
+		#endif
         return term_integral;
     }
 
@@ -1825,8 +1886,8 @@ struct CauchyCPDFGridDispatcher2D
         else 
         {
             // Evaluate points 2 to num_grid_points using threaded and cached structure
-            pthread_t tids[num_threads];
-            ThreadEvalCPDF2D args[num_threads];
+            pthread_t* tids = (pthread_t*) malloc(num_threads*sizeof(pthread_t));
+            ThreadEvalCPDF2D* args = (ThreadEvalCPDF2D*) malloc(num_threads*sizeof(ThreadEvalCPDF2D));
             int points_per_thread = (num_grid_points - 1) / num_threads;
             for(int i = 0; i < num_threads; i++)
             {
@@ -1841,6 +1902,8 @@ struct CauchyCPDFGridDispatcher2D
             }
             for(int i = 0; i < num_threads; i++)
                 pthread_join(tids[i], NULL);
+			free(tids);
+			free(args);
         }
         tmr.toc(false);
         int compute_time = tmr.cpu_time_used;
@@ -1872,7 +1935,7 @@ struct CauchyCPDFGridDispatcher2D
 
         // Create path character array
         int len_log_dir = strlen(log_dir);
-        char path[len_log_dir + 30];
+        char* path = (char*) malloc((len_log_dir + 31)*sizeof(char));
 
         // Check if this marginal index pair has been logged yet
         int* tag = cpdf->marg_idxs_of_cached_2d_terms;
@@ -1913,6 +1976,7 @@ struct CauchyCPDFGridDispatcher2D
         fwrite(points, sizeof(CauchyPoint3D), num_grid_points, data_file);
         fclose(data_file);
         fclose(dims_file);
+		free(path);
         return 0;
     }
 
@@ -2043,8 +2107,8 @@ struct CauchyCPDFGridDispatcher1D
         else
         {
             // Evaluate points 2 to num_grid_points using threaded and cached structure
-            pthread_t tids[num_threads];
-            ThreadEvalCPDF1D args[num_threads];
+            pthread_t* tids = (pthread_t*) malloc(num_threads*sizeof(pthread_t));
+            ThreadEvalCPDF1D* args = (ThreadEvalCPDF1D*) malloc(num_threads*sizeof(ThreadEvalCPDF1D));
             int points_per_thread = (num_grid_points - 1) / num_threads;
             for(int i = 0; i < num_threads; i++)
             {
@@ -2058,6 +2122,8 @@ struct CauchyCPDFGridDispatcher1D
             }
             for(int i = 0; i < num_threads; i++)
                 pthread_join(tids[i], NULL);
+			free(tids);
+			free(args);
         }
         tmr.toc(false);
         int compute_time = tmr.cpu_time_used;
@@ -2089,7 +2155,7 @@ struct CauchyCPDFGridDispatcher1D
 
         // Create path character array
         int len_log_dir = strlen(log_dir);
-        char path[len_log_dir + 30];
+        char* path = (char*) malloc((len_log_dir + 31)*sizeof(char));
 
         // Check if this marginal index pair has been logged yet
         int tag = cpdf->marg_idx_of_cached_1d_terms;
@@ -2129,6 +2195,7 @@ struct CauchyCPDFGridDispatcher1D
         fwrite(points, sizeof(CauchyPoint2D), num_grid_points, data_file);
         fclose(data_file);
         fclose(dims_file);
+		free(path);
         return 0;
     }
 

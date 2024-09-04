@@ -37,17 +37,47 @@
         *imag_ptr = -(*imag_ptr);
         return val;
     }
-#endif
-
-
-#if ( __linux__ || _WIN32 )
+//#endif
+#elif __linux__ 
+	C_COMPLEX_TYPE MAKE_CMPLX(double real, double imag)
+	{
+		// real + I*imag
+		C_COMPLEX_TYPE val;
+		((double*)&val) = real;
+		((double*)(&val)+1) = imag;
+		return val;
+	}
+#else // windows
     C_COMPLEX_TYPE MAKE_CMPLX(double real, double imag)
     {
-        C_COMPLEX_TYPE val;
-        *((double*)&val) = real;
-        *((double*)(&val)+1) = imag;
-        return val;
+        //C_COMPLEX_TYPE val;
+        //*((double*)&val) = real;
+        //*((double*)(&val)+1) = imag;
+        //return val;
+		C_COMPLEX_TYPE val(real, imag);
+		return val;
     }
+	double creal(C_COMPLEX_TYPE val)
+	{
+		return val.real();
+	}
+
+	double cimag(C_COMPLEX_TYPE val)
+	{
+		return val.imag();
+	}
+	double cabs(C_COMPLEX_TYPE val)
+	{
+		double real = val.real();
+		double imag = val.imag();
+		return sqrt(real*real + imag * imag);
+	}
+
+	C_COMPLEX_TYPE conj(C_COMPLEX_TYPE val)
+	{
+		C_COMPLEX_TYPE conj_val(val.real(), -val.imag());
+		return conj_val;
+	}
 #endif 
 
 
@@ -236,8 +266,17 @@ void hashtable_print(KeyValue* hashtable, uint32_t kHashTableCapacity)
     for(uint32_t i = 0; i < kHashTableCapacity; i++)
     {
         if(hashtable[i].key != kEmpty)
-            printf("Key: %u, Value: %lf + %lfj\n", hashtable[i].key, creal(hashtable[i].value), cimag(hashtable[i].value));
+            printf("Key: %u, Value: %u\n", hashtable[i].key, hashtable[i].value);
     }
+}
+
+void hashtable_cmplx_print(KeyCValue* hashtable, uint32_t kHashTableCapacity)
+{
+	for (uint32_t i = 0; i < kHashTableCapacity; i++)
+	{
+		if (hashtable[i].key != kEmpty)
+			printf("Key: %u, Value: %lf + %lfj\n", hashtable[i].key, creal(hashtable[i].value), cimag(hashtable[i].value));
+	}
 }
 
 // enter binary search methods here

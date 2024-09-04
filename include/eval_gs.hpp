@@ -30,7 +30,7 @@ C_COMPLEX_TYPE g_num_hashtable(int enc_l, int two_to_phc_minus1, int rev_phc_mas
                 exit(1);
             }
             else
-                return 0;
+                return MAKE_CMPLX(0,0);
         }
         else
             return g_kv.value;
@@ -58,7 +58,7 @@ C_COMPLEX_TYPE g_num_hashtable(int enc_l, int two_to_phc_minus1, int rev_phc_mas
                     exit(1);
                 }
                 else
-                    return 0;
+					return MAKE_CMPLX(0, 0);
             }
             else
                 return conj(g_kv.value);
@@ -82,7 +82,7 @@ C_COMPLEX_TYPE g_num_hashtable(int enc_l, int two_to_phc_minus1, int rev_phc_mas
                     exit(1);
                 }
                 else
-                    return 0;
+					return MAKE_CMPLX(0, 0);
             }
             else
                 return g_kv.value;

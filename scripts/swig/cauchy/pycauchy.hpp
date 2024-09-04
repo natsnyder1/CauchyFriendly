@@ -1,14 +1,18 @@
 #ifndef _PY_CAUCHY_HPP_
 #define _PY_CAUCHY_HPP_
 
-#include "../../../include/cauchy_windows.hpp"
-#include "../../../include/cpdf_ndim.hpp"
-#include "../../../include/cauchy_prediction.hpp"
-//#include "../../../include/cpdf_2d.hpp"
+#if (__linux__ || __APPLE__)
+    #include "../../../include/cauchy_windows.hpp"
+    #include "../../../include/cpdf_ndim.hpp"
+    #include "../../../include/cauchy_prediction.hpp"
+    SlidingWindowManager* swm;
+#else
+    #include "../../../include/cauchy_estimator.hpp"
+    #include "../../../include/cpdf_ndim.hpp"
+    #include "../../../include/cauchy_prediction.hpp"
+#endif
 
 CauchyDynamicsUpdateContainer* cduc;
-SlidingWindowManager* swm;
-
 
 void allocate_cduc_memory(int n, int pncc, int cmcc, int p)
 {
@@ -72,6 +76,7 @@ void transfer_pyparams_to_cduc(double* Phi, double* Gamma, double* B, double* be
         memcpy(cduc->x, x, n * sizeof(double));
 }
 
+#if(__linux__ || __APPLE__)
 void pycauchy_initialize_lti_window_manager(
     int num_windows, int num_sim_steps,
     double* A0, int size_A0,
@@ -221,7 +226,7 @@ void pycauchy_shutdown()
     deallocate_cduc_memory();
     delete swm;
 }
-
+#endif
 
 // Single Cauchy Estimator instance handles 
 struct PyCauchyDataHandler
@@ -568,8 +573,12 @@ void pycauchy_single_step_nonlin(
     int p = duc->p;
     int num_moments = size_msmts;
     duc->u = controls;
-    double zbar[p];
-    
+	#if _WIN32
+		double zbar[MAX_HP_SIZE];
+	#else 
+		double zbar[p];
+	#endif
+
     single_step_dynamics_allocate(false,
         n, pncc, cmcc, size_msmts,
         out_Phi, size_out_Phi,

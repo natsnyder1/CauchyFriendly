@@ -178,8 +178,8 @@ void mean(double* sample_mean, const double* samples, const int num_samples, con
 // d is the dimention of the random vector,
 void covariance(double* sample_covariance, const double* sample_mean, const double* samples, const int num_samples, const int d)
 {
-    double work[d];
-    double work2[d*d];
+    double* work = (double*) malloc(d*sizeof(double));
+    double* work2 = (double*)malloc(d * d * sizeof(double));
 
     for(int i = 0; i < d*d; i++)
     {
@@ -206,7 +206,8 @@ void covariance(double* sample_covariance, const double* sample_mean, const doub
     // Average the sample covariance by the number of samples taken
     for(int i = 0; i < d*d; i++)
         sample_covariance[i] /= num_samples;
-
+	free(work);
+	free(work2);
 }
 
 // This function computes the covariance of a single (possibly vector) data point using its associated mean x_bar (possibly vector) with formula,

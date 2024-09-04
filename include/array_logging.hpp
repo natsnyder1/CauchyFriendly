@@ -5,7 +5,14 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
-#include <dirent.h>
+#if _WIN32
+	//#define _CRT_SECURE_NO_WARNINGS
+	#include "../scripts/windows/dirent-win/include/dirent.h"
+	#include<direct.h>
+	//#include "dirent.h"
+#else
+	#include <dirent.h>
+#endif
 #include <errno.h>
 #include <sys/stat.h>
 
@@ -25,7 +32,13 @@ void check_dir_and_create(char* dir_path)
   else if(ENOENT == errno)
   {
     // Directory doesnt exist, create the directory
-    int success = mkdir(dir_path, 0777);
+    //int success = mkdir(dir_path, 0777);
+    int success;
+    #if (__linux__ || __APPLE__)
+      success = mkdir(dir_path, 0777);
+    #else 
+      success = _mkdir(dir_path);
+    #endif
     if(success == -1)
     {
       printf("Failure making the directory %s. mkdir returns %d. Exiting!\n", dir_path, success);

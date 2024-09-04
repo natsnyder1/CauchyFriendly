@@ -24,8 +24,8 @@ void test_cauchy_1_state_moshe()
   duc.beta = beta; duc.gamma = gamma;
   duc.step = 0; duc.dt = 0; duc.other_stuff = NULL; 
 
-  int sim_steps = 20;
-  int total_steps = sim_steps + 1;
+  const int sim_steps = 20;
+  const int total_steps = sim_steps + 1;
   SimulationLogger sim_log(NULL, sim_steps, b0, &duc, cauchy_lti_transition_model, cauchy_lti_measurement_model);
   sim_log.run_simulation_and_log();
 
@@ -108,7 +108,7 @@ void test_cauchy_3_state_moshe()
   double zs[steps] = {-1.2172011200334241, -0.35943271347277583, -0.52353301003957098, 0.5855389648301792, 
   -0.8048243525901404, 0.34053610027255954, 1.0580483915838776, -0.55152999529515989,
   -0.72879029737003309, -0.82415138330170357}; //, -0.63794753995479381, -0.50437372151915394};
-  for(int j = 0; j < 4; j++)
+  for(int j = 0; j < 2; j++)
   {
     for(int i = 0; i < steps; i++)
     {

@@ -6,8 +6,8 @@ setenv('CFLAGS', '-fno-omit-frame-pointer -fsanitize=address');
 setenv('LDFLAGS', '-fsanitize=protect-initialized-data -fsanitize=leak -fsanitize=address');
 
 % The following two lines are specific to Nishad's computer. Please change depending on your own locations
-includePath = '-I/Users/juliekhil/Desktop/CauchyFriendly/scripts/swig/cauchy -I/Users/juliekhil/Desktop/CauchyFriendly/include';
-libraryPath = '-lm -lpthread';
+includePath = '-I"C:\Users\natsn\OneDrive\Desktop\CauchyFriendly\scripts\swig\cauchy" -I"C:\Users\natsn\OneDrive\Desktop\CauchyFriendly\include"'
+libraryPath = '-L"C:\Users\natsn\OneDrive\Desktop\CauchyFriendly\scripts\windows\pthread-win\Pre-built.2\lib\x64" pthreadVC2.lib'
 
 
 eval(['mex -g ', includePath, ' ', libraryPath, ' ../matlab_wrapped/mcauchy_initialize_lti.cpp']);

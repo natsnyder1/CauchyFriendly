@@ -264,10 +264,18 @@ void gaussian_lti_transition_model(KalmanDynamicsUpdateContainer* duc, double* x
     const int pncc = duc->pncc;
     const int n = duc->n;
     const int cmcc = duc->cmcc;
-    double chol_W[pncc*pncc];
-    double mean_W[pncc];
-    double work[n*n];
-    double work2[n*n];
+
+	#if _WIN32
+		double* chol_W = (double*) malloc(pncc*pncc*sizeof(double));
+		double* mean_W = (double*)malloc(pncc * sizeof(double));
+		double* work = (double*)malloc(n*n * sizeof(double));
+		double* work2 = (double*)malloc(n*n * sizeof(double));
+	#else
+		double chol_W[pncc*pncc];
+		double mean_W[pncc];
+		double work[n*n];
+		double work2[n*n];
+	#endif
     if(pncc > 1)
     {
         // get simulated process noise:
@@ -286,6 +294,13 @@ void gaussian_lti_transition_model(KalmanDynamicsUpdateContainer* duc, double* x
     matvecmul(duc->Gamma, w, work2, n, pncc);
     add_vecs(work, work2, xk1, n, 1.0);
     // xk1 now contains Phi @ x + B @ u + Gamma @ w
+
+	#if _WIN32
+		free(chol_W);
+		free(mean_W);
+		free(work);
+		free(work2);
+	#endif
 }
 
 // Implements the Standard LTI measurement model:
@@ -294,10 +309,15 @@ void gaussian_lti_measurement_model(KalmanDynamicsUpdateContainer* duc, double* 
 {
     const int n = duc->n;
     const int p = duc->p;
-
-    double chol_V[p*p];
-    double mean_V[p];
-    double work[p];
+	#if _WIN32 
+		double* chol_V = (double*)malloc(p*p * sizeof(double));
+		double* mean_V = (double*)malloc(p * sizeof(double));
+		double* work = (double*)malloc(p * sizeof(double));
+	#else 
+		double chol_V[p*p];
+		double mean_V[p];
+		double work[p];
+	#endif
 
     if(p > 1)
     {
@@ -313,6 +333,11 @@ void gaussian_lti_measurement_model(KalmanDynamicsUpdateContainer* duc, double* 
     // Form z = H @ x + v
     matvecmul(duc->H, duc->x, z, p, n);
     add_vecs(z, v, p, 1.0); // z now contains H @ x + v
+	#if _WIN32 
+		free(chol_V);
+		free(mean_V);
+		free(work);
+	#endif 
 }
 
 // Implements the LTI Transition model:
@@ -328,8 +353,8 @@ void cauchy_lti_transition_model(CauchyDynamicsUpdateContainer* duc, double* xk1
 {
     const int n = duc->n;
     const int pncc = duc->pncc;
-    double work[n*n];
-    double work2[n*n];
+    double* work = (double*) malloc(n*n*sizeof(double));
+    double* work2 = (double*)malloc(n*n * sizeof(double));
 
     for(int i = 0; i < pncc; i++)
         w[i] = random_cauchy(duc->beta[i]);
@@ -340,6 +365,8 @@ void cauchy_lti_transition_model(CauchyDynamicsUpdateContainer* duc, double* xk1
     matvecmul(duc->Gamma, w, work2, n, pncc);
     add_vecs(work, work2, xk1, n, 1.0);
     // xk1 now contains Phi @ x + B @ u + Gamma @ w
+	free(work);
+	free(work2);
 }
 
 // Implements the Standard LTI measurement model:
@@ -359,8 +386,8 @@ void sas_lti_transition_model(CauchyDynamicsUpdateContainer* duc, double* xk1, d
 {
     const int n = duc->n;
     const int pncc = duc->pncc;
-    double work[n*n];
-    double work2[n*n];
+	double* work = (double*)malloc(n*n * sizeof(double));
+	double* work2 = (double*)malloc(n*n * sizeof(double));
     SAS_noise_container* sas_noises = (SAS_noise_container*)duc->other_stuff;
     assert(sas_noises != NULL);
     double beta = (sas_noises->alpha == 2) ? sas_noises->beta / sqrt(2) : sas_noises->beta;
@@ -376,6 +403,8 @@ void sas_lti_transition_model(CauchyDynamicsUpdateContainer* duc, double* xk1, d
     matvecmul(duc->Gamma, w, work2, n, pncc);
     add_vecs(work, work2, xk1, n, 1.0);
     // xk1 now contains Phi @ x + B @ u + Gamma @ w
+	free(work);
+	free(work2);
 }
 
 // Implements the Standard LTI measurement model:
@@ -426,9 +455,9 @@ void simulate_dynamic_system(const int num_steps,
     null_ptr_check(x);
     double* xk1 = (double*) malloc(n * sizeof(double));
     null_ptr_check(xk1);
-    double z[p];
-    double w[pncc];
-    double v[p];
+    double* z = (double*)malloc(p*sizeof(double));
+	double* w = (double*)malloc(pncc * sizeof(double));
+	double* v = (double*)malloc(p * sizeof(double));
 
     duc->step = 0;
     memcpy(x, x0, n*sizeof(double));
@@ -464,6 +493,9 @@ void simulate_dynamic_system(const int num_steps,
     }
     free(x);
     free(xk1);
+	free(z);
+	free(v);
+	free(w);
 }
 
 // General function which uses some user-provided dynamical model to simulate State/Msmt/Noise Histories over num_steps,
@@ -493,9 +525,9 @@ void simulate_dynamic_system(const int num_steps,
     null_ptr_check(x);
     double* xk1 = (double*) malloc(n * sizeof(double));
     null_ptr_check(xk1);
-    double z[p];
-    double w[pncc];
-    double v[p];
+    double* z = (double*) malloc(p*sizeof(double));
+    double* w = (double*) malloc(pncc * sizeof(double));
+    double* v = (double*)malloc(p * sizeof(double));
 
     duc->step = 0;
     memcpy(x, x0, n*sizeof(double));
@@ -530,6 +562,9 @@ void simulate_dynamic_system(const int num_steps,
     }
     free(x);
     free(xk1);
+	free(z);
+	free(w);
+	free(v);
 }
 
 #endif // _DYNAMIC_MODELS_HPP_

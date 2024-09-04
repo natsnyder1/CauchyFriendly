@@ -1,0 +1,33 @@
+.vs
+# Ignore Debug and Release folders
+Debug/*
+Release/*
+x64/Debug/*
+x64/Release/*
+CauchyWindows/Debug/*
+CauchyWindows/Release/*
+CauchyWindows/x64/Debug/*
+CauchyWindows/x64/Release/*
+# Ignore PDB files
+*.pdb
+
+# Ignore tlog files
+*.tlog
+
+# Ignore log files
+*.log
+
+# Ignore build artifacts
+*.obj
+*.exe
+*.lib
+*.exp
+*.ilk
+*.idb
+*.ipdb
+*.iobj
+*.ipch
+*.manifest
+*.tmp
+*.o
+*.pch

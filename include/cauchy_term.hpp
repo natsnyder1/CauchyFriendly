@@ -84,14 +84,23 @@ struct CauchyTerm
     int msmt_update(CauchyTerm* child_terms, double msmt, double* H, double gamma, bool first_update, bool last_update, ChildTermWorkSpace* workspace)
     {
         const int num_new_terms = m+1;
-        // Run msmt update
-        int sign_AH[m];
-        bool F_integrable[m];
-        // Create mu and rho terms
-        const int rho_size = (m+1);
-        const int mu_size = rho_size * d;
-        double mu[mu_size];
-        double rho[rho_size];
+		const int rho_size = (m + 1);
+		const int mu_size = rho_size * d;
+		#if _WIN32
+			// Run msmt update
+			int sign_AH[MAX_HP_SIZE];
+			bool F_integrable[MAX_HP_SIZE];
+			double mu[MAX_HP_SIZE*(MAX_HP_SIZE+1)];
+			double rho[MAX_HP_SIZE];
+		#else
+			// Run msmt update
+			int sign_AH[m];
+			bool F_integrable[m];
+			// Create mu and rho terms
+			double mu[mu_size];
+			double rho[rho_size];
+		#endif
+        
         memcpy(mu, A, m*d*sizeof(double));
         memcpy(rho, p, m*sizeof(double));
         rho[m] = gamma;
@@ -305,8 +314,13 @@ struct CauchyTerm
         C_COMPLEX_TYPE g_num_p;
         C_COMPLEX_TYPE g_num_m;
         C_COMPLEX_TYPE g_val;
-        double sign_A[m];
-        double tmp_yei[d];
+		#if _WIN32
+			double sign_A[MAX_HP_SIZE];
+			double tmp_yei[MAX_HP_SIZE];
+		#else
+			double sign_A[m];
+			double tmp_yei[d];
+		#endif
         double ygi;
         memset(tmp_yei, 0, d*sizeof(double));
 
@@ -389,7 +403,12 @@ struct CauchyTerm
     C_COMPLEX_TYPE eval_g_yei_after_ftr(double* root_point, C_COMPLEX_TYPE* yei)
     {
         int enc_sv = 0;
-        double tmp_yei[d];
+		#if _WIN32
+			double tmp_yei[MAX_HP_SIZE];
+		#else
+			double tmp_yei[d];
+		#endif
+        
         memset(tmp_yei, 0, d*sizeof(double));
 
         for(int l = 0; l < m; l++)
@@ -415,7 +434,11 @@ struct CauchyTerm
     
     void time_prop(double* Phi, double* B, double* u, const int cmcc)
     {
-        double work[m*d];
+		#if _WIN32
+			double work[MAX_HP_SIZE*MAX_HP_SIZE];
+		#else
+			double work[m*d];
+		#endif
         memcpy(work, A, m * d * sizeof(double));
         matmatmul(work, Phi, A, m, d, d, d, false, true); // A @ Phi.T
         memcpy(work, b, d*sizeof(double));
@@ -452,7 +475,11 @@ struct CauchyTerm
     int tp_coalign(double* Gamma_T, double* beta, const int cmcc)
     {
         normalize_hps(false);
-        bool F[cmcc];
+		#if _WIN32
+			bool F[MAX_HP_SIZE];
+		#else
+			bool F[cmcc];
+		#endif
         memset(F, 1, cmcc * sizeof(bool));
         for(int j = 0; j < cmcc; j++)
         {
@@ -506,8 +533,14 @@ struct CauchyTerm
     int mu_coalign()
     {
         normalize_hps(true);
-        bool F[m];
-        bool Horthog_flag_unencoded[m];
+		#if _WIN32
+			bool F[MAX_HP_SIZE];
+			bool Horthog_flag_unencoded[MAX_HP_SIZE];
+		#else
+			bool F[m];
+			bool Horthog_flag_unencoded[m];
+		#endif
+
         memset(F, 1, m);
         memset(c_map, COALIGN_MAP_NOVAL, m);
         memset(cs_map, 1, m);
@@ -648,7 +681,7 @@ struct CauchyTerm
                                         YEL "THIS ERROR CAN BE DISCARDED IF THIS NUMERICAL ERROR IS NOT OF RELEVANCE (COMMENT THIS WARNINH OUT)"
                                         YEL "PLEASE PLACE BREAKPOINT HERE AND DEBUG FURTHER IF DESIRED, OR REMOVE ERROR MESSAGE! EXITING FOR NOW! GOODBYE!"
                                         NC "\n", m, j, k, COALIGN_TP_EPS, COALIGN_MU_EPS);
-                                    sleep(2);
+                                    //sleep(2);
                                     exit(1);
                                     // If the above error is commented, uncomment the line below
                                     //Horthog_flag_unencoded[k] = false;

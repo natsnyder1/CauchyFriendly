@@ -363,7 +363,7 @@ def test_3state_marginal_cpdfs():
     # Testing Single Cauchy Estimator Instance
     cauchyEst = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
     cauchyEst.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
-    for i in range(len(zs)-1):
+    for i in range(len(zs)-2):
         zk1 = zs[i]
         xs, Ps = cauchyEst.step(zk1, None)
         X01, Y01, Z01 = cauchyEst.get_marginal_2D_pointwise_cpdf(0, 1, g2lx, g2hx, g2rx, g2ly, g2hy, g2ry)

@@ -4,13 +4,12 @@ printf "This script wraps a C++ header only file to have a python interface thro
 
 FILE_NAME="pycauchy" 
 SWIG_FILE=${FILE_NAME}.i
-INCLUDE_FILE=${FILE_NAME}.hpp
 
 # Include + Library path symbols
 LIB_MATH_PTHREAD="-lm -lpthread"
-INC_PYTHON=-I"/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/include/python3.9"
-LIB_PYTHON=-L"/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib -lpython3.9"
-INC_NUMPY=-I"/Users/juliekhil/Library/Python/3.9/lib/python/site-packages/numpy/_core/include"
+INC_PYTHON=-I"c:\Users\natsn\AppData\Local\Programs\Python\Python37\include"
+LIB_PYTHON=-L"c:\Users\natsn\AppData\Local\Programs\Python\Python37\libs -lpython37"
+INC_NUMPY=-I"c:\Users\natsn\AppData\Local\Programs\Python\Python37\lib\site-packages\numpy\core\include"
 
 
 # For cluster
@@ -33,14 +32,14 @@ if [ $? -eq 1 ]; then
     echo "[ERROR:] swig -c++ -python ${SWIG_FILE} command returned with failure!"
     exit 1
 fi
-clang++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY
+g++ -O3 -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] clanclang++ -fpic -c ${FILE_NAME}_wrap.cxx $INC_PYTHON $INC_NUMPY command returned with failure!"
     exit 1
 fi
-clang++ $LIB_PYTHON -dynamiclib -lstdc++ $LIB_MATH_PTHREAD ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so
+g++ $LIB_PYTHON -shared -lstdc++ $LIB_MATH_PTHREAD ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so
 if [ $? -eq 1 ]; then 
-    echo "[ERROR:] clanclang++ -dynamiclib ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so -lstdc++ command returned with failure!"
+    echo "[ERROR:] clanclang++ -shared ${FILE_NAME}_wrap.o -o _${FILE_NAME}.so -lstdc++ command returned with failure!"
     exit 1
 fi
 printf "All temp files / libraries (re)created!\nModule ${FILE_NAME}.py is now ready for use!\n"

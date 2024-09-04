@@ -10,6 +10,108 @@
 #include "array_logging.hpp"
 #include "dynamic_models.hpp"
 
+// Speyer's initialization routine assumes that Var is a positive definite matrix
+// This is made sure of by the numerical checks each window conducts on its computed covariance matrix
+// It may be the case that Var has very small eigenvalues, and is very close to being positive semidefinite
+// It may also be the case that Var was computed to have positive eigenvalues, but due to eigenvalue solver instability ...
+// ... they may come out (small) negative or zero now when checked in this function
+// If any eigenvalue of the covariance is detected to be less than COV_EIGENVALUE_TOLERANCE ...
+// ... the diagonal of the covariance gets boosted by COV_EIGENVALUE_TOLERANCE - min(eig(Var))
+// On enterance of this function, if window_var_boost != NULL ... 
+// ... the diagonal of the covariance is boosted by this vector. This helps make the covariance less correlated (more Pos Def) for initialization
+// This function could also implement other boosting strategies, such as multiplicative boosting (this is not yet implemented, however).
+void speyers_window_init(const int N, double* x1_hat, double* Var, 
+                  double* H, double gamma, double z_1, 
+                  double* A_0, double* p_0, double* b_0, 
+                  const int window_initializer_idx, const int window_initializee_idx, double* window_var_boost)
+{
+    double* work = (double*) malloc(N*N*sizeof(double));
+    double* work2= (double*) malloc(N*N*sizeof(double));
+	double* eigs = (double*) malloc(N * sizeof(double));
+    memset(eigs, 0, N*sizeof(double));
+
+    // Boost variance on enterance to this function, if window_var_boost != NULL
+    bool print_var = false;
+    if(window_var_boost != NULL)
+        for(int i = 0; i < N; i++)
+            Var[i*N+i] += window_var_boost[i];
+    
+    // Check for positive definiteness of Var
+    
+    // LAPACKE CODE
+    //memcpy(work, Var, N*N*sizeof(double));
+    //memset(work2, 0, N*sizeof(double));
+    //LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', N, work, N, work2);
+    //double min_eig = work2[0];
+    // STAND ALONE EVAL/VEC CODE
+    sym_eig(Var, work2, work, N);
+    double min_eig = array_min<double>(work2, N);
+
+    for(int i = 0; i < N; i++)
+    {    
+	    if(work2[i] < COV_EIGENVALUE_TOLERANCE)
+        {    
+            printf(YEL "[WARN (Window manager) Speyer Initialization:] Initializer: Win %d, Initializee: Win %d, eig[%d]=%.3E of Covariance very small or negative!"
+                NC "\n", window_initializer_idx, window_initializee_idx, i, work2[i]);
+            print_var = true;
+        }
+        if( work2[i] < min_eig )
+	  min_eig = work2[i];
+    }
+    if(print_var)
+    {
+      double min_eig = array_min(work2, N);
+      double min_boost = COV_EIGENVALUE_TOLERANCE - min_eig;
+      printf("Eig-Values of Covar:\n");
+      print_mat(work2, 1, N, 16);
+      printf("Covar of initializer is\n");
+      print_mat(Var, N, N, 16);
+      printf("Making Covariance more positive definate for initialization!\n");
+      for(int i = 0; i < N; i++)
+          Var[i*N+i] += min_boost;
+    }
+
+    // Begin Speyer Initialization
+    inner_mat_prod(H, work, 1, N);
+    matmatmul(Var, work, work2, N, N, N, N);
+    matmatmul(work2, Var, work, N, N, N, N);
+    double Hx1_hat = dot_prod(H, x1_hat, N);
+    double scale = gamma * gamma + (z_1 - Hx1_hat) * (z_1 - Hx1_hat);
+    scale_mat(work, 1.0 / scale, N, N);
+    add_mat(A_0, Var, work, 1.0, N, N);
+
+    // var_work2 = Var + Var @ H^T @ H @ Var / ( gamma^2 + (z_1 - H @ x1_hat)^2)
+
+    // Form A_0 using lapack's (d)ouble (sy)metric (ev)al/vec routine 
+    // LAPACKE CODE
+    //LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', N, A_0, N, eigs);
+    // STAND ALONE EVAL/VEC CODE
+    memcpy(work, A_0, N*N*sizeof(double));
+    sym_eig(work, eigs, A_0, N); // A_0 holds the eigenvectors (transposed to rows below)
+
+    // Form b_0
+    double scale2 = (z_1 - Hx1_hat) / scale;
+    matvecmul(Var, H, work, N, N);
+    scale_mat(work, scale2, N, N);
+    sub_vecs(x1_hat, work, b_0, N);
+
+    // Form p_0
+    matvecmul(A_0, H, work2, N, N, true); // H @ A = A_T @ H_T
+    matvecmul(Var, H, work, N, N);
+    double HVarH_T = dot_prod(H, work, N);
+    double scale3 = (scale + HVarH_T) / gamma;
+    for(int i = 0; i < N; i++)
+    {
+        p_0[i] = eigs[i] / scale3; // p_i_bar / h_i_bar
+        p_0[i] *= work2[i]; // p_i_bar
+        p_0[i] /= sgn(work2[i]); // p_i
+    }
+    reflect_array(A_0,N,N);
+	free(work);
+	free(work2);
+	free(eigs);
+}
+
 
 double normalize_l1(double* x, const int n)
 {
@@ -40,8 +142,11 @@ int precoalign_Gamma_beta(double* Gamma, double* beta, int cmcc, int d, double* 
 		tmp_beta[i] *= norm_factor;
 	}
 	// Coalign tmp_Gamma, in the strange event they are coaligned
-		
-	bool F[cmcc];
+	#if _WIN32
+		bool F[MAX_HP_SIZE];
+	#else
+		bool F[cmcc];
+	#endif
 	memset(F, 1, cmcc * sizeof(bool));
 	int unique_count = 0;
 	for(int i = 0; i < cmcc-1; i++)
@@ -150,8 +255,12 @@ struct FastTermRedHelper
   void assert_TR_search_index_pattern()
   {
     // Make absolutely sure search index pattern is set correctly
-    bool F_sip[d];
-    memset(F_sip, 0, d*sizeof(bool));
+	#if _WIN32
+			bool F_sip[MAX_HP_SIZE];
+	#else
+		  bool F_sip[d];
+	#endif
+	memset(F_sip, 0, d*sizeof(bool));
     for(int i = 0; i < d; i++)
     {
       if(TR_SEARCH_IDXS_ORDERING[i] >= d)
@@ -1417,7 +1526,12 @@ struct CauchyStats
 			printf("Note: HALF_STORAGE method was selected in cauchy_types.hpp\n");
 			printf("Note: The cell counts below are therefore doubled!\n");
 		}
-		KeyValue* table_counts[shape_range];
+		#if _WIN32
+			KeyValue* table_counts[MAX_HP_SIZE];
+		#else 
+			KeyValue* table_counts[shape_range];
+		#endif
+
 		for(int i = 0; i < shape_range; i++)
 		{	
 			BYTE_COUNT_TYPE table_size_bytes = 2 * cell_counts_cen[i] * sizeof(KeyValue);

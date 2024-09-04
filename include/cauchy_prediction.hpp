@@ -210,8 +210,13 @@ void eval_rel_sys_moments_for_term(
     double* A_parent, int* coalign_map, double* bar_nu_full, const int full_state_dim, const int ZERO_HP_MARKER_VALUE, 
     int mp, int ms, GTABLE prim_gtable, int cells_prim_gtable, GTABLE sec_gtable, int cells_sec_gtable)
 {
-    C_COMPLEX_TYPE yei[d];
-    double tmp_yei[d];
+	#if _WIN32
+		C_COMPLEX_TYPE yei[MAX_HP_SIZE];
+		double tmp_yei[MAX_HP_SIZE];
+	#else
+		C_COMPLEX_TYPE yei[d];
+		double tmp_yei[d];
+	#endif
     memset(tmp_yei, 0, d*sizeof(double));
 
     // Use bar_nu to evaluate a cell (sign-vector) of the HPA, which defines the location g-value
@@ -323,10 +328,17 @@ void cache_rel_marg2d_term_for_cpdf(
     const int d = 2;
     const int two_m = 2*rel_m;
     int enc_sv;
-    double thetas[two_m + full_solve];
-    double SVs[(1+full_solve)*rel_m*rel_m];
-    double* SV;
-    double A_scaled[rel_m*d];
+	#if _WIN32
+		double* thetas = (double*)malloc((two_m + full_solve) * sizeof(double));
+		double* SVs = (double*)malloc((1 + full_solve)*rel_m*rel_m * sizeof(double));
+		double* A_scaled = (double*)malloc(rel_m*d * sizeof(double));
+	#else
+		double thetas[two_m + full_solve];
+		double SVs[(1 + full_solve)*rel_m*rel_m];
+		double A_scaled[rel_m*d];
+	#endif
+
+	double* SV;
     double* a;
     marg2d_get_cell_wall_angles(thetas, relA_2d, rel_m); // angles of cell walls
     if(full_solve)
@@ -423,6 +435,11 @@ void cache_rel_marg2d_term_for_cpdf(
     cached_term->sin_thetas[cells_to_visit] = sin(thetas[cells_to_visit]);
     cached_term->cos_thetas[cells_to_visit] = cos(thetas[cells_to_visit]);
     cached_2d_terms->incr_cached_term_idx();
+	#if _WIN32
+		free(thetas);
+		free(SVs);
+		free(A_scaled);
+	#endif
 }
 
 bool approx_out_rel_marg2d_term_for_cpdf(Cached2DCPDFTerm* term, const double norm_fact, const double TERM_EPS)
@@ -518,18 +535,31 @@ void* call_threaded_marg2d_relative_and_transformed_cpdf(void* args)
     const int max_m = ((primary->shape_range-1) + (secondary->shape_range-1));
 
     // Holds a temporary relative term of dimension d 
-    double A_rel[max_m*d];
-    double p_rel[max_m];
-    double b_rel[d];
-
-    // The temporary transformed relative 2D term
-    double A_2d[max_m*2];
-    double* p_2d;
-    double Ac_2d[max_m*2];
-    double pc_2d[max_m];
-    double b_2d[2];
-    int c_map_2d[max_m];
-    int cs_map_2d[max_m];
+#if _WIN32 
+	double A_rel[MAX_HP_SIZE*MAX_HP_SIZE];
+	double p_rel[MAX_HP_SIZE];
+	double b_rel[MAX_HP_SIZE];
+	// The temporary transformed relative 2D term
+	double A_2d[MAX_HP_SIZE * 2];
+	double* p_2d;
+	double Ac_2d[MAX_HP_SIZE * 2];
+	double pc_2d[MAX_HP_SIZE];
+	double b_2d[2];
+	int c_map_2d[MAX_HP_SIZE];
+	int cs_map_2d[MAX_HP_SIZE];
+#else 
+	double A_rel[max_m*d];
+	double p_rel[max_m];
+	double b_rel[d];
+	// The temporary transformed relative 2D term
+	double A_2d[max_m * 2];
+	double* p_2d;
+	double Ac_2d[max_m * 2];
+	double pc_2d[max_m];
+	double b_2d[2];
+	int c_map_2d[max_m];
+	int cs_map_2d[max_m];
+#endif
     
     BYTE_COUNT_TYPE num_terms_approxed_out = 0;
     const BYTE_COUNT_TYPE TERM_ALLLOC_CAP = 500000;
@@ -671,7 +701,12 @@ Cached2DCPDFTermContainer* get_marg2d_relative_and_transformed_cpdf(
     assert(max_m < 32);
 
     // create a random point \bar\nu, in the event A_2d has a singular HPA 
-    double bar_nu_full[d];
+	#if _WIN32
+		double bar_nu_full[MAX_HP_SIZE];
+	#else
+		double bar_nu_full[d];
+	#endif
+
     double bar_nu[2];
     for(int i = 0; i < d; i++)
         bar_nu_full[i] = 2*random_uniform_open() -1;
@@ -684,20 +719,36 @@ Cached2DCPDFTermContainer* get_marg2d_relative_and_transformed_cpdf(
     {
         tmr.tic();
         cached_2d_terms->init(1, FULL_SOLVE);
-        // Holds a temporary relative term of dimension d
-        double A_rel[max_m*d];
-        double p_rel[max_m];
-        double b_rel[d];
-
-        // The temporary transformed relative 2D term
-        double A_2d[max_m*2];
-        double* p_2d;
-        double Ac_2d[max_m*2];
-        double pc_2d[max_m];
-        double b_2d[2];
-        int c_map_2d[max_m];
-        int cs_map_2d[max_m];
-        //int count_new = 0;
+        
+		#if _WIN32 
+			// Holds a temporary relative term of dimension d
+			double A_rel[MAX_HP_SIZE*MAX_HP_SIZE];
+			double p_rel[MAX_HP_SIZE];
+			double b_rel[MAX_HP_SIZE];
+			// The temporary transformed relative 2D term
+			double A_2d[MAX_HP_SIZE * 2];
+			double* p_2d;
+			double Ac_2d[MAX_HP_SIZE * 2];
+			double pc_2d[MAX_HP_SIZE];
+			double b_2d[2];
+			int c_map_2d[MAX_HP_SIZE];
+			int cs_map_2d[MAX_HP_SIZE];
+			//int count_new = 0;
+		#else 
+			// Holds a temporary relative term of dimension d
+			double A_rel[max_m*d];
+			double p_rel[max_m];
+			double b_rel[d];
+			// The temporary transformed relative 2D term
+			double A_2d[max_m * 2];
+			double* p_2d;
+			double Ac_2d[max_m * 2];
+			double pc_2d[max_m];
+			double b_2d[2];
+			int c_map_2d[max_m];
+			int cs_map_2d[max_m];
+			//int count_new = 0;
+		#endif
 
         // Loop over all shapes of the primary
         for(int mp = 1; mp < primary->shape_range; mp++)
@@ -783,8 +834,8 @@ Cached2DCPDFTermContainer* get_marg2d_relative_and_transformed_cpdf(
         tmr.tic();
         cached_2d_terms->init(0, FULL_SOLVE);
         // Special multithreaded evaluation of terms to be cached
-        pthread_t tids[num_threads];
-        ThreadedCachedRSysArgs args[num_threads];
+        pthread_t* tids = (pthread_t*) malloc(num_threads*sizeof(pthread_t));
+        ThreadedCachedRSysArgs* args = (ThreadedCachedRSysArgs*) malloc(num_threads*sizeof(ThreadedCachedRSysArgs));
 
         // setup the multithreaded args and launch thread 
         for(int i = 0; i < num_threads; i++)
@@ -912,7 +963,8 @@ Cached2DCPDFTermContainer* get_marg2d_relative_and_transformed_cpdf(
             if(with_term_approx)
                 printf("  Removed %d/%llu terms using epsilon=%.3E. Term total=%llu\n", num_terms_approxed_out, N, term_approx_eps, N-num_terms_approxed_out);
         }
-
+		free(tids);
+		free(args);
         return cached_2d_terms;
     }
 }
@@ -1017,7 +1069,7 @@ C_COMPLEX_TYPE eval_marg2d_relative_and_transformed_cpdf(Cached2DCPDFTermContain
         unnormalized_m2d_rt_cpdf_val += term_component;
         //printf("Term Component %d: %.4E + %.4Ej\n", i, creal(term_component), cimag(term_component) );
     }
-    C_COMPLEX_TYPE normalized_m2d_rt_cpdf_val = (2-FULL_SOLVE)*unnormalized_m2d_rt_cpdf_val * RECIPRICAL_TWO_PI * RECIPRICAL_TWO_PI / (norm_factor_prim * norm_factor_sec);
+    C_COMPLEX_TYPE normalized_m2d_rt_cpdf_val = ((double)(2-FULL_SOLVE)) * unnormalized_m2d_rt_cpdf_val * RECIPRICAL_TWO_PI * RECIPRICAL_TWO_PI / (norm_factor_prim * norm_factor_sec);
     return normalized_m2d_rt_cpdf_val;
 }
 
@@ -1103,8 +1155,8 @@ CauchyPoint3D* grid_eval_marg2d_relative_and_transformed_cpdf(
         if(grid_points < num_threads)
             num_threads = grid_points;
         int points_per_thread = grid_points / num_threads;
-        pthread_t tids[num_threads];
-        ThreadRelMargEvalCPDF2D tid_args[num_threads];
+        pthread_t* tids = (pthread_t*) malloc(num_threads*sizeof(pthread_t));
+        ThreadRelMargEvalCPDF2D* tid_args = (ThreadRelMargEvalCPDF2D*) malloc(num_threads*sizeof(ThreadRelMargEvalCPDF2D));
         for(int i = 0; i < num_threads; i++)
         {
             int ppt = points_per_thread;
@@ -1122,6 +1174,8 @@ CauchyPoint3D* grid_eval_marg2d_relative_and_transformed_cpdf(
             pthread_join(tids[i], NULL);
         //for(int i = 0; i < grid_points; i++)
         //    printf("x:%.2lf, y:%.2lf, z:%.4E\n", points[i].x, points[i].y, points[i].z );
+		free(tids);
+		free(tid_args);
     }
     free(xs);
     free(ys);
@@ -1138,7 +1192,7 @@ int log_marg2d_relative_and_transformed_cpdf(char* log_dir, int step, CauchyPoin
     FILE* dims_file;
     // Create path character array
     int len_log_dir = strlen(log_dir);
-    char path[len_log_dir + 30];
+    char* path =(char*) malloc( (len_log_dir + 31)*sizeof(char));
 
     sprintf(path, "%s/grid_elems_%d%d.txt", log_dir, 0,1);
     // First log if tag_count == 1
@@ -1166,6 +1220,7 @@ int log_marg2d_relative_and_transformed_cpdf(char* log_dir, int step, CauchyPoin
     fwrite(points, sizeof(CauchyPoint3D), num_grid_points, data_file);
     fclose(data_file);
     fclose(dims_file);
+	free(path);
     return 0;
 }
 

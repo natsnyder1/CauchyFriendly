@@ -15,7 +15,11 @@ void make_gtable_first(CauchyTerm* term, const double G_SCALE_FACTOR)
 {
   const int m = term->d;
   int rev_mask = (1<<m)-1;
-  double sign_b[m];
+  #if _WIN32
+    double sign_b[MAX_HP_SIZE];
+  #else
+    double sign_b[m];
+  #endif
   double ygi; 
   uint Horthog_flag = term->Horthog_flag;
   double* p = term->p;
@@ -85,7 +89,11 @@ bool make_gtable(
   const int rev_mask = (1<<m)-1;
   const int two_to_phc_minus1 = (1<<(phc-1));
   const int rev_phc_mask = (1<<phc) - 1; // mask to reverse enc_lp or enc_lm if they have SV in negative halfspace w.r.t last HP 
-  int sign_b[m];
+  #if _WIN32
+    int sign_b[MAX_HP_SIZE];
+  #else
+    int sign_b[m];
+  #endif
   KeyCValue g_kv;
   C_COMPLEX_TYPE g_num_p, g_num_m;
   double c_val = term->c_val;
@@ -620,12 +628,12 @@ int threaded_make_gtables(int* Nt_reduced, int* Nt_removed,
   int num_tids = num_chunks > NUM_CPUS ? NUM_CPUS : num_chunks;
 
   // Get start and end indices for each thread's gtable evaluation chunk
-  int start_idxs[num_tids];
-  int end_idxs[num_tids];
+  int* start_idxs = (int*)malloc(num_tids*sizeof(int));
+  int* end_idxs = (int*)malloc(num_tids * sizeof(int));
   num_tids = ffa->get_balanced_threaded_flattening_indices(num_tids, start_idxs, end_idxs, win_num, step, total_steps);
   // Number of threads can decrease if there are a very large number of combinations for a certain term, or certain terms
-  pthread_t tids[num_tids];
-  DIST_MAKE_GTABLES_STRUCT gtable_args[num_tids];
+  pthread_t* tids = (pthread_t*)malloc(num_tids*sizeof(pthread_t));
+  DIST_MAKE_GTABLES_STRUCT* gtable_args = (DIST_MAKE_GTABLES_STRUCT*) malloc(num_tids*sizeof(DIST_MAKE_GTABLES_STRUCT));
   int cumsum_reduced_terms = 0;
   for(int i = 0; i < num_tids; i++)
   {
@@ -677,6 +685,11 @@ int threaded_make_gtables(int* Nt_reduced, int* Nt_removed,
     *Nt_removed = 0;
   }
 
+
+  free(start_idxs);
+  free(end_idxs);
+  free(tids);
+  free(gtable_args);
   return num_tids;
 }
 
