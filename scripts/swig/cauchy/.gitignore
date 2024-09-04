@@ -1,6 +1,11 @@
 _pycauchy.so
+_pycauchy.pyd 
+_pycauchy.lib
+_pycauchy.exp
+pthreadVC2.dll
 pycauchy_wrap.cxx
 pycauchy_wrap.o
+pycauchy_wrap.obj
 pycauchy.py 
 __pycache__
 .DS_Store
