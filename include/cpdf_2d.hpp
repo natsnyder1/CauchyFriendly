@@ -400,7 +400,7 @@ struct PointWise2DCauchyCPDF
                 // Directory doesnt exist, create the directory
 				int success;
 				#if (__linux__ || __APPLE__)
-					success = mkdir(dir_path, 0777);
+					success = mkdir(dirname, 0777);
 				#else 
 					success = _mkdir(dirname);
 				#endif

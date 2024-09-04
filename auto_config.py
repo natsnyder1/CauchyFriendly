@@ -170,6 +170,7 @@ def download_file(url, local_filename, allow_redirects=True):
 def run_matlab_script(matlab_script):
     os_name = get_operating_sys()
     # Command to run MATLAB with the .m file
+    print("Attempting to run Matlab executable...if found, this may take a while...")
     command = ['matlab', '-batch', f"run('{matlab_script}')"]
     # Run the MATLAB script
     try:
@@ -292,8 +293,8 @@ def unix_setup_c_examples():
         handle.writelines(lines)
     print(YELLOW_START+"Running: make clean"+YELLOW_END)
     result = subprocess.run(["make", "clean"], check=True)
-    print(YELLOW_START+"Running: make all D=0"+YELLOW_END)
-    result = subprocess.run(["make", "all", "D=0"], check=True)
+    print(YELLOW_START+"Running: make cauchy window D=0"+YELLOW_END)
+    result = subprocess.run(["make", "cauchy", "window", "D=0"], check=True)
     os.chdir(cwd)
     if result.returncode == 0:
         print(GREEN_START+"C++ examples from\n {} have build successful in\n {}".format(c_examples_src_path, c_examples_bin_path)+GREEN_END)
@@ -497,6 +498,7 @@ def unix_setup_matlab_wrapper():
     auto_config_path = get_auto_config_path()
     swig_cauchy_include_path = "-I" + auto_config_path + "/scripts/swig/cauchy" 
     swig_cauchy_include_path += " -I" + auto_config_path + "/include"
+    swig_cauchy_lib_path = "-lm -lpthread"
     matlab_build_path = auto_config_path + "/matlab/mex_files/build.m"
     print(GREEN_START + "--- Running Matlab Wrapper Configuration Script ---" + GREEN_END)
     with open(matlab_build_path, 'r') as handle:
@@ -504,18 +506,21 @@ def unix_setup_matlab_wrapper():
         num_lines = len(lines)
     # Change the include path, but also change deletion file paths based off of mac / linux type 
     include_path_line = -1
+    library_path_line = -1
     for i in range(num_lines):
         if "includePath" == lines[i][0:11]:
             include_path_line = i
-        else:
-            if os_name == "linux":
-                lines[i] = lines[i].replace("mexmaca", "mexa")
-            else:
-                lines[i] = lines[i].replace("mexa", "mexmaca")
+        if "libraryPath" == lines[i][0:11]:
+            library_path_line = i
     if include_path_line == -1:
-        print(RED_START+"[ERROR def unix_setup_matlab_wrapper:] cannot find includePath in file {}...this indicates file corruption. Please replace this file with that found on our github. Exiting!" + RED_END)
+        print(RED_START+"[ERROR def unix_setup_matlab_wrapper:] cannot find includePath in file {}...this indicates file corruption. Please replace this file with that found on our github. Exiting!".format(matlab_build_path) + RED_END)
         exit(1)
     lines[include_path_line] = "includePath = \'" + swig_cauchy_include_path + "\';\n"
+    if library_path_line == -1:
+        print(RED_START+"[ERROR def unix_setup_matlab_wrapper:] cannot find libraryPath in file {}...this indicates file corruption. Please replace this file with that found on our github. Exiting!".format(matlab_build_path) + RED_END)
+        exit(1)
+    lines[library_path_line] = "libraryPath = \'" + swig_cauchy_lib_path + "\';\n"
+    
     with open(matlab_build_path, 'w') as handle:
         handle.writelines(lines)
     print("Wrote updated contents to: ", matlab_build_path, "\ncalling matlab mex script!...")

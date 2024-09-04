@@ -1,4 +1,4 @@
-CC=g++
+CC=clang++
 #g++
 
 GCC_DEBUG = -g -Wall -Wextra
