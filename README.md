@@ -16,9 +16,11 @@ The following videos show the rich CDPF the Cauchy Estimator constructs for:
 
 > 1.) a simple 1D LTI state estimation problem, and compared to the performance of a Kalman filter, tuned similarly.
 
+https://github.com/user-attachments/assets/c798460e-651b-450b-9f19-3c9902800d5f
+
 > 2.) a simple 2D LTI state estimation problem, and compared to a Kalman filter, tuned similarly.
 
-https://github.com/user-attachments/assets/c798460e-651b-450b-9f19-3c9902800d5f
+https://github.com/user-attachments/assets/3ed4883a-c89a-415b-9575-86e29ed4ae14
 
 this rich cpdf structure is the key to the MCE's robust state estimation performance.
 
