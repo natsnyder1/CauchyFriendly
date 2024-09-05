@@ -89,31 +89,82 @@ def test_2state_lti_single_window():
     cauchyEst.shutdown()
 
 def test_1state_lti():
-    #n = 1
-    #cmcc = 0
-    #pncc = 1
-    #p = 1
+    np.random.seed(105)
     Phi = np.array([[0.9]])
-    B = None
+    B = np.array([[1.0]])
     Gamma = np.array([0.4])
-    H = np.array([2.0])
+    H = np.array([1.0])
     beta = np.array([0.1]) # Cauchy process noise scaling parameter(s)
     gamma = np.array([0.2]) # Cauchy measurement noise scaling parameter(s)
     A0 = np.array([[1.0]]) # Unit directions of the initial state uncertainty
     p0 = np.array([0.10]) # Initial state uncertainty cauchy scaling parameter(s)
     b0 = np.zeros(1) # Initial median of system state
-
-    zs = np.array([-0.44368369151309078, 0.42583824213752575, -0.33410810748025471, -0.50758511396868289, 
-                -0.21567892215326886, 0.22514658508547963, 0.49585892022310135, 0.7119460882715376, 
-                -2.7235055765981881, -2.7488835688860456, 0.6978978132016932])
+    x0_truth = np.random.randn() * ce.CAUCHY_TO_GAUSSIAN_NOISE * p0
+    num_steps = 100
+    us_truth = np.sin([2*np.pi*i/num_steps for i in range(num_steps)]).reshape((num_steps, 1))
+    xs, zs, ws, vs = ce.simulate_cauchy_ltiv_system(num_steps, x0_truth, us_truth, Phi, B, Gamma, beta, H, gamma)
     cauchyEst = ce.PyCauchyEstimator("lti", zs.size, True)
     cauchyEst.initialize_lti(A0, p0, b0, Phi, B, Gamma, beta, H, gamma)
-
-    estimates = []
+    xs_ce = []
+    Ps_ce = []
+    xs_grid = [] 
+    fxs_grid = []
     for i in range(zs.size):
-        cauchyEst.step(zs[i], None)
-        estimates.append(cauchyEst.moment_info["x"][i])
-    print("State Estimates are:\n", estimates) # matches 1 state c++ cauchy example
+        x_ce, P_ce = cauchyEst.step(zs[i], us_truth[i-1] if i > 0 else np.array([0.0]))
+        xs_ce.append(x_ce)
+        Ps_ce.append(P_ce)
+        if i < zs.size-1:
+            grid_x_low = x_ce-6*P_ce**0.5
+            grid_x_high = x_ce+6*P_ce**0.5
+            num_points = 1000
+            grid_res = (grid_x_high - grid_x_low)/num_points
+            x_grid, fx_grid = cauchyEst.get_1D_pointwise_cpdf(grid_x_low, grid_x_high, grid_res)
+            xs_grid.append(x_grid)
+            fxs_grid.append(fx_grid)
+        
+    xs_ce = np.array(xs_ce)
+    Ps_ce = np.array(Ps_ce)
+    
+    # Run KF
+    V = (gamma.reshape((1,1)) * ce.CAUCHY_TO_GAUSSIAN_NOISE)**2
+    W = (beta.reshape((1,1)) * ce.CAUCHY_TO_GAUSSIAN_NOISE)**2
+    P0_kf = (p0.reshape((1,1))* ce.CAUCHY_TO_GAUSSIAN_NOISE)**2
+    x0_kf = xs_ce[0]
+    xs_kf, Ps_kf = gf.run_kalman_filter(x0_kf, us_truth, zs[1:], P0_kf, Phi, B, Gamma, H, W, V)
+    #ce.plot_simulation_history(cauchyEst.moment_info, (xs,zs,ws,vs), (xs_kf,Ps_kf))
+    # Plot / Animate
+    #'''
+    plt.figure()
+    Ts = np.arange(num_steps+1)
+    plt.plot(Ts, xs, 'r')
+    plt.plot(Ts, xs_ce, 'b')
+    plt.plot(Ts, xs_ce + Ps_ce.reshape((num_steps+1,1))**0.5, 'b--')
+    plt.plot(Ts, xs_ce - Ps_ce.reshape((num_steps+1,1))**0.5, 'b--')
+    plt.plot(Ts, xs_kf, 'g')
+    plt.plot(Ts, xs_kf + Ps_kf.reshape((num_steps+1,1))**0.5, 'g--')
+    plt.plot(Ts, xs_kf - Ps_kf.reshape((num_steps+1,1))**0.5, 'g--')
+    plt.show()
+    #'''
+    
+    gauss_dist = lambda x,mu,P : 1.0/(2*np.pi*P)**0.5 * np.exp(-0.5 * (x - mu)**2 / P)
+    fig = plt.figure()
+    for i, z in enumerate(zs[:-1]):
+        plt.title(r"System: $x_{k}=\Phi x_{k-1} + B u_{k-1} + \Gamma w_{k-1}$" + "\n" + r"Measurement: $z_{k} = H x_{k} + v_{k}$" + "\n" + r"Step k={}/{}, True State $x_k$ (red),".format(i+1, num_steps)  + r" State Estimate $\hat x_k =\mathbb{E}$" + r"$[x_k|y_k], y_k=\left[z_1,...,z_k\right]$")
+        plt.plot(xs_grid[i], fxs_grid[i], 'b', label=r"Cauchy Estimator CPDF $f_{X_k|Y_k}(x_k|y_k)$")
+        plt.plot(xs_grid[i], gauss_dist(xs_grid[i], xs_kf[i].item(), Ps_kf[i].item()), 'g',label=r"Kalman Filter CPDF $f_{X_k|Y_k}(x_k|y_k)$")
+        plt.scatter(zs[i],0, color='m', marker = "*", label=r"Measurement $z_k$")
+        plt.scatter(xs[i],0, color='r', marker="*", label=r"True State $x_k$")
+        plt.scatter(xs_ce[i],0, color='b', marker="*", label=r"Cauchy State Estimate $\hat x_k$")
+        plt.scatter(xs_kf[i],0, color='g', marker="*", label=r"Kalman State Estimate $\hat x_k$")
+        plt.xlabel(r"State $x_k$ Values")
+        plt.ylabel(r"CPDF $f_{X_k|Y_k}(x_k|y_k)$")
+        #leg = plt.legend()
+        leg = plt.legend(bbox_to_anchor=(1, 1), loc=1, borderaxespad=0)
+        leg.set_visible(True)
+        plt.pause(1)
+        fig.clear()
+    foobar = 2
+    
 
 # Creates several estimators and looks at their cpdfs over time
 def test_2state_cpdfs():
@@ -586,12 +637,12 @@ def test_2state_smoothing():
     print("Last Smoothed Cov:\n", P_hats[-1])
 
 if __name__ == "__main__":
-    #test_1state_lti()
+    test_1state_lti()
     #test_2state_cpdfs()
     #test_2state_lti_single_window()
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
-    test_3state_lti_window_manager()
+    #test_3state_lti_window_manager()
     #test_3state_marginal_cpdfs()
     #test_3state_reset()
     #test_2state_smoothing()

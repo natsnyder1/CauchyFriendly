@@ -4,7 +4,7 @@ This repository contains C++, Python, and Matlab interfaces for the Multivariate
 ## What is the Multivariate Cauchy Estimator?
 Much like the Kalman filter (KF) + Extended Kalman filter (EKF), the MCE + Extended MCE (EMCE) can be used for state estimation of linear time-invariant (LTI), linear time-varying (LTV) and non-linear dynamic systems. The MCE algorithm scales well to moderate state space dimensions of up to seven or eight: similar to the limitations of a particle filter.
 
-Aside from the Kalman filter, the MCE is the only other analytic, recursive, and closed-form Bayesian state estimation algorithm. The key difference between the KF and the MCE is that the MCE algorithm assumes additive Cauchy process and measurement noise, whereas the Kalman filter assumes Gaussian process and measurement noise. Moreover, it is the only estimator capable of evolving its cpdf into a rich, sometimes non-symmetric, and sometimes multi-modal state hypothesis; solely as a function of its measurement history. The MCE is very robust to impulsive process noises and outliers in the measurement due to its Cauchy modelling assumption. Empirically too, the MCE is seen to perform robustly when system dynamic parameters become misspecified. The following papers are good resources to learn more about the MCE:
+Aside from the KF, the MCE is the only other analytic, recursive, and closed-form Bayesian state estimation algorithm. The key difference between the KF and the MCE is that the MCE algorithm assumes additive Cauchy process and measurement noise, whereas the KF assumes Gaussian process and measurement noise. Moreover, it is the only estimator capable of evolving its cpdf into a rich, sometimes non-symmetric, and sometimes multi-modal state hypothesis; solely as a function of its measurement history. The MCE is very robust to impulsive process noises and outliers in the measurement due to its Cauchy modelling assumption. Empirically too, the MCE is seen to perform robustly when system dynamic parameters become misspecified. The following papers are good resources to learn more about the MCE:
 > LINK1
 
 > LINK2
@@ -14,11 +14,11 @@ Aside from the Kalman filter, the MCE is the only other analytic, recursive, and
 ## Video Demonstrations
 The following videos show the rich CDPF the Cauchy Estimator constructs for: 
 
-> 1.) a simple 1D LTI state estimation problem, and compared to the performance of a Kalman filter, tuned similarly.
+> 1.) a simple 1D LTI state estimation problem, and compared to the performance of a KF, tuned similarly.
 
 https://github.com/user-attachments/assets/c798460e-651b-450b-9f19-3c9902800d5f
 
-> 2.) a simple 2D LTI state estimation problem, and compared to a Kalman filter, tuned similarly.
+> 2.) a simple 2D LTI state estimation problem, and compared to a KF, tuned similarly.
 
 https://github.com/user-attachments/assets/aea57e84-3765-43ce-bcad-e302bb40d380
 
@@ -29,6 +29,7 @@ this rich cpdf structure is the key to the MCE's robust state estimation perform
 >> C++: g++, make
 
 >> Python: see scripts/requirements.txt, swig, g++
+>>> Note you can 'pip3.7 install -r scripts/requirements.txt' using your pip version
 
 >> Matlab: matlab installed, g++
 
@@ -36,6 +37,7 @@ this rich cpdf structure is the key to the MCE's robust state estimation perform
 >> C++: clang++, make
 
 >> Python: see scripts/requirements.txt, swig, clang++
+>>> Note you can 'pip3.7 install -r scripts/requirements.txt' using your pip version
 
 >> Matlab: matlab installed, Xcode installed (and license accepted), clang++
 
@@ -43,6 +45,7 @@ this rich cpdf structure is the key to the MCE's robust state estimation perform
 >> C++: a Microsoft Visual Studio installation (for cl.exe and link.exe), with Windows Kit SDK for C++ compilation (ucrt, um, shared)
 
 >> Python: see scripts/requirements.txt, swig, cl.exe and link.exe
+>>> Note you can 'pip3.7 install -r scripts/requirements.txt' using your pip version
 
 >> Matlab: matlab installed, (MSVC cl.exe and link.exe + Windows Kit SDK) -> the C++ reqs
 
@@ -53,7 +56,7 @@ The Python script auto_config.py can be run using a python version>=3.0 of your 
 which will ask you whether you'd like to build the C++ MCE examples, the Python MCE module, and the Matlab MCE module. If you intend to build the Python MCE module, please run "auto_config.py" with your INTENDED Python version. If you run into a bug with this script, please email natsnyder1@gmail.com with a screenshot and a brief explanation. Doing so will make this configuration script more robust for others. If the script exits successfully, it will have built:
 
 > For C++ Build:
->>  C++ examples in bin/ . As a side note, the include/cauchy_estimator.hpp and include/cauchy_windows.hpp files contain the MCE source codes.
+>>  C++ examples in bin/ . For windows, the script also sets up the C++ MSVC project solution located at scripts/windows/CauchyWindows/CauchyWindows.sln which can be used to compile, debug, and run src/cauchy_estimator.cpp
 
 > For Python Build:
 >> The Python MCE module: scripts/swig/cauchy/cauchy_estimator.py
@@ -78,7 +81,7 @@ The Python script auto_config.py is configuring:
 > C++ Build:
 >> Linux/Mac: The Makefile, which builds the C++ examples in bin/
 
->> Windows: The batch file win_cpp_make.bat, which builds the C++ examples in bin/ . The win_cpp_make.bat also sets up the C++ MSVC project solution located at scripts/windows/CauchyWindows/CauchyWindows.sln, which you can use
+>> Windows: The batch file win_cpp_make.bat, which builds the C++ examples in bin/ . The win_cpp_make.bat also sets up the C++ MSVC project solution located at scripts/windows/CauchyWindows/CauchyWindows.sln which can be used to compile, debug, and run src/cauchy_estimator.cpp
 
 > Python Build:
 >> Linux/Mac: The shell script scripts/swig/cauchy/swigit_unix.sh, which uses swig to build the C++ backend for the Python MCE module scripts/swig/cauchy/cauchy_estimator.py

@@ -530,7 +530,7 @@ def unix_setup_matlab_wrapper():
     matlab_mcauchy1_path = auto_config_path + "/matlab/matlab_pure/MCauchyEstimator.m"
     matlab_mcauchy2_path = auto_config_path + "/matlab/matlab_pure/MSlidingWindowManager.m"
     if run_matlab_script(matlab_build_path) == 0:
-        print("Matlab build script completed: The modules:\n {}\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path) )
+        print(GREEN_START+"Matlab build script completed: The modules:\n {}\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path) + GREEN_END )
     # If unsuccessful to call matlab: 
     else:
         print(RED_START+"[Error unix_setup_matlab_wrapper:] Matlab executable not found from command line: you could add the matlab executable path to your PATH, or follow the below instructions:"+RED_END)
