@@ -10,8 +10,11 @@ Aside from the Kalman filter, the MCE is the only other analytic, recursive, and
 
 ## Video Demonstrations
 The following videos show the robust structure the Cauchy Estimator's CPDF can take on: 
+
 > 1.) a simple 1D LTI state estimation problem and compared to the performance of a Kalman filter tuned equivalently.
+
 > 2.) a simple 2D LTI state estimation problem and compared to a Kalman filter tuned equivalently.
+
 https://github.com/user-attachments/assets/c798460e-651b-450b-9f19-3c9902800d5f
 this rich cpdf structure is the key to the MCE's robust state estimation performance.
 
