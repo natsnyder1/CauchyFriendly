@@ -47,6 +47,7 @@ this rich cpdf structure is the key to the MCE's robust state estimation perform
 ## Auto-Installation Instructions for Linux/Mac/Windows:
 The Python script auto_config.py can be run using a python version>=3.0 of your choosing:
 > i.e, python3.7 auto_config.py
+
 which will ask you whether you'd like to build the C++ MCE examples, the Python MCE module, and the Matlab MCE module. If you intend to build the Python MCE module, please run "auto_config.py" with your INTENDED Python version. If you run into a bug with this script, please email natsnyder1@gmail.com with a screenshot and a brief explanation. Doing so will make this configuration script more robust for others. Successful compilation yields:
 
 > For C++ Build:
