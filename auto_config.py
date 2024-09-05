@@ -166,11 +166,285 @@ def download_file(url, local_filename, allow_redirects=True):
                 f.write(chunk)
     return True
 
+def walk_until(root_dir, file_name, dir_name, dir_filters=None):
+    # assert only file name or dir name is entered
+    if not( bool(file_name) ^ bool(dir_name) ):
+        print("walk_until: only file_name or dir_name can be given, not both!")
+        exit(1)
+    # from start, walk
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # Check for file 
+        if file_name is not None:
+            if file_name in filenames:
+                return dirpath + "\\" + file_name
+        # check for dir
+        if dir_name is not None:
+            if dir_name in dirnames:
+                return dirpath + "\\" + dir_name
+        # check dir filters
+        if dir_filters is not None:
+            for df in dir_filters:
+                if df in dirnames:
+                    dir_filters_new = list(dir_filters)
+                    dir_filters_new.remove(df)
+                    ret = walk_until(dirpath+"\\"+df, file_name, dir_name, dir_filters_new)
+                    if ret:
+                        return ret
+    return None           
+
+# Finds file_name or dir_name making sure dir_filters are in the path
+def walk_all_filtered(root_dir, file_name, dir_name, dir_filters, results = []):
+    os_name = get_operating_sys()
+    # assert only file name or dir name is entered
+    if not( bool(file_name) ^ bool(dir_name) ):
+        print("walk_until: only file_name or dir_name can be given, not both!")
+        exit(1)
+    # from start, walk
+    used_dir_filters = []
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # Check results against dir_filters
+        cont_loop = False
+        for df in used_dir_filters:
+            if os_name == "windows":
+                if "\\{}".format(df) in dirpath:
+                    cont_loop = True
+                    break
+            else:
+                if "/{}".format(df) in dirpath:
+                    cont_loop = True
+                    break
+        if cont_loop:
+            continue
+        # Check for file 
+        if file_name is not None:
+            if file_name in filenames:
+                result = dirpath + "\\" + file_name
+                is_append = True
+                for df in dir_filters:
+                    if os_name == "windows":
+                        if "\\{}".format(df) not in result:
+                            is_append = False
+                    else:
+                        if "/{}".format(df) not in result:
+                            is_append = False
+                if is_append:
+                    results.append(result)
+                #return results
+        # check for dir
+        if dir_name is not None:
+            if dir_name in dirnames:
+                result = dirpath + "\\" + dir_name
+                is_append = True
+                for df in dir_filters:
+                    if os_name == "windows":
+                        if "\\{}".format(df) not in result:
+                            is_append = False
+                    else:
+                        if "/{}".format(df) not in result:
+                            is_append = False
+                if is_append:
+                    results.append(result)
+                #return results
+        # check dir filters
+        if dir_filters is not None:
+            for df in dir_filters:
+                if df in dirnames:
+                    dir_filters_new = list(dir_filters)
+                    dir_filters_new.remove(df)
+                    if df not in used_dir_filters:
+                        used_dir_filters.append(df)
+                    results = walk_all_filtered(dirpath+"\\"+df, file_name, dir_name, dir_filters_new, results)
+    return results     
+
+# Walks down the provided root directory to find file_name or dir_name
+def walk_all_unfiltered(root_dir, file_name, dir_name):
+    os_name = get_operating_sys()
+    # assert only file name or dir name is entered
+    if not( bool(file_name) ^ bool(dir_name) ):
+        print("walk_until: only file_name or dir_name can be given, not both!")
+        exit(1)
+    # from start, walk
+    results = []
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # Check for file 
+        if file_name is not None:
+            if file_name in filenames:
+                result = dirpath + "\\" + file_name
+                results.append(result)
+                #return results
+        # check for dir
+        if dir_name is not None:
+            if dir_name in dirnames:
+                result = dirpath + "\\" + dir_name
+                results.append(result)
+                #return results
+    return results
+  
+def win_reponse_or_exit():
+    response = input("Enter path or q: ")
+    while True:
+        if response == 'q':
+            print(RED_START+"Exiting! Goodbye!"+RED_END)     
+            exit(1)
+        elif "C:" in response:
+            if os.path.isdir(response):
+                print(GREEN_START+"Located {} ... Continuing!".format(response)+GREEN_END)
+                return True
+            else:
+                print(YELLOW_START+"Path {} does not exist! Please recheck path!"+YELLOW_END)
+                #return False
+        else:
+            print(RED_START+"Undefined Choice "+RED_END)
+
+def win_get_ucrt_shared_um_paths(wk_root_dir):
+    wk_versions = []
+    # Get the possible version numbers and from which determine if they have the um shared and ucrt sub-directories 
+    for dirpath, dirnames, filenames in os.walk(wk_root_dir):
+        for dirname in dirnames:
+            try:
+                wk_versions.append( float(dirname) )
+            except Exception:
+                pass
+        break
+    if len(wk_versions) == 0:
+        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Versions of Windows Kits:\n  1.) please manually enter PATH\\TO\\Windows Kits\\YOUR_VERSION,\n  2.) enter q to quit script" + YELLOW_END)
+        wk_versions = [win_reponse_or_exit()]
+
+    wk_options = []
+    for wkv in wk_versions:
+        if (wkv % 1.0) == 0:
+            wkv = int(wkv)
+        wk_query = wk_root_dir + "\\" + str(wkv)
+        include_dir_um = walk_until(wk_query, None, "um", ["Include"])
+        if not include_dir_um:
+            continue 
+        include_dir_shr = include_dir_um[:include_dir_um.find("\\um")] + "\\shared"
+        include_dir_ucrt = include_dir_um[:include_dir_um.find("\\um")] + "\\ucrt"
+        if not os.path.isdir(include_dir_shr):
+            include_dir_shr = None 
+            continue
+        if not os.path.isdir(include_dir_ucrt):
+            include_dir_ucrt = None 
+            continue
+        wk_options.append( (wkv,include_dir_um, include_dir_shr, include_dir_ucrt))
+    if len(wk_options) == 0:
+        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Versions of Windows Kits which contain headers directorys 'um' 'shared' and 'ucrt':\n  1.) please manually enter PATH\\THAT\\CONTAINS -> {UCRT,UM,SHARED},\n  2.) enter q to quit script" + YELLOW_END)
+        include_dir_um = win_reponse_or_exit()
+        # make sure um/shared/ucrt is not ending
+        suffix_idx = include_dir_um.rfind("\\\\")
+        if suffix_idx > -1:
+            suffix = include_dir_um[suffix_idx+2:]
+            if suffix in ["um", "shared", "ucrt"]:
+                include_dir_um = include_dir_um[:suffix_idx]
+            include_dir_ucrt = include_dir_um + "\\ucrt"
+            include_dir_shared = include_dir_um + "\\shared"
+            include_dir_um = include_dir_um + "\\um"
+            if not os.path.isdir(include_dir_shared):
+                print(RED_START +"[error win_get_ucrt_shared_um_paths:]\n {} does not exist! Please check paths and re-follow instructions! Exiting!".format(include_dir_shared)+RED_END)
+                exit(1)
+            if not os.path.isdir(include_dir_ucrt):
+                print(RED_START +"[error win_get_ucrt_shared_um_paths:]\n {} does not exist! Please check paths and re-follow instructions! Exiting!".format(include_dir_ucrt)+RED_END)
+                exit(1)
+            if not os.path.isdir(include_dir_um):
+                print(RED_START +"[error win_get_ucrt_shared_um_paths:]\n {} does not exist! Please check paths and re-follow instructions! Exiting!".format(include_dir_um)+RED_END)
+                exit(1)
+    else:
+        print(GREEN_START+"Found Windows Kits versions:"+GREEN_END)
+        for wko in wk_options:
+            print("Version: ", wko[0])
+        if len(wk_options) == 1:
+            include_dir_um = wk_options[0][1]
+            include_dir_shr = wk_options[0][2]
+            include_dir_ucrt = wk_options[0][3]
+        else:
+            while True:
+                response = input("Enter 1 to {} to indicate the option correpsonding to your version, or q to quit: ".format(len(wk_options)))
+                if response == 'q':
+                    print(RED_START+"Exiting! Goodbye!"+RED_END)
+                    exit(1)
+                try:
+                    int_resp = int(response)
+                    print("Entered Response {} for include headers: {}\n{}\n{}\n".format(int_resp, *wk_options[response][1:]))
+                    break
+                except Exception:
+                    print("{} is not accepted as a valid integer, try again!\n".format(response))
+    return include_dir_ucrt, include_dir_shr, include_dir_um
+
+def win_get_line_idx(file_lines, str_query):
+    for i, line in enumerate(file_lines):
+        if str_query in line:
+            return i
+    return -1
+
+def win_get_cl_exe():
+    cl_exe = walk_until("C:\\Program Files (x86)\\Microsoft Visual Studio", "cl.exe", None, dir_filters=["VC", "Tools", "bin"])
+    if cl_exe is None:
+        cl_exe = walk_until("C:\\Program Files\\Microsoft Visual Studio", "cl.exe", dir_filters=["VC", "Tools", "bin"])
+        if cl_exe is None:
+            print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Microsoft Visual Studio Directory:\n  1.) please manually enter full path to cl.exe, which is located in the bin folder of a subdirectory of Microsoft Visual Studio,\n  2.) enter q to quit script" + YELLOW_END)
+            cl_exe = win_reponse_or_exit()
+    return cl_exe
+
+def win_get_lib_ucrt(include_dir_ucrt):
+    _lib_ucrt_path = include_dir_ucrt
+    _lib_ucrt_path = _lib_ucrt_path.replace("Include", "Lib")
+    lib_ucrt_path = walk_until(_lib_ucrt_path, "libucrt.lib", None, ["x64", "x86"])
+    if not os.path.isfile(lib_ucrt_path):
+        print(YELLOW_START+"[WARN win_get_lib_ucrt:] Cannot find 'Library path for the library UCRT.\n  1.) Please enter the directory that contains libucrt.lib,\n  2.) enter q to quit script" + YELLOW_END)
+        lib_ucrt_path = win_reponse_or_exit()
+        if not os.path.isdir(lib_ucrt_path):
+            print(RED_START+"Path {} is still not valid! Please check path and restart this script! Exiting!".format(lib_ucrt_path)+RED_END)
+            exit(1)
+    else:
+        lib_ucrt_path = lib_ucrt_path.rsplit("\\", 1)[0]
+    return lib_ucrt_path
+
+def win_get_lib_um(include_dir_um):
+    _lib_um_path = include_dir_um
+    _lib_um_path = _lib_um_path.replace("Include", "Lib")
+    lib_um_path = walk_until(_lib_um_path, "Uuid.Lib", None, ["x64", "x86"])
+    if not os.path.isfile(lib_um_path):
+        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find 'Library path for the library UM.\n  1.) Please enter the directory that contains libuuid.lib,\n  2.) enter q to quit script" + YELLOW_END)
+        lib_um_path = win_reponse_or_exit()
+        if not os.path.isdir(lib_um_path):
+            print(RED_START+"Path {} is not valid! Please check path and restart this script! Exiting!".format(lib_um_path)+RED_END)
+            exit(1)
+    else:
+        lib_um_path = lib_um_path.rsplit("\\", 1)[0]
+    return lib_um_path
+
+def win_get_lib_cpmt(include_dir_mscv):
+    _lib_cpmt_path = include_dir_mscv
+    _lib_cpmt_path = _lib_cpmt_path.replace("include", "lib")
+    lib_cpmt_path = walk_until(_lib_cpmt_path, "libcpmt.lib", None, ["x64", "x86"])
+    if not os.path.isfile(lib_cpmt_path):
+        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find 'Library path for the library UM.\n  1.) Please enter the directory that contains libuuid.lib,\n  2.) enter q to quit script" + YELLOW_END)
+        lib_cpmt_path = win_reponse_or_exit()
+        if not os.path.isdir(lib_cpmt_path):
+            print(RED_START+"Path {} is not valid! Please check path and restart this script! Exiting!".format(lib_cpmt_path)+RED_END)
+            exit(1)
+    else:
+        lib_cpmt_path = lib_cpmt_path.rsplit("\\", 1)[0]
+    return lib_cpmt_path
+
+def win_get_lib_msvcprt(include_dir_mscv, x64_or_x86):
+    _lib_msvcprt_path = include_dir_mscv
+    _lib_msvcprt_path = _lib_msvcprt_path.replace("include", "lib")
+    lib_msvcprt_path = walk_until(_lib_msvcprt_path, "msvcprt.lib", None, [x64_or_x86])
+    if not os.path.isfile(lib_msvcprt_path):
+        print(YELLOW_START+"[WARN win_get_lib_msvcprt:] Cannot find 'Library path for the library msvcprt.lib ...\n  1.) Please enter the directory that contains msvcrpt.lib,\n  2.) enter q to quit script" + YELLOW_END)
+        lib_msvcprt_path = win_reponse_or_exit()
+        if not os.path.isdir(lib_msvcprt_path):
+            print(RED_START+"Path {} is not valid! Please check path and restart this script! Exiting!".format(lib_msvcprt_path)+RED_END)
+            exit(1)
+    else:
+        lib_msvcprt_path = lib_msvcprt_path.rsplit("\\", 1)[0]
+    return lib_msvcprt_path
+
 # Path to your .m file
 def run_matlab_script(matlab_script):
     os_name = get_operating_sys()
     # Command to run MATLAB with the .m file
-    print("Attempting to run Matlab executable...if found, this may take a while...")
     command = ['matlab', '-batch', f"run('{matlab_script}')"]
     # Run the MATLAB script
     try:
@@ -257,7 +531,7 @@ def run_matlab_script(matlab_script):
             command = [matlab_exec_path, '-batch', f"run('{matlab_script}')"]
         # Try subprocess call again
         try:
-            print(YELLOW_START+"Running Matlab Wrapper Build Script..."+YELLOW_END)
+            print(YELLOW_START+"Running Matlab Wrapper Build Script...this may take a while..."+YELLOW_END)
             result = subprocess.run(command, check=True)
             # Check the return code to see if the script executed successfully
             if result.returncode == 0:
@@ -293,8 +567,8 @@ def unix_setup_c_examples():
         handle.writelines(lines)
     print(YELLOW_START+"Running: make clean"+YELLOW_END)
     result = subprocess.run(["make", "clean"], check=True)
-    print(YELLOW_START+"Running: make cauchy window D=0"+YELLOW_END)
-    result = subprocess.run(["make", "cauchy", "window", "D=0"], check=True)
+    print(YELLOW_START+"Running: make all D=0"+YELLOW_END)
+    result = subprocess.run(["make", "all", "D=0"], check=True)
     os.chdir(cwd)
     if result.returncode == 0:
         print(GREEN_START+"C++ examples from\n {} have build successful in\n {}".format(c_examples_src_path, c_examples_bin_path)+GREEN_END)
@@ -498,7 +772,6 @@ def unix_setup_matlab_wrapper():
     auto_config_path = get_auto_config_path()
     swig_cauchy_include_path = "-I" + auto_config_path + "/scripts/swig/cauchy" 
     swig_cauchy_include_path += " -I" + auto_config_path + "/include"
-    swig_cauchy_lib_path = "-lm -lpthread"
     matlab_build_path = auto_config_path + "/matlab/mex_files/build.m"
     print(GREEN_START + "--- Running Matlab Wrapper Configuration Script ---" + GREEN_END)
     with open(matlab_build_path, 'r') as handle:
@@ -506,21 +779,18 @@ def unix_setup_matlab_wrapper():
         num_lines = len(lines)
     # Change the include path, but also change deletion file paths based off of mac / linux type 
     include_path_line = -1
-    library_path_line = -1
     for i in range(num_lines):
         if "includePath" == lines[i][0:11]:
             include_path_line = i
-        if "libraryPath" == lines[i][0:11]:
-            library_path_line = i
+        else:
+            if os_name == "linux":
+                lines[i] = lines[i].replace("mexmaca", "mexa")
+            else:
+                lines[i] = lines[i].replace("mexa", "mexmaca")
     if include_path_line == -1:
-        print(RED_START+"[ERROR def unix_setup_matlab_wrapper:] cannot find includePath in file {}...this indicates file corruption. Please replace this file with that found on our github. Exiting!".format(matlab_build_path) + RED_END)
+        print(RED_START+"[ERROR def unix_setup_matlab_wrapper:] cannot find includePath in file {}...this indicates file corruption. Please replace this file with that found on our github. Exiting!" + RED_END)
         exit(1)
     lines[include_path_line] = "includePath = \'" + swig_cauchy_include_path + "\';\n"
-    if library_path_line == -1:
-        print(RED_START+"[ERROR def unix_setup_matlab_wrapper:] cannot find libraryPath in file {}...this indicates file corruption. Please replace this file with that found on our github. Exiting!".format(matlab_build_path) + RED_END)
-        exit(1)
-    lines[library_path_line] = "libraryPath = \'" + swig_cauchy_lib_path + "\';\n"
-    
     with open(matlab_build_path, 'w') as handle:
         handle.writelines(lines)
     print("Wrote updated contents to: ", matlab_build_path, "\ncalling matlab mex script!...")
@@ -530,7 +800,7 @@ def unix_setup_matlab_wrapper():
     matlab_mcauchy1_path = auto_config_path + "/matlab/matlab_pure/MCauchyEstimator.m"
     matlab_mcauchy2_path = auto_config_path + "/matlab/matlab_pure/MSlidingWindowManager.m"
     if run_matlab_script(matlab_build_path) == 0:
-        print(GREEN_START+"Matlab build script completed: The modules:\n {}\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path) + GREEN_END )
+        print("Matlab build script completed: The modules:\n {}\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path) )
     # If unsuccessful to call matlab: 
     else:
         print(RED_START+"[Error unix_setup_matlab_wrapper:] Matlab executable not found from command line: you could add the matlab executable path to your PATH, or follow the below instructions:"+RED_END)
@@ -538,219 +808,6 @@ def unix_setup_matlab_wrapper():
         print("  2.) Run the build.m file (i.e, type the word build) in the matlab command window")
         print("The build process will generate the modules:\n {}\n {}\n and can be included in your projects... Checkout the tutorials:\n {}\n {}\nto see examples".format(matlab_mcauchy1_path, matlab_mcauchy2_path, matlab_tut1_path, matlab_tut2_path))
     print(GREEN_START + "----------------------------------------" + GREEN_END)
-
-def win_reponse_or_exit():
-    response = input("Enter path or q: ")
-    while True:
-        if response == 'q':
-            print(RED_START+"Exiting! Goodbye!"+RED_END)     
-            exit(1)
-        elif "C:" in response:
-            if os.path.isdir(response):
-                print(GREEN_START+"Located {} ... Continuing!".format(response)+GREEN_END)
-                return True
-            else:
-                print(YELLOW_START+"Path {} does not exist! Please recheck path!"+YELLOW_END)
-                #return False
-        else:
-            print(RED_START+"Undefined Choice "+RED_END)
-
-def walk_until(root_dir, file_name, dir_name, dir_filters=None):
-    # assert only file name or dir name is entered
-    if not( bool(file_name) ^ bool(dir_name) ):
-        print("walk_until: only file_name or dir_name can be given, not both!")
-        exit(1)
-    # from start, walk
-    for dirpath, dirnames, filenames in os.walk(root_dir):
-        # Check for file 
-        if file_name is not None:
-            if file_name in filenames:
-                return dirpath + "\\" + file_name
-        # check for dir
-        if dir_name is not None:
-            if dir_name in dirnames:
-                return dirpath + "\\" + dir_name
-        # check dir filters
-        if dir_filters is not None:
-            for df in dir_filters:
-                if df in dirnames:
-                    dir_filters_new = list(dir_filters)
-                    dir_filters_new.remove(df)
-                    ret = walk_until(dirpath+"\\"+df, file_name, dir_name, dir_filters_new)
-                    if ret:
-                        return ret
-    return None           
-
-# UNTESTED
-def walk_all(root_dir, file_name, dir_name, dir_filters, results = []):
-    # assert only file name or dir name is entered
-    if not( bool(file_name) ^ bool(dir_name) ):
-        print("walk_until: only file_name or dir_name can be given, not both!")
-        exit(1)
-    # from start, walk
-    for dirpath, dirnames, filenames in os.walk(root_dir):
-        # Check for file 
-        if file_name is not None:
-            if file_name in filenames:
-                results.append(dirpath + "\\" + file_name)
-                #return results
-        # check for dir
-        if dir_name is not None:
-            if dir_name in dirnames:
-                results.append(dirpath + "\\" + dir_name)
-                #return results
-        # check dir filters
-        if dir_filters is not None:
-            for df in dir_filters:
-                if df in dirnames:
-                    dir_filters_new = list(dir_filters)
-                    dir_filters_new.remove(df)
-                    results = walk_all(dirpath+"\\"+df, file_name, dir_name, dir_filters_new, results)
-    return results     
-            
-def win_get_ucrt_shared_um_paths(wk_root_dir):
-    wk_versions = []
-    # Get the possible version numbers and from which determine if they have the um shared and ucrt sub-directories 
-    for dirpath, dirnames, filenames in os.walk(wk_root_dir):
-        for dirname in dirnames:
-            try:
-                wk_versions.append( float(dirname) )
-            except Exception:
-                pass
-        break
-    if len(wk_versions) == 0:
-        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Versions of Windows Kits:\n  1.) please manually enter PATH\\TO\\Windows Kits\\YOUR_VERSION,\n  2.) enter q to quit script" + YELLOW_END)
-        wk_versions = [win_reponse_or_exit()]
-    wk_options = []
-    for wkv in wk_versions:
-        if (wkv % 1.0) == 0:
-            wkv = int(wkv)
-        wk_query = wk_root_dir + "\\" + str(wkv)
-        include_dir_um = walk_until(wk_query, None, "um", ["Include"])
-        if not include_dir_um:
-            continue 
-        include_dir_shr = include_dir_um[:include_dir_um.find("\\um")] + "\\shared"
-        include_dir_ucrt = include_dir_um[:include_dir_um.find("\\um")] + "\\ucrt"
-        if not os.path.isdir(include_dir_shr):
-            include_dir_shr = None 
-            continue
-        if not os.path.isdir(include_dir_ucrt):
-            include_dir_ucrt = None 
-            continue
-        wk_options.append( (wkv,include_dir_um, include_dir_shr, include_dir_ucrt))
-    if len(wk_options) == 0:
-        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Versions of Windows Kits which contain headers directorys 'um' 'shared' and 'ucrt':\n  1.) please manually enter PATH\\THAT\\CONTAINS -> {UCRT,UM,SHARED},\n  2.) enter q to quit script" + YELLOW_END)
-        include_dir_um = win_reponse_or_exit()
-        # make sure um/shared/ucrt is not ending
-        suffix_idx = include_dir_um.rfind("\\\\")
-        if suffix_idx > -1:
-            suffix = include_dir_um[suffix_idx+2:]
-            if suffix in ["um", "shared", "ucrt"]:
-                include_dir_um = include_dir_um[:suffix_idx]
-            include_dir_ucrt = include_dir_um + "\\ucrt"
-            include_dir_shared = include_dir_um + "\\shared"
-            include_dir_um = include_dir_um + "\\um"
-            if not os.path.isdir(include_dir_shared):
-                print(RED_START +"[error win_get_ucrt_shared_um_paths:]\n {} does not exist! Please check paths and re-follow instructions! Exiting!".format(include_dir_shared)+RED_END)
-                exit(1)
-            if not os.path.isdir(include_dir_ucrt):
-                print(RED_START +"[error win_get_ucrt_shared_um_paths:]\n {} does not exist! Please check paths and re-follow instructions! Exiting!".format(include_dir_ucrt)+RED_END)
-                exit(1)
-            if not os.path.isdir(include_dir_um):
-                print(RED_START +"[error win_get_ucrt_shared_um_paths:]\n {} does not exist! Please check paths and re-follow instructions! Exiting!".format(include_dir_um)+RED_END)
-                exit(1)
-    else:
-        print(GREEN_START+"Found Windows Kits versions:"+GREEN_END)
-        for wko in wk_options:
-            print("Version: ", wko[0])
-        if len(wk_options) == 1:
-            include_dir_um = wk_options[0][1]
-            include_dir_shr = wk_options[0][2]
-            include_dir_ucrt = wk_options[0][3]
-        else:
-            while True:
-                response = input("Enter 1 to {} to indicate the option correpsonding to your version, or q to quit: ".format(len(wk_options)))
-                if response == 'q':
-                    print(RED_START+"Exiting! Goodbye!"+RED_END)
-                    exit(1)
-                try:
-                    int_resp = int(response)
-                    print("Entered Response {} for include headers: {}\n{}\n{}\n".format(int_resp, *wk_options[response][1:]))
-                    break
-                except Exception:
-                    print("{} is not accepted as a valid integer, try again!\n".format(response))
-    return include_dir_ucrt, include_dir_shr, include_dir_um
-
-def win_get_line_idx(file_lines, str_query):
-    for i, line in enumerate(file_lines):
-        if str_query in line:
-            return i
-    return -1
-
-def win_get_cl_exe():
-    cl_exe = walk_until("C:\\Program Files (x86)\\Microsoft Visual Studio", "cl.exe", None, dir_filters=["VC", "Tools", "bin"])
-    if cl_exe is None:
-        cl_exe = walk_until("C:\\Program Files\\Microsoft Visual Studio", "cl.exe", dir_filters=["VC", "Tools", "bin"])
-        if cl_exe is None:
-            print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Microsoft Visual Studio Directory:\n  1.) please manually enter full path to cl.exe, which is located in the bin folder of a subdirectory of Microsoft Visual Studio,\n  2.) enter q to quit script" + YELLOW_END)
-            cl_exe = win_reponse_or_exit()
-    return cl_exe
-
-def win_get_lib_ucrt(include_dir_ucrt):
-    _lib_ucrt_path = include_dir_ucrt
-    _lib_ucrt_path = _lib_ucrt_path.replace("Include", "Lib")
-    lib_ucrt_path = walk_until(_lib_ucrt_path, "libucrt.lib", None, ["x64", "x86"])
-    if not os.path.isfile(lib_ucrt_path):
-        print(YELLOW_START+"[WARN win_get_lib_ucrt:] Cannot find 'Library path for the library UCRT.\n  1.) Please enter the directory that contains libucrt.lib,\n  2.) enter q to quit script" + YELLOW_END)
-        lib_ucrt_path = win_reponse_or_exit()
-        if not os.path.isdir(lib_ucrt_path):
-            print(RED_START+"Path {} is still not valid! Please check path and restart this script! Exiting!".format(lib_ucrt_path)+RED_END)
-            exit(1)
-    else:
-        lib_ucrt_path = lib_ucrt_path.rsplit("\\", 1)[0]
-    return lib_ucrt_path
-
-def win_get_lib_um(include_dir_um):
-    _lib_um_path = include_dir_um
-    _lib_um_path = _lib_um_path.replace("Include", "Lib")
-    lib_um_path = walk_until(_lib_um_path, "Uuid.Lib", None, ["x64", "x86"])
-    if not os.path.isfile(lib_um_path):
-        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find 'Library path for the library UM.\n  1.) Please enter the directory that contains libuuid.lib,\n  2.) enter q to quit script" + YELLOW_END)
-        lib_um_path = win_reponse_or_exit()
-        if not os.path.isdir(lib_um_path):
-            print(RED_START+"Path {} is not valid! Please check path and restart this script! Exiting!".format(lib_um_path)+RED_END)
-            exit(1)
-    else:
-        lib_um_path = lib_um_path.rsplit("\\", 1)[0]
-    return lib_um_path
-
-def win_get_lib_cpmt(include_dir_mscv):
-    _lib_cpmt_path = include_dir_mscv
-    _lib_cpmt_path = _lib_cpmt_path.replace("include", "lib")
-    lib_cpmt_path = walk_until(_lib_cpmt_path, "libcpmt.lib", None, ["x64", "x86"])
-    if not os.path.isfile(lib_cpmt_path):
-        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find 'Library path for the library UM.\n  1.) Please enter the directory that contains libuuid.lib,\n  2.) enter q to quit script" + YELLOW_END)
-        lib_cpmt_path = win_reponse_or_exit()
-        if not os.path.isdir(lib_cpmt_path):
-            print(RED_START+"Path {} is not valid! Please check path and restart this script! Exiting!".format(lib_cpmt_path)+RED_END)
-            exit(1)
-    else:
-        lib_cpmt_path = lib_cpmt_path.rsplit("\\", 1)[0]
-    return lib_cpmt_path
-
-def win_get_lib_msvcprt(include_dir_mscv, x64_or_x86):
-    _lib_msvcprt_path = include_dir_mscv
-    _lib_msvcprt_path = _lib_msvcprt_path.replace("include", "lib")
-    lib_msvcprt_path = walk_until(_lib_msvcprt_path, "msvcprt.lib", None, [x64_or_x86])
-    if not os.path.isfile(lib_msvcprt_path):
-        print(YELLOW_START+"[WARN win_get_lib_msvcprt:] Cannot find 'Library path for the library msvcprt.lib ...\n  1.) Please enter the directory that contains msvcrpt.lib,\n  2.) enter q to quit script" + YELLOW_END)
-        lib_msvcprt_path = win_reponse_or_exit()
-        if not os.path.isdir(lib_msvcprt_path):
-            print(RED_START+"Path {} is not valid! Please check path and restart this script! Exiting!".format(lib_msvcprt_path)+RED_END)
-            exit(1)
-    else:
-        lib_msvcprt_path = lib_msvcprt_path.rsplit("\\", 1)[0]
-    return lib_msvcprt_path
 
 def windows_setup_c_examples():
     print(GREEN_START+"--- Building Cauchy Estimator C++ Examples ---"+GREEN_END)
@@ -1148,8 +1205,24 @@ def windows_setup_matlab_wrapper():
     print("Matlab Built!")
 
 def windows_setup_msvc_pthread_dll():
-    pass
-
+    print(GREEN_START + " --------- Placing pthread dll into appropriate CauchyWindows MSVC directories ---------" + GREEN_END)
+    pthread_dll_name = "pthreadVC2.dll"
+    root_dir = get_auto_config_path()
+    cauchy_win_path_dbg = root_dir + "\\scripts\\windows\\CauchyWindows\\Debug\\" + pthread_dll_name
+    cauchy_win_path_rls = root_dir + "\\scripts\\windows\\CauchyWindows\\Release\\" + pthread_dll_name
+    cauchy_win_path_x64dbg = root_dir + "\\scripts\\windows\\CauchyWindows\\x64\\Debug\\" + pthread_dll_name
+    cauchy_win_path_x64rls = root_dir + "\\scripts\\windows\\CauchyWindows\\x64\\Release\\" + pthread_dll_name
+    pthrean_dll_path = root_dir + "\\scripts\\windows\\pthread-win\\Pre-built.2\\dll\\x64\\" + pthread_dll_name
+    if not os.path.isfile(cauchy_win_path_dbg):
+        shutil.copy(pthrean_dll_path, cauchy_win_path_dbg)
+    if not os.path.isfile(cauchy_win_path_rls):
+        shutil.copy(pthrean_dll_path, cauchy_win_path_rls)
+    if not os.path.isfile(cauchy_win_path_x64dbg):
+        shutil.copy(pthrean_dll_path, cauchy_win_path_x64dbg)
+    if not os.path.isfile(cauchy_win_path_x64rls):
+        shutil.copy(pthrean_dll_path, cauchy_win_path_x64rls)
+    print("Copied Successfully!")
+    print(GREEN_START + " ---------------------------------------------------------------" + GREEN_END)
 
 if __name__ == '__main__':
     # Build C++ Examples
