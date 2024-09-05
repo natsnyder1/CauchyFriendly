@@ -20,21 +20,21 @@ this rich cpdf structure is the key to the MCE's robust state estimation perform
 
 ## Auto-Installation Instructions for Linux/Max/Windows:
 
-##Manual Installation Instructions For Linux:
+## Manual Installation Instructions For Linux:
 > #C++ API and Examples:
     
 > #Python API and Examples:
     
 > #Matlab API and Examples:
     
-##Manual Installation Instructions For Mac:
+## Manual Installation Instructions For Mac:
 > #C++ API and Examples:
     
 > #Python API and Examples:
     
 > #Matlab API and Examples:
     
-##Manual Installation Instructions for Windows:
+## Manual Installation Instructions for Windows:
 > #C++ API and Examples:
     
 > #Python API and Examples:
