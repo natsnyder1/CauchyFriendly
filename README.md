@@ -1,3 +1,2 @@
-![1d_cauchy_trimmed_kdl](https://github.com/user-attachments/assets/78e32b0b-bc77-4a24-9143-7188cefc6031)
-
+https://github.com/user-attachments/assets/c798460e-651b-450b-9f19-3c9902800d5f
 
