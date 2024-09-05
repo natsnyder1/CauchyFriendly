@@ -1,5 +1,5 @@
 ## Overview
-This repository contains C++, Python, and Matlab interfaces for the Multivariate Cauchy Estimator (MCE) algorithm. The repository is compilable on Mac/Linux/Windows OS. The Python and Matlab wrappers (built via Swig, Mex, respectively) bind the Python/Matlab interface (module), respectively, to the fast C++ backend. See beneath the attached video for installation instructions. 
+This repository contains C++, Python, and Matlab interfaces for the Multivariate Cauchy Estimator (MCE) algorithm. The repository is compilable on Mac/Linux/Windows OS. The Python and Matlab wrappers (built via Swig, Mex, respectively) bind the Python/Matlab interface (module), respectively, to the C++ backend. See beneath the attached video for installation instructions. 
 
 ## What is the Multivariate Cauchy Estimator?
 Much like the Kalman filter (KF) + Extended Kalman filter (EKF), the MCE + Extended MCE (EMCE) can be used for state estimation of linear time-invariant (LTI), linear time-varying (LTV) and non-linear dynamic systems. The MCE algorithm scales well to moderate state space dimensions of up to seven or eight: similar to the limitations of a particle filter.
