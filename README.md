@@ -12,7 +12,7 @@ Aside from the KF, the MCE is the only other analytic, recursive, and closed-for
 > LINK3
 
 ## Video Demonstrations
-The following videos show the evolution of the MCE's cpdf as a function of a measurement realization: 
+The following videos show the evolution of the MCE's cpdf as a function of impulsive process and measurement noise realizations for: 
 
 > 1.) a simple 1D LTI state estimation problem, with performance compared to a similarly tuned KF.
 
