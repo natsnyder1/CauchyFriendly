@@ -79,38 +79,38 @@ which will ask you whether you'd like to build the C++ MCE examples, the Python 
 ## Manual Installation Instructions:
 The Python script auto_config.py is configuring:
 > C++ Build:
->> Linux/Mac: The Makefile, which builds the C++ examples in bin/
+>> **Linux/Mac:** The Makefile, which builds the C++ examples in bin/
 
->> Windows: The batch file win_cpp_make.bat, which builds the C++ examples in bin/ . The win_cpp_make.bat also sets up the C++ MSVC project solution located at scripts/windows/CauchyWindows/CauchyWindows.sln which can be used to compile, debug, and run src/cauchy_estimator.cpp
+>> **Windows:** The batch file win_cpp_make.bat, which builds the C++ examples in bin/ . The win_cpp_make.bat also sets up the C++ MSVC project solution located at scripts/windows/CauchyWindows/CauchyWindows.sln which can be used to compile, debug, and run src/cauchy_estimator.cpp
 
 > Python Build:
->> Linux/Mac: The shell script scripts/swig/cauchy/swigit_unix.sh, which uses swig to build the C++ backend for the Python MCE module scripts/swig/cauchy/cauchy_estimator.py
+>> **Linux/Mac:** The shell script scripts/swig/cauchy/swigit_unix.sh, which uses swig to build the C++ backend for the Python MCE module scripts/swig/cauchy/cauchy_estimator.py
 
->> Windows: The batch file scripts/swig/cauchy/swigit_windows.bat, which uses swig to build the C++ backend for the Python MCE module scripts/swig/cauchy/cauchy_estimator.py
+>> **Windows:** The batch file scripts/swig/cauchy/swigit_windows.bat, which uses swig to build the C++ backend for the Python MCE module scripts/swig/cauchy/cauchy_estimator.py
 
 > Matlab Build:
->> Linux/Mac/Windows: The matlab file matlab/mex_files/build.m, which uses mex to build the C++ backend for the MCE modules matlab/matlab_pure/MCauchyEstimator.m and matlab/matlab_pure/MSlidingWindowManager.m
+>> **Linux/Mac/Windows:** The matlab file matlab/mex_files/build.m, which uses mex to build the C++ backend for the MCE modules matlab/matlab_pure/MCauchyEstimator.m and matlab/matlab_pure/MSlidingWindowManager.m
 
 ### C++ Build Manual Configuration
-> Linux: In Makefile, change variable CC=g++ (if not already set). Run make clean && make cauchy window D=0
+> **Linux:** In Makefile, change variable CC=g++ (if not already set). Run make clean && make cauchy window D=0
 
-> Mac: In Makefile, change variable CC=clang++ (if not already set). Run make clean && make cauchy window D=0
+> **Mac:** In Makefile, change variable CC=clang++ (if not already set). Run make clean && make cauchy window D=0
 
-> Windows: In the batch file win_cpp_make.bat, ammend the paths of the variables INC_MSVC through LIB_UCRT to your system paths. Run .\win_cpp_make.bat or click on this batch file in finder.
+> **Windows:** In the batch file win_cpp_make.bat, ammend the paths of the variables INC_MSVC through LIB_UCRT to your system paths. Run .\win_cpp_make.bat or click on this batch file in finder.
 
 ### Python Build Manual Configuration
-> Linux: In scripts/swig/cauchy/swigit_unix.sh, ammend the paths of the variables INC_PYTHON, LIB_PYTHON, INC_NUMPY to your system paths. Change swig executable path if needed (line 30). Change compiler to g++ (lines 35, 40), if not already set. Run the script as ./swigit_unix.sh
+> **Linux:** In scripts/swig/cauchy/swigit_unix.sh, ammend the paths of the variables INC_PYTHON, LIB_PYTHON, INC_NUMPY to your system paths. Change swig executable path if needed (line 30). Change compiler to g++ (lines 35, 40), if not already set. Run the script as ./swigit_unix.sh
 
-> Mac: In scripts/swig/cauchy/swigit_unix.sh, ammend the paths of the variables INC_PYTHON, LIB_PYTHON, INC_NUMPY to your system paths. Change swig executable path if needed (line 30). Change compiler to clang++ (lines 35, 40), if not already set. Run the script as ./swigit_unix.sh
+> **Mac:** In scripts/swig/cauchy/swigit_unix.sh, ammend the paths of the variables INC_PYTHON, LIB_PYTHON, INC_NUMPY to your system paths. Change swig executable path if needed (line 30). Change compiler to clang++ (lines 35, 40), if not already set. Run the script as ./swigit_unix.sh
 
-> Windows: In the batch file scripts/swig/cauchy/swigit_windows.bat, ammend the paths of the variables MY_EXE through LIB_MSVC (lines 18-35) to your system paths. Run .\win_cpp_make.bat or click on this batch file in finder.
+> **Windows:** In the batch file scripts/swig/cauchy/swigit_windows.bat, ammend the paths of the variables MY_EXE through LIB_MSVC (lines 18-35) to your system paths. Run .\win_cpp_make.bat or click on this batch file in finder.
 
 ### Matlab Build Manual Configuration
-> Linux: In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath to your system paths. Open the matlab GUI and run matlab/mex_files/build.m
+> **Linux:** In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath to your system paths. Open the matlab GUI and run matlab/mex_files/build.m
 
-> Mac: In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath to your system paths. Note you must have Xcode installed. Open the matlab GUI and run matlab/mex_files/build.m
+> **Mac:** In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath to your system paths. Note you must have Xcode installed. Open the matlab GUI and run matlab/mex_files/build.m
 
-> Windows: In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath to your system paths. Note you must have a Microsoft Visual Studio version installed. Open the matlab GUI and run matlab/mex_files/build.m
+> **Windows:** In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath to your system paths. Note you must have a Microsoft Visual Studio version installed. Open the matlab GUI and run matlab/mex_files/build.m
 
 ## Software Restrictions and License Note:
 See License. The software is free and open to use by anyone for non-commercial purposes. For commercial licensure, contact natsnyder1@gmail.com or speyer@g.ucla.edu.
