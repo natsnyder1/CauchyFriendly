@@ -42,7 +42,7 @@ this rich cpdf structure is the key to the MCE's robust state estimation perform
 
 >> Python: see scripts/requirements.txt, swig, cl.exe and link.exe
 
->> Matlab: matlab installed, clang++
+>> Matlab: matlab installed, (MSVC cl.exe and link.exe + Windows Kit SDK) -> the C++ reqs
 
 ## Auto-Installation Instructions for Linux/Mac/Windows:
 The Python script auto_config.py can be run using a python version>=3.0 of your choosing:
