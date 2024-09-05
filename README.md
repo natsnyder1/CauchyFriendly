@@ -16,6 +16,7 @@ The following videos show the robust structure the Cauchy Estimator's CPDF can t
 > 2.) a simple 2D LTI state estimation problem and compared to a Kalman filter tuned equivalently.
 
 https://github.com/user-attachments/assets/c798460e-651b-450b-9f19-3c9902800d5f
+
 this rich cpdf structure is the key to the MCE's robust state estimation performance.
 
 ## Auto-Installation Instructions for Linux/Max/Windows:
