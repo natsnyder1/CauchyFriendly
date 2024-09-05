@@ -110,4 +110,4 @@ The Python script auto_config.py is configuring:
 > Windows: In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath. Note you must have a Microsoft Visual Studio version installed. Open the matlab GUI and run matlab/mex_files/build.m
 
 ## Software Restrictions and License Note:
-The software is free and open to use by anyone for non-commercial purposes. For commercial licensure, contact natsnyder1@gmail.com or speyer@g.ucla.edu.
+See License. The software is free and open to use by anyone for non-commercial purposes. For commercial licensure, contact natsnyder1@gmail.com or speyer@g.ucla.edu.
