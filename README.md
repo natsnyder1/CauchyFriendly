@@ -25,15 +25,23 @@ this rich cpdf structure is the key to the MCE's robust state estimation perform
 ## Dependencies:
 > Linux:
 >> C++: g++, make
+
 >> Python: see scripts/requirements.txt, swig, g++
+
 >> Matlab: matlab installed, g++
+
 > Mac:
 >> C++: clang++, make
+
 >> Python: see scripts/requirements.txt, swig, clang++
+
 >> Matlab: matlab installed, Xcode installed (and license accepted), clang++
+
 > Windows:
 >> C++: a Microsoft Visual Studio installation (for cl.exe and link.exe), with Windows Kit SDK for C++ compilation (ucrt, um, shared)
+
 >> Python: see scripts/requirements.txt, swig, cl.exe and link.exe
+
 >> Matlab: matlab installed, clang++
 
 ## Auto-Installation Instructions for Linux/Mac/Windows:
@@ -46,40 +54,55 @@ which will ask you whether you'd like to build the C++ MCE examples, the Python 
 
 > For Python Build:
 >> The Python MCE module: scripts/swig/cauchy/cauchy_estimator.py
+
 >> Jupyter Notebook tutorial on how to use the MCE for LTI systems: scripts/tutorials/lti_systems.ipynb
+
 >> Jupyter Notebook tutorial on how to use the MCE for nonlinear systems: scripts/tutorials/nonlin_systems.ipynb
+
 >> Python script examples: scripts/swig/cauchy/test_pycauchy.py and scripts/swig/cauchy/test_pycauchy_nonlin.py (and more)
 
 > For Matlab Build
 >> The Matlab MCE modules: matlab/matlab_pure/MCauchyEstimator.m and matlab/matlab_pure/MSlidingWindowManager.m
+
 >> Tutorial on how to use the MCE for LTI systems: matlab/lti_systems.mlx
+
 >> Tutorial on how to use the MCE for nonlinear systems: matlab/nonlin_systems.mlx
+
 >> Matlab script examples: matlab/test_lti.m and matlab/test_nonlin.m (and more)
 
 ## Manual Installation Instructions For Linux:
 The Python script auto_config.py is configuring:
 > C++ Build:
 >> Linux/Mac: The Makefile, which builds the C++ examples in bin/
+
 >> Windows: The batch file win_cpp_make.bat, which builds the C++ examples in bin/ . The win_cpp_make.bat also sets up the C++ MSVC project solution located at scripts/windows/CauchyWindows/CauchyWindows.sln, which you can use
 
 > Python Build:
 >> Linux/Mac: The shell script scripts/swig/cauchy/swigit_unix.sh, which uses swig to build the C++ backend for the Python MCE module scripts/swig/cauchy/cauchy_estimator.py
+
 >> Windows: The batch file scripts/swig/cauchy/swigit_windows.bat, which uses swig to build the C++ backend for the Python MCE module scripts/swig/cauchy/cauchy_estimator.py
 
 > Matlab Build:
+
 >> Linux/Mac/Windows: The matlab file matlab/mex_files/build.m, which uses mex to build the C++ backend for the MCE modules matlab/matlab_pure/MCauchyEstimator.m and matlab/matlab_pure/MSlidingWindowManager.m
 
 > # C++ Build Manual Configuration
 >> Linux: In Makefile, change variable CC=g++ (if not already set). Run make clean && make cauchy window D=0
+
 >> Mac: In Makefile, change variable CC=clang++ (if not already set). Run make clean && make cauchy window D=0
+
 >> Windows: In the batch file win_cpp_make.bat, change variables INC_MSVC through LIB_UCRT to the appropriate paths. Run .\win_cpp_make.bat or click on this batch file in finder.
 > # Python Build Manual Configuration
 >> Linux: In scripts/swig/cauchy/swigit_unix.sh, set variables INC_PYTHON, LIB_PYTHON, INC_NUMPY. Change swig executable path if needed (line 30). Change compiler to g++ (lines 35, 40), if not already set. Run the script as ./swigit_unix.sh
+
 >> Mac: In scripts/swig/cauchy/swigit_unix.sh, set variables INC_PYTHON, LIB_PYTHON, INC_NUMPY. Change swig executable path if needed (line 30). Change compiler to clang++ (lines 35, 40), if not already set. Run the script as ./swigit_unix.sh
+
 >> Windows: In the batch file scripts/swig/cauchy/swigit_windows.bat, set variables MY_EXE through LIB_MSVC (lines 18-35). Run .\win_cpp_make.bat or click on this batch file in finder.
 > # Matlab Build Manual Configuration
 >> Linux: In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath. Open the matlab GUI and run matlab/mex_files/build.m
+
 >> Mac: In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath. Note you must have Xcode installed. Open the matlab GUI and run matlab/mex_files/build.m
+
 >> Windows: In matlab/mex_files/build.m, amend the paths for the variables includePath and libraryPath. Note you must have a Microsoft Visual Studio version installed. Open the matlab GUI and run matlab/mex_files/build.m
 
 ## Software Restrictions and License Note:
