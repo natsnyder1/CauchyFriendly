@@ -26,28 +26,28 @@ the rich cpdf structure observed is the key to the MCE's robust state estimation
 
 ## Dependencies:
 > Linux:
->> C++: g++, make
+>> **C++:** g++, make
 
->> Python: see scripts/requirements.txt, swig, g++
+>> **Python:** see scripts/requirements.txt, swig, g++
 >>> Note you can 'pip3.7 install -r scripts/requirements.txt' using your pip version
 
->> Matlab: matlab installed, g++
+>> **Matlab:** matlab installed, g++
 
 > Mac:
->> C++: clang++, make
+>> **C++:** clang++, make
 
->> Python: see scripts/requirements.txt, swig, clang++
+>> **Python:** see scripts/requirements.txt, swig, clang++
 >>> Note you can 'pip3.7 install -r scripts/requirements.txt' using your pip version
 
->> Matlab: matlab installed, Xcode installed (and license accepted), clang++
+>> **Matlab:** matlab installed, Xcode installed (and license accepted), clang++
 
 > Windows:
->> C++: a Microsoft Visual Studio installation (for cl.exe and link.exe), with Windows Kit SDK for C++ compilation (ucrt, um, shared)
+>> **C++:** a Microsoft Visual Studio installation (for cl.exe and link.exe), with Windows Kit SDK for C++ compilation (ucrt, um, shared)
 
->> Python: see scripts/requirements.txt, swig, cl.exe and link.exe
+>> **Python:** see scripts/requirements.txt, swig, cl.exe and link.exe
 >>> Note you can 'pip3.7 install -r scripts/requirements.txt' using your pip version
 
->> Matlab: matlab installed, (MSVC cl.exe and link.exe + Windows Kit SDK) -> the C++ reqs
+>> **Matlab:** matlab installed, (MSVC cl.exe and link.exe + Windows Kit SDK) -> the C++ reqs
 
 ## Auto-Installation Instructions for Linux/Mac/Windows:
 The Python script auto_config.py can be run using a python version>=3.0 of your choosing:
