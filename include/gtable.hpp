@@ -41,10 +41,10 @@
 #elif __linux__ 
 	C_COMPLEX_TYPE MAKE_CMPLX(double real, double imag)
 	{
-		// real + I*imag
+		// return real + I*imag
 		C_COMPLEX_TYPE val;
-		((double*)&val) = real;
-		((double*)(&val)+1) = imag;
+		*((double*)&val) = real;
+		*((double*)(&val)+1) = imag;
 		return val;
 	}
 #else // windows
