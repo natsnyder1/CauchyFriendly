@@ -1,7 +1,7 @@
 import os, sys, platform
 import subprocess, shutil, sysconfig
 import distutils.sysconfig as dusc
-import tarfile, zipfile
+import tarfile, zipfile, importlib
 
 np = None # numpy handle
 
@@ -82,9 +82,12 @@ except Exception:
                 result = subprocess.run([pyexe_tag, "-m", "pip", "install", "requests"])
                 if result.returncode == 0:
                     print(GREEN_START+"Pip has run, see pip output above, seems to have been installed..."+GREEN_END)
+                    importlib.invalidate_caches()  # Invalidate any cache in case pip installed requests
+                    requests = importlib.import_module("requests")  # Re-import requests module
+                    requests_installed = True
                 else:
                     print(YELLOW_START+"Pip has run, but some libraries may have not be installed, see above pip output."+YELLOW_END)
-                requests_installed = True
+                    requests_installed = False
             else:
                 print(YELLOW_START+"Cannot determine python exe name! You will need to install requests on your own"+YELLOW_END)
                 print(YELLOW_START+"...you can do so with:"+YELLOW_END)
@@ -102,7 +105,8 @@ except Exception:
         print(YELLOW_START+"If using a Python package manager other than pip, please see external installation instructions for installating the requests module..."+YELLOW_END)
         print(RED_START+"Exiting!"+RED_END)
         exit(1)
-
+import requests
+        
 def is_numpy_installed():
     try:
         global np
