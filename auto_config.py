@@ -86,7 +86,7 @@ except Exception:
                     requests = importlib.import_module("requests")  # Re-import requests module
                     requests_installed = True
                 else:
-                    print(YELLOW_START+"Pip has run, but some libraries may have not be installed, see above pip output."+YELLOW_END)
+                    print(YELLOW_START+"Pip has run, but something may have gone wrong, see above pip output."+YELLOW_END)
                     requests_installed = False
             else:
                 print(YELLOW_START+"Cannot determine python exe name! You will need to install requests on your own"+YELLOW_END)
@@ -519,6 +519,7 @@ def win_get_lib_msvcprt(include_dir_mscv, x64_or_x86):
 def run_matlab_script(matlab_script):
     os_name = get_operating_sys()
     # Command to run MATLAB with the .m file
+    print(YELLOW_START+"Running Matlab Wrapper Build Script...this may take a while..."+YELLOW_END)
     command = ['matlab', '-batch', f"run('{matlab_script}')"]
     # Run the MATLAB script
     try:
@@ -870,7 +871,6 @@ def unix_setup_python_wrapper():
         ["pycauchy.py", "_pycauchy.so", "cauchy_estimator.py", "gaussian_filters.py"], 
         [auto_config_path+"/scripts/tutorial/", auto_config_path+"/scripts/swig/filter_compare/", auto_config_path+"/scripts/swig/leo/"])
     
-
 def unix_setup_matlab_wrapper():
     # Get path to this file 
     os_name = get_operating_sys()
