@@ -1,7 +1,8 @@
 import os, sys, platform
-import subprocess, requests, shutil, sysconfig
+import subprocess, shutil, sysconfig
 import distutils.sysconfig as dusc
 import tarfile, zipfile
+
 np = None # numpy handle
 
 RED_START = "\033[31m"
@@ -10,7 +11,6 @@ GREEN_START = "\033[32m"
 GREEN_END = "\033[0m"
 YELLOW_START="\033[93m"
 YELLOW_END="\033[0m"
-
 
 # Naming conventions for eveything below may need to change for windows...certainly paths
 def get_python_version(major = False):
@@ -34,6 +34,73 @@ def get_operating_sys():
         return "windows"
     else:
         print(RED_START+"[ERROR get_operating_sys:] the operatingg system {} does not match Darwin (macOS), Windows, or Linux. Please Debug Here!".format(os_name)+RED_END)
+        exit(1)
+
+def get_python_exe_name():
+    pyver = get_python_version(True)
+    pyver_test = ["python{}".format(pyver), "python{}".format(pyver.replace(".", "")), "python3", "python"]
+    pyver_exe = None
+    for pvt in pyver_test:
+        try:
+            result = subprocess.run([pvt, "--version"], check=True, capture_output=True, text=True)
+            if result.returncode == 0:
+                # Access the output from stdout
+                version_output = result.stdout
+                # Check whether this matches the pyver above 
+                if pyver in version_output:
+                    pyver_exe = pvt
+            else:
+                pass
+        except Exception:
+            pass
+    return pyver_exe
+
+def get_auto_config_path():
+    file_dir = os.path.dirname(os.path.abspath(__file__))
+    return file_dir
+
+# Requests library
+try:
+    import requests #,numpy, matplotlib, scipy, urllib3
+except Exception:
+    _os_name = get_operating_sys()
+    print(RED_START+"Python requests module is not installed!"+RED_END)
+    print(GREEN_START+"Would you like to install this module? Enter y or n for yes or no"+GREEN_END)
+    requests_installed = False
+    while True:
+        response = input("y (yes, install) or n (no dont auto-install):")
+        if response == 'y':
+            pyexe_tag = get_python_exe_name()
+            if pyexe_tag is not None:
+                # To install all of requirements.txt
+                #if _os_name == "windows":
+                #    path2reqs = get_auto_config_path() + "\\scripts\\requirements.txt"
+                #else:
+                #    path2reqs = get_auto_config_path() + "/scripts/requirements.txt"
+                #result = subprocess.run([pyexe_tag, "-m", "pip", "install", "-r", path2reqs])
+                # To install only requests
+                result = subprocess.run([pyexe_tag, "-m", "pip", "install", "requests"])
+                if result.returncode == 0:
+                    print(GREEN_START+"Pip has run, see pip output above, seems to have been installed..."+GREEN_END)
+                else:
+                    print(YELLOW_START+"Pip has run, but some libraries may have not be installed, see above pip output."+YELLOW_END)
+                requests_installed = True
+            else:
+                print(YELLOW_START+"Cannot determine python exe name! You will need to install requests on your own"+YELLOW_END)
+                print(YELLOW_START+"...you can do so with:"+YELLOW_END)
+            break
+        elif response == 'n':
+            print(YELLOW_START+"Not auto-installing...you can do so with:"+YELLOW_END)
+            break
+        else:
+            print("Unknown response, please re-enter!")
+    if not requests_installed:
+        print(YELLOW_START+"  -> YOUR_PYTHON_VERSION -m pip install requests"+YELLOW_END)
+        print(YELLOW_START+"Moreover, you could install all Python requirements for this repository using:"+YELLOW_END)
+        print(YELLOW_START+"  -> YOUR_PYTHON_VERSION -m pip install -r scripts{}requirements.txt".format("\\" if _os_name == "windows" else "/") +YELLOW_END)
+        print(YELLOW_START+"If any other modules above cannot be imported, please repeat this process for them."+YELLOW_END)
+        print(YELLOW_START+"If using a Python package manager other than pip, please see external installation instructions for installating the requests module..."+YELLOW_END)
+        print(RED_START+"Exiting!"+RED_END)
         exit(1)
 
 def is_numpy_installed():
@@ -151,10 +218,6 @@ def get_python_lib_path(os_type):
             print(RED_START+"[ERROR get_python_lib_path:] libpython_so_name extension {} not (.a,.so,.dylib). Debug here. Exiting!"+RED_END)
             exit(1)
         return libpython_path, libpython_so_name, libpython_so_tag
-
-def get_auto_config_path():
-    file_dir = os.path.dirname(os.path.abspath(__file__))
-    return file_dir
 
 def download_file(url, local_filename, allow_redirects=True):
     # Send a GET request to the URL
@@ -296,7 +359,7 @@ def win_reponse_or_exit():
         else:
             print(RED_START+"Undefined Choice "+RED_END)
 
-def win_get_ucrt_shared_um_paths(wk_root_dir):
+def win_get_ucrt_shared_um_paths(wk_root_dir, exit_early = False):
     wk_versions = []
     # Get the possible version numbers and from which determine if they have the um shared and ucrt sub-directories 
     for dirpath, dirnames, filenames in os.walk(wk_root_dir):
@@ -306,10 +369,14 @@ def win_get_ucrt_shared_um_paths(wk_root_dir):
             except Exception:
                 pass
         break
+    # Cannot find Win Kit Versions
     if len(wk_versions) == 0:
-        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Versions of Windows Kits:\n  1.) please manually enter PATH\\TO\\Windows Kits\\YOUR_VERSION,\n  2.) enter q to quit script" + YELLOW_END)
-        wk_versions = [win_reponse_or_exit()]
-
+        if exit_early:
+            return None, None, None
+        else:
+            print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Versions of Windows Kits:\n  1.) please manually enter PATH\\TO\\Windows Kits\\YOUR_VERSION,\n  2.) enter q to quit script" + YELLOW_END)
+            wk_versions = [win_reponse_or_exit()]
+    # Look for um shared and ucrt
     wk_options = []
     for wkv in wk_versions:
         if (wkv % 1.0) == 0:
@@ -328,8 +395,11 @@ def win_get_ucrt_shared_um_paths(wk_root_dir):
             continue
         wk_options.append( (wkv,include_dir_um, include_dir_shr, include_dir_ucrt))
     if len(wk_options) == 0:
-        print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Versions of Windows Kits which contain headers directorys 'um' 'shared' and 'ucrt':\n  1.) please manually enter PATH\\THAT\\CONTAINS -> {UCRT,UM,SHARED},\n  2.) enter q to quit script" + YELLOW_END)
-        include_dir_um = win_reponse_or_exit()
+        if exit_early:
+            return None, None, None
+        else:
+            print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Versions of Windows Kits which contain headers directorys 'um' 'shared' and 'ucrt':\n  1.) please manually enter PATH\\THAT\\CONTAINS -> {UCRT,UM,SHARED},\n  2.) enter q to quit script" + YELLOW_END)
+            include_dir_um = win_reponse_or_exit()
         # make sure um/shared/ucrt is not ending
         suffix_idx = include_dir_um.rfind("\\\\")
         if suffix_idx > -1:
@@ -379,7 +449,7 @@ def win_get_line_idx(file_lines, str_query):
 def win_get_cl_exe():
     cl_exe = walk_until("C:\\Program Files (x86)\\Microsoft Visual Studio", "cl.exe", None, dir_filters=["VC", "Tools", "bin"])
     if cl_exe is None:
-        cl_exe = walk_until("C:\\Program Files\\Microsoft Visual Studio", "cl.exe", dir_filters=["VC", "Tools", "bin"])
+        cl_exe = walk_until("C:\\Program Files\\Microsoft Visual Studio", "cl.exe", None, dir_filters=["VC", "Tools", "bin"])
         if cl_exe is None:
             print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find Microsoft Visual Studio Directory:\n  1.) please manually enter full path to cl.exe, which is located in the bin folder of a subdirectory of Microsoft Visual Studio,\n  2.) enter q to quit script" + YELLOW_END)
             cl_exe = win_reponse_or_exit()
@@ -544,6 +614,33 @@ def run_matlab_script(matlab_script):
             print(RED_START+"Matlab script did not compile correctly!"+RED_END)
             return 0  
 
+def symlink_files(files_dir, files_list, link_dirs):
+    print("Sym-linking Cauchy Python Modules:")
+    for sym_file in files_list:
+        print("  ", sym_file)
+    print("Located in: ", files_dir)
+    print("To Directories:")
+    sym_link_errors = False
+    for link_dir in link_dirs:
+        print("  ", link_dir)
+        for sym_file in files_list:
+            src = files_dir + sym_file
+            dst = link_dir + sym_file
+            # Regardless, just re-symlink
+            try:
+                os.remove(dst)
+            except FileNotFoundError:
+                pass 
+            except PermissionError:
+                print(RED_START+"Permission denied, {} could not be removed".format(dst)+RED_END)
+                sym_link_errors = True
+            except Exception:
+                print(YELLOW_START+"Caught Exception {}, file {} could not be removed".format(Exception, dst)+YELLOW_END)
+                sym_link_errors = True
+            os.symlink(src, dst)         
+    if sym_link_errors:
+        print(YELLOW_START+"Symbolic linking errors may have possibly occured. Manually linking or copying the above files may solve your problem!"+YELLOW_END)
+        
 def unix_setup_c_examples():
     print(GREEN_START+"--- Building Cauchy Estimator C++ Examples ---"+GREEN_END)
     os_name = get_operating_sys()
@@ -764,6 +861,11 @@ def unix_setup_python_wrapper():
     pycauchy_tut1_path = auto_config_path + "/scripts/tutorial/lit_systems.ipynb"
     pycauchy_tut2_path = auto_config_path + "/scripts/tutorial/nonlin_systems.ipynb"
     print(GREEN_START+"Python Wrapper build script completed:\nThe module:\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(pycauchy_ce_path, pycauchy_tut1_path, pycauchy_tut2_path) +GREEN_END)
+    print("Linking Cauchy Estimator Python Module to scripts/tutorials, scripts/filter_compare, scripts/leo")
+    symlink_files(swigit_run_path, 
+        ["pycauchy.py", "_pycauchy.so", "cauchy_estimator.py", "gaussian_filters.py"], 
+        [auto_config_path+"/scripts/tutorial/", auto_config_path+"/scripts/swig/filter_compare/", auto_config_path+"/scripts/swig/leo/"])
+    
 
 def unix_setup_matlab_wrapper():
     # Get path to this file 
@@ -830,13 +932,19 @@ def windows_setup_c_examples():
     bin_idx = cl_exe.find("\\bin")
     include_dir_mscv = cl_exe[:bin_idx] + "\\include"
     # Now Get the UCRT/SHARED/UM PATH
+    include_dir_ucrt = None
+    # Check x86 Program files
     if os.path.isdir("C:\\Program Files (x86)\\Windows Kits"):
-        include_dir_ucrt, include_dir_shared, include_dir_um = win_get_ucrt_shared_um_paths("C:\\Program Files (x86)\\Windows Kits")
-    elif os.path.isdir("C:\\Program Files\\Windows Kits"):
-        include_dir_ucrt, include_dir_shared, include_dir_um = win_get_ucrt_shared_um_paths("C:\\Program Files\\Windows Kits") 
-    else:
+        include_dir_ucrt, include_dir_shared, include_dir_um = win_get_ucrt_shared_um_paths("C:\\Program Files (x86)\\Windows Kits", exit_early=True)
+    # Check Program files
+    if include_dir_ucrt is None:
+        if os.path.isdir("C:\\Program Files\\Windows Kits"):
+            include_dir_ucrt, include_dir_shared, include_dir_um = win_get_ucrt_shared_um_paths("C:\\Program Files\\Windows Kits", exit_early=True)
+    # Ask user, cant find
+    if include_dir_ucrt is None: 
         print(YELLOW_START+"[WARN windows_setup_c_examples:] Cannot find 'Windows Kit' Directory:\n  1.) please manually enter full path to Windows Kits,\n  2.) enter q to quit script" + YELLOW_END)
-        include_dir_ucrt = win_reponse_or_exit()
+        win_kit_path = win_reponse_or_exit()
+        include_dir_ucrt, include_dir_shared, include_dir_um = win_get_ucrt_shared_um_paths(win_kit_path, exit_early=False)
     
     # Set LIB_UUID (UM) and LIB_UCRT paths 
     # figure out if we have x64 compile capabilities otherwise use x86
@@ -1167,7 +1275,12 @@ def windows_setup_python_wrapper():
     pycauchy_tut2_path = auto_config_path + "\\scripts\\tutorial\\nonlin_systems.ipynb"
     print(GREEN_START+"Python Wrapper build script completed:"+GREEN_END)
     print("The module:\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(pycauchy_ce_path, pycauchy_tut1_path, pycauchy_tut2_path) +GREEN_END)
-
+    print("Linking Cauchy Estimator Python Module to scripts/tutorials, scripts/filter_compare, scripts/leo")
+    link_dirs = [auto_config_path+"\\scripts\\tutorial\\", auto_config_path+"\\scripts/swig\\filter_compare\\", auto_config_path+"\\scripts\\swig\\leo\\"]
+    pthread_dll_dir = lib_pthread_path.replace("\\lib", "\\dll") 
+    symlink_files(swigit_run_path, ["pycauchy.py", "_pycauchy.pyd", "_pycauchy.lib", "_pycauchy.exp", "cauchy_estimator.py", "gaussian_filters.py"], link_dirs)
+    symlink_files(pthread_dll_dir, ["pthreadVC2.dll"], link_dirs)
+    
 def windows_setup_matlab_wrapper():
     
     swig_cauchy_path = get_auto_config_path() + "\\scripts\\swig\\cauchy"

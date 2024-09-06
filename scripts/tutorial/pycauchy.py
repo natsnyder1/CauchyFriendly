@@ -1,1 +1,0 @@
-../swig/cauchy/pycauchy.py
