@@ -1286,7 +1286,7 @@ def windows_setup_python_wrapper():
     link_dirs = [auto_config_path+"\\scripts\\tutorial\\", auto_config_path+"\\scripts/swig\\filter_compare\\", auto_config_path+"\\scripts\\swig\\leo\\"]
     pthread_dll_dir = lib_pthread_path.replace("\\lib", "\\dll") 
     symlink_files(swigit_run_path, ["pycauchy.py", "_pycauchy.pyd", "_pycauchy.lib", "_pycauchy.exp", "cauchy_estimator.py", "gaussian_filters.py"], link_dirs, symlink=False)
-    symlink_files(pthread_dll_dir, ["pthreadVC2.dll"], link_dirs)
+    symlink_files(pthread_dll_dir, ["pthreadVC2.dll"], link_dirs, symlink=False)
     
 def windows_setup_matlab_wrapper():
     
