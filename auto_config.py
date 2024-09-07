@@ -1281,7 +1281,7 @@ def windows_setup_python_wrapper():
     pycauchy_tut1_path = auto_config_path + "\\scripts\\tutorial\\lit_systems.ipynb"
     pycauchy_tut2_path = auto_config_path + "\\scripts\\tutorial\\nonlin_systems.ipynb"
     print(GREEN_START+"Python Wrapper build script completed:"+GREEN_END)
-    print("The module:\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(pycauchy_ce_path, pycauchy_tut1_path, pycauchy_tut2_path) +GREEN_END)
+    print(GREEN_START+"The module:\n {}\nCan be included in your projects. Checkout the tutorials:\n {}\n {}\nto see examples".format(pycauchy_ce_path, pycauchy_tut1_path, pycauchy_tut2_path) +GREEN_END)
     print("Linking Cauchy Estimator Python Module to scripts/tutorials, scripts/filter_compare, scripts/leo")
     link_dirs = [auto_config_path+"\\scripts\\tutorial\\", auto_config_path+"\\scripts/swig\\filter_compare\\", auto_config_path+"\\scripts\\swig\\leo\\"]
     pthread_dll_dir = lib_pthread_path.replace("\\lib", "\\dll") + "\\"
