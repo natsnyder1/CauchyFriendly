@@ -619,7 +619,7 @@ def run_matlab_script(matlab_script):
             print(RED_START+"Matlab script did not compile correctly!"+RED_END)
             return 0  
 
-def symlink_files(files_dir, files_list, link_dirs):
+def symlink_files(files_dir, files_list, link_dirs, symlink=True):
     print("Sym-linking Cauchy Python Modules:")
     for sym_file in files_list:
         print("  ", sym_file)
@@ -642,7 +642,10 @@ def symlink_files(files_dir, files_list, link_dirs):
             except Exception:
                 print(YELLOW_START+"Caught Exception {}, file {} could not be removed".format(Exception, dst)+YELLOW_END)
                 sym_link_errors = True
-            os.symlink(src, dst)         
+            if symlink:
+                os.symlink(src, dst)  
+            else:
+                shutil.copy(src, dst)       
     if sym_link_errors:
         print(YELLOW_START+"Symbolic linking errors may have possibly occured. Manually linking or copying the above files may solve your problem!"+YELLOW_END)
         
@@ -1282,7 +1285,7 @@ def windows_setup_python_wrapper():
     print("Linking Cauchy Estimator Python Module to scripts/tutorials, scripts/filter_compare, scripts/leo")
     link_dirs = [auto_config_path+"\\scripts\\tutorial\\", auto_config_path+"\\scripts/swig\\filter_compare\\", auto_config_path+"\\scripts\\swig\\leo\\"]
     pthread_dll_dir = lib_pthread_path.replace("\\lib", "\\dll") 
-    symlink_files(swigit_run_path, ["pycauchy.py", "_pycauchy.pyd", "_pycauchy.lib", "_pycauchy.exp", "cauchy_estimator.py", "gaussian_filters.py"], link_dirs)
+    symlink_files(swigit_run_path, ["pycauchy.py", "_pycauchy.pyd", "_pycauchy.lib", "_pycauchy.exp", "cauchy_estimator.py", "gaussian_filters.py"], link_dirs, symlink=False)
     symlink_files(pthread_dll_dir, ["pthreadVC2.dll"], link_dirs)
     
 def windows_setup_matlab_wrapper():
