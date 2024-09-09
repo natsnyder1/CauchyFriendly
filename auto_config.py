@@ -1,6 +1,6 @@
 import os, sys, platform
 import subprocess, shutil, sysconfig
-import distutils.sysconfig as dusc
+#import distutils.sysconfig as dusc
 import tarfile, zipfile, importlib
 
 np = None # numpy handle
@@ -127,7 +127,8 @@ def get_numpy_version(maj_only):
         return np.__version__
 
 def get_python_include_path():
-    return dusc.get_python_inc()
+    #return dusc.get_python_inc()
+    return sysconfig.get_paths()["include"]
 
 def get_python_lib_path(os_type):
     if os_type == 'linux':
