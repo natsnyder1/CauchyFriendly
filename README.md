@@ -33,8 +33,8 @@ the rich cpdf structure observed is the key to the MCE's robust state estimation
 
 >> **Matlab:** matlab installed, g++
 
-> Mac:
->> **C++:** clang++, make
+> Mac: 
+>> **C++:** clang++, make, (please also run "xcode-select --install" on command line if you have not done so previously)
 
 >> **Python:** see scripts/requirements.txt, swig, clang++
 >>> Note you can 'pip3.7 install -r scripts/requirements.txt' using your pip version
