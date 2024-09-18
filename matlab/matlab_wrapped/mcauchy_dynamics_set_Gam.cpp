@@ -23,8 +23,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                           "The input matrix must have dimensions n x pncc.");
     }
 
-    int size_Gamma = rows * cols;
-    for (int i = 0; i < size_Gamma; i++) {
-        cduc->Gamma[i] = input_Gamma[i];
+    //int size_Gamma = rows * cols;
+    //for (int i = 0; i < size_Gamma; i++) {
+    //    cduc->Gamma[i] = input_Gamma[i];
+    //}
+    for(int i = 0; i < rows; i++)
+    {
+        for(int j = 0; j < cols; j++)
+        {
+            cduc->Gamma[i * cols + j] = input_Gamma[j * rows + i];
+        }
     }
 }

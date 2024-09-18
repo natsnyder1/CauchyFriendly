@@ -18,8 +18,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     plhs[0] = mxCreateDoubleMatrix(n, cmcc, mxREAL);
     double *B_out = mxGetPr(plhs[0]);
     
-    int size_B = n * cmcc;
-    for (int i = 0; i < size_B; i++) {
-        B_out[i] = cduc->B[i];
+    //int size_B = n * cmcc;
+    //for (int i = 0; i < size_B; i++) {
+    //    B_out[i] = cduc->B[i];
+    //}
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < cmcc; j++) {
+            B_out[j * n + i] = cduc->B[i * cmcc + j];
+            // do this because matlab arrays are stored in memory in column-major order
+        }
     }
 }

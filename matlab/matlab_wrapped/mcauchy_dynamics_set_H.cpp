@@ -24,8 +24,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                           "The input matrix must match the dimensions (p x n).");
     }
 
-    mwSize size_H = input_rows * input_cols;
-    for (mwSize i = 0; i < size_H; i++) {
-        cduc->H[i] = input_H[i];
+    //mwSize size_H = input_rows * input_cols;
+    //for (mwSize i = 0; i < size_H; i++) {
+    //    cduc->H[i] = input_H[i];
+    //}
+    int rows = input_rows;
+    int cols = input_cols;
+    for(int i = 0; i < rows; i++)
+    {
+        for(int j = 0; j < cols; j++)
+        {
+            cduc->H[i * cols + j] = input_H[j * rows + i];
+        }
     }
 }

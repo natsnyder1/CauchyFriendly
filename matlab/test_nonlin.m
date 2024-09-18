@@ -13,20 +13,6 @@ pend = struct(...
     'dt', 0.05 ...       % integration step time
 );
 
-% The ODE
-function dx_dt = pend_ode(x)
-    global pend;
-    dx_dt = zeros(2, 1);
-    dx_dt(1) = x(2);
-    dx_dt(2) = -pend.g / pend.L * sin(x(1)) - pend.c * x(2);
-end
-
-% Nonlinear transition model from t_k to t_k+1...ie: dt
-function x_new = nonlin_transition_model(x)
-    global pend;
-    x_new = runge_kutta4(@pend_ode, x, pend.dt);
-end
-
 theta_vec0 = [pi/4; 0]; % initial angle of 45 degrees at 0 radians/sec
 theta_k = theta_vec0;
 thetas = theta_k';
@@ -68,14 +54,6 @@ end
 % Now we have our simulation data!
 
 
-function Jac = jacobian_pendulum_ode(x)
-    global pend;
-    Jac = zeros(2);
-    Jac(1,2) = 1;
-    Jac(2,1) = -pend.g/pend.L*cos(x(1));
-    Jac(2,2) = -pend.c;
-end
-
 % Continuous time Gamma (\Gamma_c)
 Gamma_c = [0.0; 1.0];
 W_c = pend.w_PSD;
@@ -111,6 +89,56 @@ for k = 1:propagations
 end
 % Plot Simulation results 
 %plot_simulation_history([], {xs,zs,ws,vs}, {xs_kf, Ps_kf});
+
+scale_g2c = 1.0 / 1.3898; % scale factor to fit the cauchy to the gaussian
+beta = sqrt(pend.w_PSD / pend.dt) * scale_g2c;
+gamma = sqrt(V(1, 1)) * scale_g2c;
+x0_ce = x0_kf;
+
+A0 = eye(2);
+p0 = sqrt(diag(P0_kf)) * scale_g2c;
+b0 = zeros(2, 1);
+steps = 5;
+num_controls = 0;
+print_debug = true;
+cauchyEst = MCauchyEstimator("nonlin", steps, print_debug);
+cauchyEst.initialize_nonlin(x0_ce, A0, p0, b0, beta, gamma, 'dynamics_update', 'nonlinear_msmt_model', 'msmt_model_jacobian', num_controls, pend.dt)
+cauchyEst.step(zs(1));
+cauchyEst.step(zs(2));
+cauchyEst.step(zs(3));
+cauchyEst.step(zs(4));
+cauchyEst.step(zs(5));
+cauchyEst.shutdown();
+
+swm_print_debug = false; 
+win_print_debug = false;
+num_windows = 6;
+new_beta = beta / 5; % tuned down
+cauchyEst = MSlidingWindowManager("nonlin", num_windows, swm_print_debug, win_print_debug);
+cauchyEst.initialize_nonlin(x0_ce, A0, p0, b0, new_beta, gamma, 'dynamics_update', 'nonlinear_msmt_model', 'msmt_model_jacobian', num_controls, pend.dt);
+
+for k = 1:length(zs)
+    zk = zs(k);
+    cauchyEst.step(zk, []);
+end
+cauchyEst.shutdown()
+
+plot_simulation_history(cauchyEst.moment_info, {xs,zs,ws,vs}, {xs_kf, Ps_kf} )
+%ce.plot_simulation_history( cauchyEst.avg_moment_info, (xs,zs,ws,vs), (xs_kf, Ps_kf) )
+
+% The ODE
+function dx_dt = pend_ode(x)
+    global pend;
+    dx_dt = zeros(2, 1);
+    dx_dt(1) = x(2);
+    dx_dt(2) = -pend.g / pend.L * sin(x(1)) - pend.c * x(2);
+end
+
+% Nonlinear transition model from t_k to t_k+1...ie: dt
+function x_new = nonlin_transition_model(x)
+    global pend;
+    x_new = runge_kutta4(@pend_ode, x, pend.dt);
+end
 
 % This is the callback function correpsonding to the decription for point 1.) above 
 function foobar_dynamics_update(c_duc)
@@ -179,37 +207,10 @@ function msmt_model_jacobian(c_duc)
     mduc.cset_H(H); % we could write some if condition to only set this once, but its such a trivial overhead, who cares
 end
 
-scale_g2c = 1.0 / 1.3898; % scale factor to fit the cauchy to the gaussian
-beta = sqrt(pend.w_PSD / pend.dt) * scale_g2c;
-gamma = sqrt(V(1, 1)) * scale_g2c;
-x0_ce = x0_kf;
-A0 = eye(2);
-p0 = sqrt(diag(P0_kf)) * scale_g2c;
-b0 = zeros(2, 1);
-steps = 5;
-num_controls = 0;
-print_debug = true;
-cauchyEst = MCauchyEstimator("nonlin", steps, print_debug);
-cauchyEst.initialize_nonlin(x0_ce, A0, p0, b0, beta, gamma, 'dynamics_update', 'nonlinear_msmt_model', 'msmt_model_jacobian', num_controls, pend.dt)
-cauchyEst.step(zs(1));
-cauchyEst.step(zs(2));
-cauchyEst.step(zs(3));
-cauchyEst.step(zs(4));
-cauchyEst.step(zs(5));
-cauchyEst.shutdown();
-
-swm_print_debug = false; 
-win_print_debug = false;
-num_windows = 6;
-new_beta = beta / 5; % tuned down
-cauchyEst = MSlidingWindowManager("nonlin", num_windows, swm_print_debug, win_print_debug);
-cauchyEst.initialize_nonlin(x0_ce, A0, p0, b0, new_beta, gamma, 'dynamics_update', 'nonlinear_msmt_model', 'msmt_model_jacobian', num_controls, pend.dt);
-
-for k = 1:length(zs)
-    zk = zs(k);
-    cauchyEst.step(zk, []);
+function Jac = jacobian_pendulum_ode(x)
+    global pend;
+    Jac = zeros(2);
+    Jac(1,2) = 1;
+    Jac(2,1) = -pend.g/pend.L*cos(x(1));
+    Jac(2,2) = -pend.c;
 end
-cauchyEst.shutdown()
-
-plot_simulation_history(cauchyEst.moment_info, {xs,zs,ws,vs}, {xs_kf, Ps_kf} )
-%ce.plot_simulation_history( cauchyEst.avg_moment_info, (xs,zs,ws,vs), (xs_kf, Ps_kf) )

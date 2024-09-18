@@ -39,11 +39,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     &out_p0, &size_out_p0,
     &out_b0, &size_out_b0
     );
-
+    
     plhs[0] = mxCreateDoubleMatrix(size_out_A0, 1, mxREAL);
-    memcpy(mxGetPr(plhs[0]), out_A0, size_out_A0 * sizeof(double));
+    
+    //memcpy(mxGetPr(plhs[0]), out_A0, size_out_A0 * sizeof(double));
+    double* ret_A0 = mxGetPr(plhs[0]);
+    int n = size_out_p0;
+    for(int i = 0; i < n; i++)
+        for(int j = 0; j < n; j++)
+            ret_A0[j*n+i] = out_A0[i*n+j];
     free(out_A0);
-
+    
     plhs[1] = mxCreateDoubleMatrix(size_out_p0, 1, mxREAL);
     memcpy(mxGetPr(plhs[1]), out_p0, size_out_p0 * sizeof(double));
     free(out_p0);

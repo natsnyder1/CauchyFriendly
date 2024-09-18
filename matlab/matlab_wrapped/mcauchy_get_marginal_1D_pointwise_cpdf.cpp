@@ -24,6 +24,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (log_dir == NULL) {
         mexErrMsgIdAndTxt("MATLAB:conversionFailed", "Could not convert input to string.");
     }
+    if(*log_dir == 'n')
+    {
+        log_dir = nullptr;
+        printf("Successfully set log dir to NULL 1D!\n");
+    }
 
     double* out_cpdf_data = nullptr;
     int size_out_cpdf_data, out_num_gridx;

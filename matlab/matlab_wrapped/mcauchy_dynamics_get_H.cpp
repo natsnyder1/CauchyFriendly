@@ -23,8 +23,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
     // column-major
     // CHECK THIS AGAIN LATER
-    int size_H = n * p;
-    for (int i = 0; i < size_H; ++i) {
-        H_out[i] = cduc->H[i];
+    //int size_H = n * p;
+    //for (int i = 0; i < size_H; ++i) {
+    //    H_out[i] = cduc->H[i];
+    //}
+    for (int i = 0; i < p; i++) {
+        for (int j = 0; j < n; j++) {
+            H_out[j * p + i] = cduc->H[i * n + j];
+            // do this because matlab arrays are stored in memory in column-major order
+        }
     }
 }

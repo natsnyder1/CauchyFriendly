@@ -20,8 +20,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     
     double *Gamma_out = mxGetPr(plhs[0]);
     
-    int size_Gamma = n * pncc;
-    for (int i = 0; i < size_Gamma; i++) {
-        Gamma_out[i] = cduc->Gamma[i];
+    //int size_Gamma = n * pncc;
+    //for (int i = 0; i < size_Gamma; i++) {
+    //    Gamma_out[i] = cduc->Gamma[i];
+    //}
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < pncc; j++) {
+            Gamma_out[j * n + i] = cduc->Gamma[i * pncc + j];
+            // do this because matlab arrays are stored in memory in column-major order
+        }
     }
 }

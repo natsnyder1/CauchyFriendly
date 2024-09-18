@@ -21,12 +21,20 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     double* p0 = mxGetPr(prhs[2]);
     double* b0 = mxGetPr(prhs[3]);
     double* xbar = mxGetPr(prhs[4]);
+    
+    // Added 
+    int n = mxGetNumberOfElements(prhs[2]);
+    double* _A0 = (double*) malloc( n * n * sizeof(double));
+    for(int i = 0; i < n; i++)
+        for(int j = 0; j < n; j++)
+            _A0[i*n+j] = A0[j*n+i];
 
     pycauchy_single_step_reset(
     _pcdh, 
-    A0, mxGetNumberOfElements(prhs[1]), 
+    _A0, mxGetNumberOfElements(prhs[1]), 
     p0, mxGetNumberOfElements(prhs[2]), 
     b0, mxGetNumberOfElements(prhs[3]), 
     xbar, mxGetNumberOfElements(prhs[4])
     );
+    free(_A0);
 }

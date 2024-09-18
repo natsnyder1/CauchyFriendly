@@ -24,8 +24,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                           "The input matrix must have dimensions n x cmcc.");
     }
 
-    int size_B = rows * cols;
-    for (int i = 0; i < size_B; i++) {
-        cduc->B[i] = input_B[i];
+    //int size_B = rows * cols;
+    //for (int i = 0; i < size_B; i++) {
+    //    cduc->B[i] = input_B[i];
+    //}
+    for(int i = 0; i < rows; i++)
+    {
+        for(int j = 0; j < cols; j++)
+        {
+            cduc->B[i * cols + j] = input_B[j * rows + i];
+        }
     }
 }

@@ -18,10 +18,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     int n = cduc->n;
     plhs[0] = mxCreateDoubleMatrix(n, n, mxREAL);
     double *Phi_out = mxGetPr(plhs[0]);
-    
-    // Assuming column-major order for MATLAB arrays
-    int size_Phi = n * n;
-    for (int i = 0; i < size_Phi; ++i) {
-        Phi_out[i] = cduc->Phi[i];
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            Phi_out[j * n + i] = cduc->Phi[i * n + j];
+            // do this because matlab arrays are stored in memory in column-major order
+        }
     }
 }

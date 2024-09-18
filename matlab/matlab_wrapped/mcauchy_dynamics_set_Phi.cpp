@@ -23,8 +23,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
                           "Input matrix must be of size n x n.");
     }
 
-    int size_Phi = rows * cols;
-    for (int i = 0; i < size_Phi; ++i) {
-        cduc->Phi[i] = input_Phi[i];
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < rows; j++ ) {
+            cduc->Phi[i * cols + j] = input_Phi[j * rows + i];
+            // store this way because matlab arrays are stored in memory in column major
+        }
     }
 }

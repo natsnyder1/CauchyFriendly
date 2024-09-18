@@ -339,7 +339,7 @@ classdef MCauchyEstimator < handle
             reinit_gamma = obj.gamma(msmt_idx);
 
             if ~strcmp(obj.mode, "nonlin")
-                A0 = mcauchy_get_reinitialization_statistics(obj.mcauchy_handle, reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma);
+                [A0,p0,b0] = mcauchy_get_reinitialization_statistics(obj.mcauchy_handle, reinit_msmt, reinit_xhat, reinit_Phat, reinit_H, reinit_gamma);
                 A0 = reshape(A0, [obj.n, obj.n]);
             else
                 reinit_xbar = obj.xbar(((msmt_idx-1)*obj.n)+1:(msmt_idx)*obj.n);
@@ -489,6 +489,10 @@ classdef MCauchyEstimator < handle
             if obj.step_count < 1
                 error('Estimator must have performed at least one step before computing CPDFs.');
             end
+            
+            if ~( (marg_idx1>0) && (marg_idx2 > marg_idx1) && (marg_idx2 <= obj.n) )
+                error('Calling marginal 2d cpdf required marg_idx1>= 1 and marg_idx2 <=n with marg_idx1 < marg_idx2');
+            end
         
             marg_idx1 = int32(marg_idx1);
             marg_idx2 = int32(marg_idx2);
@@ -503,19 +507,18 @@ classdef MCauchyEstimator < handle
             assert(gridy_high > gridy_low, 'Grid y-axis high limit must be greater than low limit.');
             assert(gridx_resolution > 0, 'Grid x-axis resolution must be positive.');
             assert(gridy_resolution > 0, 'Grid y-axis resolution must be positive.');
-            assert(marg_idx1 >= 0 && marg_idx1 < marg_idx2 && marg_idx2 < obj.n, 'Invalid marginal indices.');
             
             if nargin < 11
                 reset_cache = true;
             end
             
             if(nargin < 10) || isempty(log_dir)
-                log_dir = '.'; % Default log directory
+                log_dir = 'n'; % Default log directory
             else
                 log_dir = char(log_dir); % Convert to char array if not empty
             end
         
-            [cpdf_points, num_gridx, num_gridy] = mcauchy_get_marginal_2D_pointwise_cpdf(obj.mcauchy_handle, marg_idx1, marg_idx2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir, reset_cache);
+            [cpdf_points, num_gridx, num_gridy] = mcauchy_get_marginal_2D_pointwise_cpdf(obj.mcauchy_handle, marg_idx1-1, marg_idx2-1, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir, reset_cache);
             X = squeeze(cpdf_points(1,:,:));
             Y = squeeze(cpdf_points(2,:,:));
             Z = squeeze(cpdf_points(3,:,:));
@@ -528,7 +531,7 @@ classdef MCauchyEstimator < handle
             end
             
             if (nargin < 8) || isempty(log_dir)
-                log_dir = '.';
+                log_dir = [];
             end
             
             X = []; Y = []; Z = []; % Initialize empty outputs in case of early return
@@ -546,7 +549,7 @@ classdef MCauchyEstimator < handle
             end
             
             % marginal indices fixed to 0 and 1 since the function is only for 2-state systems
-            [X, Y, Z] = obj.get_marginal_2D_pointwise_cpdf(0, 1, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir, reset_cache);
+            [X, Y, Z] = obj.get_marginal_2D_pointwise_cpdf(1, 2, gridx_low, gridx_high, gridx_resolution, gridy_low, gridy_high, gridy_resolution, log_dir, reset_cache);
         end
 
 
@@ -558,6 +561,10 @@ classdef MCauchyEstimator < handle
             if obj.step_count < 1
                 error('Cannot evaluate Cauchy Estimator 1D Marginal CPDF before it has been stepped!');
             end
+            
+            if ~( (marg_idx>0) && (marg_idx <= obj.n) )
+                error('Calling marginal 1d cpdf required marg_idx >= 1 and marg_idx <=n');
+            end
         
             marg_idx = int32(marg_idx);
             gridx_low = double(gridx_low);
@@ -565,15 +572,14 @@ classdef MCauchyEstimator < handle
             gridx_resolution = double(gridx_resolution);
             assert(gridx_high > gridx_low, 'Grid x-axis high limit must be greater than low limit.');
             assert(gridx_resolution > 0, 'Grid x-axis resolution must be positive.');
-            assert(marg_idx >= 0 && marg_idx < obj.n, 'Invalid marginal index.');
             
             if nargin < 6 || isempty(log_dir)
-                log_dir = '.'; % Default log directory
+                log_dir = 'n'; % No log directory
             else
                 log_dir = char(log_dir); % Convert to char array
             end
         
-            [cpdf_points, num_gridx] = mcauchy_get_marginal_1D_pointwise_cpdf(obj.mcauchy_handle, marg_idx, gridx_low, gridx_high, gridx_resolution, log_dir);
+            [cpdf_points, num_gridx] = mcauchy_get_marginal_1D_pointwise_cpdf(obj.mcauchy_handle, marg_idx-1, gridx_low, gridx_high, gridx_resolution, log_dir);
             X = squeeze(cpdf_points(1, :))';
             Y = squeeze(cpdf_points(2, :))';
         end
@@ -593,10 +599,10 @@ classdef MCauchyEstimator < handle
             end
             
             if nargin < 5 || isempty(log_dir)
-                log_dir = '.'; % Default log directory
+                log_dir = []; % Default log directory
             end
             
-            [X, Y] = obj.get_marginal_1D_pointwise_cpdf(0, gridx_low, gridx_high, gridx_resolution, log_dir);
+            [X, Y] = obj.get_marginal_1D_pointwise_cpdf(1, gridx_low, gridx_high, gridx_resolution, log_dir);
         end
 
 
