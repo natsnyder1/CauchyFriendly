@@ -93,7 +93,7 @@ end
 scale_g2c = 1.0 / 1.3898; % scale factor to fit the cauchy to the gaussian
 beta = sqrt(pend.w_PSD / pend.dt) * scale_g2c;
 gamma = sqrt(V(1, 1)) * scale_g2c;
-x0_ce = x0_kf;
+x0_ce = zeros(2,1);
 
 A0 = eye(2);
 p0 = sqrt(diag(P0_kf)) * scale_g2c;

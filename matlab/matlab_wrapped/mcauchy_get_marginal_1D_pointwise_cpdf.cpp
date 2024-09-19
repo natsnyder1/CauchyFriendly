@@ -27,7 +27,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if(*log_dir == 'n')
     {
         log_dir = nullptr;
-        printf("Successfully set log dir to NULL 1D!\n");
+        //printf("Successfully set log dir to NULL 1D!\n");
     }
 
     double* out_cpdf_data = nullptr;
