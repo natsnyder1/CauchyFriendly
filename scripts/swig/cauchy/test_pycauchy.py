@@ -656,7 +656,7 @@ def test_no_proc_noise():
     #cauchyEst = ce.PySlidingWindowManager("lti",num_wins,swm_debug_print=True)
     cauchyEst = ce.PyCauchyEstimator("lti",num_steps,debug_print=True)
     cauchyEst.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
-    for xt,z in zip(xs,zs):
+    for xt,z in zip(xs[0:num_steps],zs[0:num_steps]):
         x,P = cauchyEst.step(z, None)
         #x,P,_,_ = cauchyEst.step(z, None)
         print("X true: ", xt, "X Est: ", x, "Cov Diag: ", np.diag(P))
@@ -668,8 +668,8 @@ if __name__ == "__main__":
     #test_2state_lti_single_window()
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
-    #test_3state_lti_window_manager()
+    test_3state_lti_window_manager()
     #test_3state_marginal_cpdfs()
     #test_3state_reset()
     #test_2state_smoothing()
-    test_no_proc_noise()
+    #test_no_proc_noise()

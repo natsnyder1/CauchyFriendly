@@ -438,12 +438,12 @@ int main()
     printf("Size of Cauchy Estimator is %lu\n", sizeof(CauchyEstimator));
     //test_cauchy_1_state_moshe();
     //test_cauchy_2_state_moshe();
-    //test_cauchy_3_state_moshe();
+    test_cauchy_3_state_moshe();
     //test_cauchy_4_state_moshe();
     //test_cauchy_4_state_2_msmts_moshe();
     //test_cauchy_3_state_moshe_3msmts();
     //test_cauchy_5_state_moshe();
     //test_cauchy_four_state_two_pnoise();
-     test_no_proc_noise();
+    //test_no_proc_noise();
     return 0;
 }

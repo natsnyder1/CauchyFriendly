@@ -1613,6 +1613,7 @@ void* distributed_step_tp_to_muc(void* args)
                     int m_tp = parent->tp_coalign(tmp_Gamma, tmp_beta, tmp_pncc);
                     if( (!DENSE_STORAGE) && (!skip_post_mu) )
                     {
+                        // This patches the m==d with no process noise error...giving OOB error for the else if below w/out patch
                         if(parent->m <= parent->d)
                         {
                             gb_tables->set_term_bp_table_pointer( &(parent->enc_B), parent->cells_gtable_p, true);
