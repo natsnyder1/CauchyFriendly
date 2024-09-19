@@ -1565,6 +1565,11 @@ void* distributed_step_tp_to_muc(void* args)
         new_child_terms = (CauchyTerm*) malloc(Nt_alloc * sizeof(CauchyTerm));
     null_ptr_check(new_child_terms);
 
+    int two_to_d = 1<<cauchyEst->d;
+    int B_trivial[two_to_d];
+    for(int i = 0; i < two_to_d; i++)
+        B_trivial[i] = i;
+
     int Nt_new = 0;
     int old_term_count = 0;
     for(int m = 1; m < shape_range; m++)
@@ -1608,7 +1613,12 @@ void* distributed_step_tp_to_muc(void* args)
                     int m_tp = parent->tp_coalign(tmp_Gamma, tmp_beta, tmp_pncc);
                     if( (!DENSE_STORAGE) && (!skip_post_mu) )
                     {
-                        if(parent->m == parent->phc)
+                        if(parent->m <= parent->d)
+                        {
+                            gb_tables->set_term_bp_table_pointer( &(parent->enc_B), parent->cells_gtable_p, true);
+                            memcpy(parent->enc_B, B_trivial, parent->cells_gtable_p * sizeof(BKEYS_TYPE));
+                        }
+                        else if(parent->m == parent->phc)
                         {
                             BKEYS B_parent = parent->enc_B;
                             gb_tables->set_term_bp_table_pointer( &(parent->enc_B), parent->cells_gtable_p, true);

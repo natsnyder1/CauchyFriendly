@@ -636,8 +636,34 @@ def test_2state_smoothing():
     print("Last Est Cov:\n", Ps_ce[-1])
     print("Last Smoothed Cov:\n", P_hats[-1])
 
+def test_no_proc_noise():
+    np.random.seed(10)
+    ndim = 3
+    Phi = np.array([ [1.4, -0.6, -1.0], 
+                     [-0.2,  1.0,  0.5],  
+                     [0.6, -0.6, -0.2]] )
+    Gamma = np.zeros((3,0))
+    H = np.array([1.0, 0.5, 0.2])
+    beta = np.zeros(0) # Cauchy process noise scaling parameter(s)
+    gamma = np.array([0.2]) # Cauchy measurement noise scaling parameter(s)
+    A0 = np.eye(ndim) # Unit directions of the initial state uncertainty
+    p0 = np.array([1.0, 1.0, 1.0]) # Initial state uncertainty cauchy scaling parameter(s)
+    b0 = np.zeros(ndim) # Initial median of system state
+
+    xs, zs, ws, vs = ce.simulate_gaussian_ltiv_system(100, np.ones(3), None, Phi, None, np.zeros((3,1)), np.zeros((1,1)), H, (gamma.reshape((1,1))*1.3898)**2)
+    num_wins = 8
+    num_steps = 40
+    #cauchyEst = ce.PySlidingWindowManager("lti",num_wins,swm_debug_print=True)
+    cauchyEst = ce.PyCauchyEstimator("lti",num_steps,debug_print=True)
+    cauchyEst.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
+    for xt,z in zip(xs,zs):
+        x,P = cauchyEst.step(z, None)
+        #x,P,_,_ = cauchyEst.step(z, None)
+        print("X true: ", xt, "X Est: ", x, "Cov Diag: ", np.diag(P))
+    print("Thats all, folks!")
+
 if __name__ == "__main__":
-    test_1state_lti()
+    #test_1state_lti()
     #test_2state_cpdfs()
     #test_2state_lti_single_window()
     #test_3state_lti_single_window()
@@ -646,3 +672,4 @@ if __name__ == "__main__":
     #test_3state_marginal_cpdfs()
     #test_3state_reset()
     #test_2state_smoothing()
+    test_no_proc_noise()

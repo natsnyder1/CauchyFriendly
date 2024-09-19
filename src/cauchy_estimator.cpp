@@ -394,17 +394,56 @@ void test_time_prop_only_functionality()
 
 }
 
+// Testing No Process Noise 
+void test_no_proc_noise()
+{
+    uint the_time = time(NULL);
+    srand ( 10 ); // the_time
+    const int n = 3;
+    const int cmcc = 0;
+    const int pncc = 0;
+    const int p = 1;
+    double Phi[n*n] = {1.4, -0.6, -1.0, -0.2,  1.0,  0.5, 0.6, -0.6, -0.2};
+    double* Gamma = NULL;
+    double H[p*n] = {1.0, 0.5, 0.2};
+    double* beta = NULL; // Cauchy process noise scaling parameter(s)
+    double gamma[p] = {0.2}; // Cauchy measurement noise scaling parameter(s)
+    double A0[n*n] = {1,0,0,0,1,0,0,0,1}; // Unit directions of the initial state uncertainty
+    double p0[n] = {1.0, 1.0, 1.0}; // Initial state uncertainty cauchy scaling parameter(s)
+    double b0[n] = {0,0,0}; // Initial median of system state
+
+    double zs[30] = {2.07012778, -0.01955947, -0.23929345, -0.7407984 , -0.90028715,
+       -0.66924004, -0.85083685, -0.29410173, -0.47874184,  0.39214328,
+       -0.48399653,  0.17787202,  0.4196974 ,  0.11758738, -0.01162367,
+       -0.03723826,  0.05179092,  0.36306999,  0.10171198,  0.33627374,
+        0.17088018, -0.27129213, -0.23054836, -0.09803632,  0.15581782,
+       -0.00679551, -0.14875982,  0.23569676,  0.66710371, -0.03006997};
+
+
+    int num_wins = 8;
+    int num_steps = 30;
+    //cauchyEst = ce.PySlidingWindowManager("lti",num_wins,swm_debug_print=True)
+    CauchyEstimator cauchyEst(A0, p0, b0, num_steps, 3, cmcc, pncc, p, true);
+    for(int i = 0; i < num_steps; i++)
+    {
+      double zk = zs[i];
+      cauchyEst.step(zk, Phi, Gamma, beta, H, gamma[0], NULL, NULL);
+    }
+    printf("Thats all, folks!\n");
+}
+
 int main()
 {
     printf("Size of Cauchy Term is %lu\n", sizeof(CauchyTerm));
     printf("Size of Cauchy Estimator is %lu\n", sizeof(CauchyEstimator));
     //test_cauchy_1_state_moshe();
     //test_cauchy_2_state_moshe();
-    test_cauchy_3_state_moshe();
+    //test_cauchy_3_state_moshe();
     //test_cauchy_4_state_moshe();
     //test_cauchy_4_state_2_msmts_moshe();
     //test_cauchy_3_state_moshe_3msmts();
     //test_cauchy_5_state_moshe();
     //test_cauchy_four_state_two_pnoise();
+     test_no_proc_noise();
     return 0;
 }
