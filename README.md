@@ -5,7 +5,7 @@ This repository contains C++, Python, and Matlab interfaces for the Multivariate
 Much like the Kalman filter (KF), the MCE can be used for state estimation of linear time-invariant (LTI) or linear time-varying (LTV) dynamic systems. For nonlinear systems, the extended MCE (EMCE) can be applied just as an extended Kalman filter (EKF) could. The (E)MCE algorithm scales well to moderate state space dimensions of up to seven or eight: similar to the limitations of a particle filter.
 
 Aside from the KF, the MCE is the only other analytic, recursive, and closed-form Bayesian state estimation algorithm. The key difference between the KF and the MCE is that the MCE algorithm assumes additive Cauchy process and measurement noise, whereas the KF assumes Gaussian process and measurement noise. Moreover, it is the only estimator that can evolve its conditional probability density function (cpdf) of the system state, given the measurement history, into a rich, sometimes non-symmetric, and sometimes even multi-modal distrubution; all solely as a function of its measurement history. The aforementioned fact allows the MCE to estimate robustly when subjected to impulsive process noises, outliers in the measurement, or both. Empirically, the MCE is seen to perform well too when system dynamic parameters become misspecified. The tutorials in this repository will allow you to become familiar with the MCE by example. The following papers are good resources to learn more about the mathematics of the Cauchy Estimator:
-> AIAA LINK (Coming Soon)
+> NEW LINK
 
 > https://ieeexplore.ieee.org/document/9682987
 
