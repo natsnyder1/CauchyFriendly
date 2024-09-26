@@ -319,3 +319,6 @@ for i in range(2):
 plt.xlabel("Time (sec)")
 plt.show()
 foobar = 2
+
+#from scipy import io
+#io.savemat('pend.mat', {"es_kf" : es_kf, "sigs_kf" : sigs_kf, "es_ukf" : es_ukf, "sigs_ukf": sigs_ukf, "es_mce" : es_mce, "sigs_mce" : sigs_mce })

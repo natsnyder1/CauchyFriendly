@@ -1,3 +1,4 @@
+from tkinter import font
 import numpy as np
 import os, sys 
 import matplotlib.pyplot as plt
@@ -7,6 +8,7 @@ import cauchy_estimator as ce
 import gaussian_filters as gf
 import math
 import pickle
+import time
 import matplotlib
 matplotlib.use('TkAgg',force=True)
 
@@ -221,8 +223,6 @@ def ece_extended_msmt_update_callback(c_duc):
     global INITIAL_H
     if INITIAL_H:
         H = np.zeros((3,7))
-        H[0,0] = 1
-        H[1,1] = 1
         H[2,0] = 1
         H[2,1] = 1
         H[2,2] = 1
@@ -234,6 +234,37 @@ def ece_extended_msmt_update_callback(c_duc):
         H = leo_7state_measurement_model_jacobian(xbar)
     pyduc.cset_H(H)
     
+def reinitialize_func_H_summation(cauchyEsts, zk, best_idx, idx_min, step_k, other_params):
+    assert other_params is not None
+    # Both H channels concatenated
+    xhat, Phat = cauchyEsts[best_idx].get_last_mean_cov()
+    _H = np.array([1.0, 1.0, 1.0, 0, 0, 0, 0])
+    _gamma = 3 * cauchyEsts[best_idx]._gamma[0]
+    _xbar = cauchyEsts[best_idx]._xbar[14:]
+    _dz = (zk[0] + zk[1] + zk[2]) - (_xbar[0] + _xbar[1] + _xbar[2])
+    _dx = xhat - _xbar
+    _P = Phat.copy()
+    #'''
+    Ps_kf = other_params
+    P_kf = Ps_kf[step_k].copy() # The KF is in km^2 and we are in m^2
+    ratios = np.ones(6)
+    for i in range(6):
+        pkf = P_kf[i,i] #* 1000**2
+        pce = Phat[i,i]
+        ratios[i] = pkf/pce
+        if( ratios[i] > 1):
+            _P[i,i] *= ratios[i] * 8
+    #'''
+    # Reset
+    _A0, _p0, _b0 = ce.speyers_window_init(_dx, _P, _H, _gamma, _dz)
+    global INITIAL_H
+    INITIAL_H = True
+    cauchyEsts[idx_min].reset_with_last_measurement(zk[0] + zk[1] + zk[2], _A0, _p0, _b0, _xbar)
+    pyduc = cauchyEsts[idx_min].get_pyduc()
+    pyduc.cset_gamma(cauchyEsts[best_idx]._gamma)
+    INITIAL_H = False
+
+
 def simulate_leo7_state(sim_steps, with_sas_density = True, with_added_jumps = True, return_full_proc_noise = False):
     global leo 
     xs = [] 
@@ -259,9 +290,9 @@ def simulate_leo7_state(sim_steps, with_sas_density = True, with_added_jumps = T
             if i == 50:
                 wk[6] = 7.5
             if i == 150:
-                wk[6] = -2.0
+                wk[6] = -3.5
             if i == 200:
-                wk[6] = -1.0
+                wk[6] = -2.0
         xk = leo_7state_transition_model(xk) + wk
         vk = np.random.multivariate_normal(three_zeros, leo.V)
         zk = leo_7state_measurement_model(xk) + vk
@@ -486,7 +517,7 @@ def test_python_debug_window_manager():
     reinit_methods = ["speyer", "init_cond", "H2", "H2Boost", "H2Boost2", "H2_KF", "diag_boosted"]
     reinit_method = reinit_methods[6]
     prop_steps = 300 # Number of time steps to run sim
-    num_windows = 5 # Number of Cauchy Windows
+    num_windows = 4 # Number of Cauchy Windows
     ekf_scale = 1 # Scaling factor for EKF atmospheric density
     gamma_scale = 1 # scaling gamma up by .... (1 is normal)
     beta_scale = 1 # scaling beta down by ... (1 is normal)
@@ -774,6 +805,144 @@ def test_python_debug_window_manager():
     ce.plot_simulation_history(avg_moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
     foobar = 2
 
+
+def test_leo7_run_and_store():
+    global leo
+    #seed = 2124125479 #int(np.random.rand() * (2**32 -1))
+    #print("Seeding with seed: ", seed)
+    #np.random.seed(seed)
+
+    # Leo Satelite Parameters
+    leo7_alt = 250e3 # kmeters
+    leo7_A = 4 # meters^2
+    leo7_m = 500 # kg
+    leo7_gps_std_dev = 3.0 # meters
+    leo7_dt = 60 # sec
+    leo = leo_satellite_7state(leo7_alt, leo7_A, leo7_m, leo7_gps_std_dev, leo7_dt)
+    prop_steps = 300
+    num_windows = 4
+
+    # Get Ground Truth and Measurements
+    #zs = np.genfromtxt(file_dir + "/../../../log/leo5/dense/w5/msmts.txt", delimiter= ' ')
+    #zs = zs[1:,:]
+    xs, zs, ws, vs = simulate_leo7_state(prop_steps, with_sas_density=True, with_added_jumps=True)
+    zs_without_z0 = zs[1:,:]
+
+    # Run EKF 
+    #'''
+    W_kf = leo.W.copy()
+    V_kf = leo.V.copy()
+    xs_kf, Ps_kf = gf.run_extended_kalman_filter(leo.x0, None, zs_without_z0, ekf_f, ekf_h, ekf_callback_Phi_Gam, ekf_callback_H, leo.P0, W_kf, V_kf)
+    
+    # Run Cauchy Estimator
+    beta = np.array([leo.beta_cauchy])
+    gamma = np.array([leo.std_dev_gps * leo.GAUSS_TO_CAUCHY, leo.std_dev_gps * leo.GAUSS_TO_CAUCHY, leo.std_dev_gps * leo.GAUSS_TO_CAUCHY])
+
+    # Create Phi.T as A0, start at propagated x0
+    # Initialize Initial Hyperplanes
+    Phi, _ = leo_7state_transition_model_jacobians(leo.x0)
+    xbar = leo_7state_transition_model(leo.x0)
+    A0 = Phi.T.copy() # np.linalg.eig(Ps_kf[35])[1].T #Phi.T.copy()
+    p0 = np.repeat(leo.alpha_pv_cauchy, 7)*0.7
+    p0[6] = leo.alpha_density_cauchy
+    b0 = np.zeros(7)
+    num_controls = 0
+    swm_print_debug = True
+    win_debug_print = False
+    ce.set_tr_search_idxs_ordering([5,4,3,6,2,1,0])
+
+    swm = ce.PySlidingWindowManager("nonlin", num_windows, swm_print_debug, win_debug_print)
+    swm.initialize_nonlin(xbar, A0, p0, b0, beta, gamma, ece_dynamics_update_callback, ece_nonlinear_msmt_model, ece_extended_msmt_update_callback, num_controls, dt = leo.dt, reinit_func=reinitialize_func_H_summation)
+
+    xks_ce = np.zeros( (prop_steps,7) ) 
+    Pks_ce = np.zeros( (prop_steps,7,7) ) 
+    xavgks_ce = np.zeros( (prop_steps,7) ) 
+    Pavgks_ce = np.zeros( (prop_steps,7,7) ) 
+    for k, zk in enumerate(zs[1:]):
+        print("Step {}/{}".format(k+1, len(zs)-1))
+        xk_ce, Pk_ce, xavgk_ce, Pavgk_ce = swm.step(zk, None, Ps_kf)
+        xks_ce[k, :] = xk_ce
+        Pks_ce[k,:,:] = Pk_ce
+        xavgks_ce[k,:] = xavgk_ce
+        Pavgks_ce[k,:,:] = Pavgk_ce
+    
+    foo = np.zeros(xks_ce.shape[0])
+    moment_info = {"x": xks_ce, "P": Pks_ce, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+    avg_moment_info = {"x": xavgks_ce, "P": Pavgks_ce, "err_code" : foo, "fz" : foo, "cerr_fz" : foo, "cerr_x" : foo, "cerr_P": foo }
+    print("Full Window History:")
+    ce.plot_simulation_history(moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
+    print("Weighted Cauchy Estimator History:")
+    ce.plot_simulation_history(avg_moment_info, (xs, zs, ws, vs), (xs_kf, Ps_kf), with_partial_plot=True, with_cauchy_delay=True)
+    # Now Pickle and exit 
+    pickle_name =  file_dir +  "/pylog/leo7/nat_aiaa/pickled_run_" + str(time.time()) + ".pickle"
+    with open(pickle_name, "wb") as handle:
+        pickle.dump((xs,xs_kf, Ps_kf, xks_ce,Pks_ce, xavgks_ce,Pavgks_ce), handle)
+    print("storing run in: ", pickle_name)
+
+def test_leo7_neatly_plot():
+    pickle_path = file_dir + "/pylog/leo7/nat_aiaa/" + "pickled_run_1726777312.982853.pickle"
+    with open(pickle_path, "rb") as handle:
+        data = pickle.load(handle)
+    xs,xs_kf, Ps_kf, xks_ce, Pks_ce, xavgks_ce, Pavgks_ce = data 
+    es_kf = xs - xs_kf
+    one_sigs_kf = np.array([ np.diag(P)**0.5 for P in Ps_kf])
+    es_ce = xs[1:] - xavgks_ce
+    one_sigs_ce = np.array([np.diag(P)**0.5 for P in Pavgks_ce])
+    N, n = xs.shape
+    Ts = np.arange(N)
+    ylabels = [
+        r"Error"+"\n"+r"PosX ($m$)",
+        r"Error"+"\n"+r"PosY ($m$)",
+        r"Error"+"\n"+r"PosZ ($m$)",
+        r"Error"+"\n"+r"VelX ($\frac{m}{s}$)",
+        r"Error"+"\n"+r"VelY ($\frac{m}{s}$)",
+        r"Error"+"\n"+r"VelZ ($\frac{m}{s}$)",
+        r"Error"+"\n"+r"$\frac{\%\Delta\rho}{100}$",
+    ]
+    fig = plt.figure()
+    font_size = 16
+    #ylims = [(-12,12), (-12,12), (-12,12), (-0.08,0.08), (-0.08,0.08), (-0.08,0.08), (-4, 8)]
+    ylims = [(-12,12), (-12,12), (-12,12), (-0.015,0.015), (-0.015,0.015), (-0.015,0.015), (-4, 8)]
+    plt.suptitle("State Errors with One-Sigma Bounds of EKF vs. MCE for LEO Satellite", fontsize=font_size)
+    for i in range(n):
+        if i == 0:
+            leg_ekf = "KF State Error"
+            leg_Pkf = "KF 1-Sigma Bounds"
+            leg_ece = "MCE State Error"
+            leg_Pce = "MCE 1-Sigma Bounds"
+        else:
+            leg_ekf = ""
+            leg_Pkf = ""
+            leg_ece = ""
+            leg_Pce = ""
+        plt.subplot(n,1,i+1)
+        plt.plot(Ts, es_kf[:,i], 'g--', label=leg_ekf)
+        plt.plot(Ts, one_sigs_kf[:,i], 'm--', label=leg_Pkf)
+        plt.plot(Ts, -one_sigs_kf[:,i], 'm--')
+        plt.plot(Ts[1:], es_ce[:,i], 'b', label=leg_ece)
+        plt.plot(Ts[1:], one_sigs_ce[:,i], 'r', label=leg_Pce)
+        plt.plot(Ts[1:], -one_sigs_ce[:,i], 'r')
+        plt.ylabel(ylabels[i], fontsize=font_size)
+        plt.xlim(1, N-1)
+        plt.ylim(ylims[i][0], ylims[i][1])
+        plt.yticks(fontsize=font_size)
+        if i == n-1:
+            plt.xlabel(r"Time Steps k, ($\Delta t=60$ sec, track time of 5 hours)", fontsize=font_size)
+            plt.xticks(fontsize=font_size+2)
+        else:
+            plt.xticks(fontsize=0)
+    leg = fig.legend(loc='upper right', fontsize=font_size)
+    leg.set_draggable(True)
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.076, right=0.986, bottom=0.062, top=0.955, wspace=0.17, hspace=0.107)
+    plt.show()
+    foobar = 3
+
+
+
 if __name__ == '__main__':
     #test_single_sliding_window()
-    test_python_debug_window_manager()
+    #test_python_debug_window_manager()
+    
+    #test_leo7_run_and_store()
+    test_leo7_neatly_plot()

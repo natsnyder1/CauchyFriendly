@@ -561,7 +561,7 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     Phi = np.vstack(( np.hstack((T2,Z2)), np.hstack((Z2,T2))  ))
     H = np.array([[1.0,0,0,0], [0,0,1,0]])
     Q0 = np.vstack(( np.hstack(( W1 * QT2, Z2)), np.hstack((Z2, W2 * QT2))  ))
-    V0 = np.array([1e4,1e2,1e2,1e4]).reshape((2,2)) / V0_scale_factor 
+    V0 = 0.01*np.array([1e4,1e2,1e2,1e4]).reshape((2,2)) #/ V0_scale_factor 
     P0_kf = np.diag(np.array([100,1,100,1.0]))
     x0_kf = np.random.multivariate_normal(x0, P0_kf)
 
@@ -583,10 +583,8 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
 
     ce.set_tr_search_idxs_ordering([1,0])
     swm_debug_print = False
-    win_debug_print = False
-    steps = 16
     reinit_func = None #H_reinit_func
-    num_windows = 10 #HighJack
+    num_windows = 8 #HighJack
     show_marginals = False # FALSE!!
 
     cauchyEst1 = ce.PySlidingWindowManager('lti', num_windows, swm_debug_print)
@@ -630,7 +628,7 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     s0_q = lambda k : Q0.copy()
     s0_v = lambda k : V0.copy()
     s1_q = lambda k : (10 + 5*np.sin(np.pi*k/N))*Q0 #np.abs(1 + KNOB_Q*np.sin( (np.pi * k) / N))*Q0 #V0.copy() # np.abs(1 + KNOB_Q*np.sin( (np.pi * k) / N))*Q0 # Q0.copy() #
-    s2_q = lambda k : Q0.copy() if k < 100 else KNOB_Q/5*Q0 if k < 200 else Q0.copy() 
+    s2_q = lambda k : Q0.copy() if k < 100 else KNOB_Q*Q0 if k < 200 else Q0.copy() 
     s1_v = lambda k : (1 + .5*np.sin(np.pi*k/N))*V0 #np.abs(1 + KNOB_V*np.sin( (np.pi * k) / N))*V0 #V0.copy() #
     s2_v = lambda k : V0.copy() if k < 200 else 15*V0
 
@@ -649,8 +647,14 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     elif(use_scen == "2"):
         qscen = s2_q
         vscen = s2_v
+    elif(use_scen == "2a"):
+        qscen = s2_q
+        vscen = s0_v
+    elif(use_scen == "2b"):
+        qscen = s0_q
+        vscen = s2_v
     else:
-        print("Use Scenario {} not valid [0,1a,1b,1c,2]. Exiting!".format(use_scen))
+        print("Use Scenario {} not valid [0,1a,1b,1c,2,2a,2b]. Exiting!".format(use_scen))
         exit(1)
 
     xks = [x0.copy()] 
@@ -900,9 +904,9 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     plt.plot(Ts, xks[:,0] - xs_ce_avg[:,0], 'm')
     plt.plot(Ts, one_sig_ce_avg[:,0], 'k--')
     plt.plot(Ts, -one_sig_ce_avg[:,0], 'k--')
-    plt.plot(Ts, xks[:,0] - vb_xs[:,0], 'y')
-    plt.plot(Ts, one_sig_vb[:,0], 'y--')
-    plt.plot(Ts, -one_sig_vb[:,0], 'y--')
+    #plt.plot(Ts, xks[:,0] - vb_xs[:,0], 'y')
+    #plt.plot(Ts, one_sig_vb[:,0], 'y--')
+    #plt.plot(Ts, -one_sig_vb[:,0], 'y--')
 
     plt.ylabel("Pos X")
     plt.subplot(4,1,2)
@@ -918,9 +922,9 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     plt.plot(Ts, xks[:,1] - xs_ce_avg[:,1], 'm')
     plt.plot(Ts, one_sig_ce_avg[:,1], 'k--')
     plt.plot(Ts, -one_sig_ce_avg[:,1], 'k--')
-    plt.plot(Ts, xks[:,1] - vb_xs[:,1], 'y')
-    plt.plot(Ts, one_sig_vb[:,1], 'y--')
-    plt.plot(Ts, -one_sig_vb[:,1], 'y--')
+    #plt.plot(Ts, xks[:,1] - vb_xs[:,1], 'y')
+    #plt.plot(Ts, one_sig_vb[:,1], 'y--')
+    #plt.plot(Ts, -one_sig_vb[:,1], 'y--')
     plt.ylabel("Vel X")
 
     plt.subplot(4,1,3)
@@ -936,9 +940,9 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     plt.plot(Ts, xks[:,2] - xs_ce_avg[:,2], 'm')
     plt.plot(Ts, one_sig_ce_avg[:,2], 'k--')
     plt.plot(Ts, -one_sig_ce_avg[:,2], 'k--')
-    plt.plot(Ts, xks[:,2] - vb_xs[:,2], 'y')
-    plt.plot(Ts, one_sig_vb[:,2], 'y--')
-    plt.plot(Ts, -one_sig_vb[:,2], 'y--')
+    #plt.plot(Ts, xks[:,2] - vb_xs[:,2], 'y')
+    #plt.plot(Ts, one_sig_vb[:,2], 'y--')
+    #plt.plot(Ts, -one_sig_vb[:,2], 'y--')
     plt.ylabel("Pos Y")
 
 
@@ -955,9 +959,9 @@ def indep_linear_target_track(N, use_scen, num_windows, V0_scale_factor, KNOB_Q,
     plt.plot(Ts, xks[:,3] - xs_ce_avg[:,3], 'm')
     plt.plot(Ts, one_sig_ce_avg[:,3], 'k--')
     plt.plot(Ts, -one_sig_ce_avg[:,3], 'k--')
-    plt.plot(Ts, xks[:,3] - vb_xs[:,3], 'y')
-    plt.plot(Ts, one_sig_vb[:,3], 'y--')
-    plt.plot(Ts, -one_sig_vb[:,3], 'y--')
+    #plt.plot(Ts, xks[:,3] - vb_xs[:,3], 'y')
+    #plt.plot(Ts, one_sig_vb[:,3], 'y--')
+    #plt.plot(Ts, -one_sig_vb[:,3], 'y--')
     plt.ylabel("Vel Y")
     plt.xlabel("Time (sec)")
     
@@ -1434,8 +1438,8 @@ def call_target_track(root_dir = None, subdir_name = "VB_target_track_single_rea
     KNOB_V = 50 
     #scenarios = ["0", "1a", "1b", "1c", "2"]
     #V0S_HELS = {"high" : 1, "equal" : 10000, "low" : 1000000} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
-    scenarios = ["1c"]
-    V0S_HELS = {"high" : 1} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
+    scenarios = ["0", "1a", "1b", "1c", "2", "2a", "2b"]
+    V0S_HELS = {"equal" : 1} # V0 Scaling High Equal Low #{"high" : 10, "equal" : 1000, "low" : 100000}
     num_windows = 5
     for use_scen in scenarios:
         for setting, V0_scale_factor in V0S_HELS.items():

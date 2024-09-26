@@ -1566,7 +1566,7 @@ void* distributed_step_tp_to_muc(void* args)
     null_ptr_check(new_child_terms);
 
     int two_to_d = 1<<cauchyEst->d;
-    int B_trivial[two_to_d];
+    int* B_trivial = (int*) malloc(two_to_d * sizeof(int));
     for(int i = 0; i < two_to_d; i++)
         B_trivial[i] = i;
 
@@ -1724,6 +1724,7 @@ void* distributed_step_tp_to_muc(void* args)
     free(tid_terms_per_shape);
     childterms_workspace->deinit();
     free(childterms_workspace);
+    free(B_trivial);
     return NULL;
 }
 
