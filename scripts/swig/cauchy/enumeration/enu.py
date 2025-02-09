@@ -36,6 +36,7 @@ def nat_enu(A, encode = False, sort = False):
 
 #'''
 if __name__ == "__main__":
+    # Test Case 1:
     A = np.array([ 
     [1,1,0,0],
     [1,2,0,0],
@@ -53,6 +54,7 @@ if __name__ == "__main__":
     B2 = nat_enu(A2, True, True)
     print("Same?:", np.all(B2 == B))
 
+    # Test Case 2:
     A = np.array([ 
     [1,1,1,0],
     [1,1,1,2],
@@ -64,4 +66,25 @@ if __name__ == "__main__":
     B = inc_enu(A2, True, True)
     B2 = nat_enu(A2, True, True)
     print("Same?:", np.all(B2 == B))
+
+    # Test Case 3: Matrix with negative numbers
+    A = np.array([ 
+    [-1,-1,0,0],
+    [-1,-2,0,0],
+    [-1,-3,0,0],
+    [-1,-4,0,0],
+    [-1,-5,0,0],
+    [-1,-1,-1,0]])
+    A2 = A
+    B = inc_enu(A2, True, True)
+    B2 = nat_enu(A2, True, True)
+    print("Same (Negative Numbers)?:", np.all(B2 == B))
+
+    # Test Case 4: Matrix with random floats
+    A = np.random.rand(6, 4) * 10
+    A2 = A
+    B = inc_enu(A2, True, True)
+    B2 = nat_enu(A2, True, True)
+    print("Same (Random Floats)?:", np.allclose(B2, B, atol=1e-6))
+
 #'''

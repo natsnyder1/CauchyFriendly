@@ -359,7 +359,7 @@ int inc_enu_cell_count_central(int num_hyp, int dim)
 void run_inc_enu(int* Bs, int* cell_counts, double* As, double* root_point, const int N, const int m, const int n, const bool is_encode_B = true, const bool is_sort_B = false)
 {
     if(is_encode_B)
-        assert( sizeof(int) * 8 > (uint)m );
+        assert( sizeof(int) * 8 > (unsigned int)m );
     glp_prob *lp; // LP pointer
     int ja[1 + n]; // Column indices of each element of constraint matrix (GLPK Starts all indexing at 1. Index 0 is ignored.)
     inc_enu_setup_feasibility_lp(&lp, ja, m, n);

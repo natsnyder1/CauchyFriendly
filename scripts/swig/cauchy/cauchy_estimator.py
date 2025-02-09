@@ -1180,7 +1180,7 @@ class PySlidingWindowManager():
 
     def _best_window_est(self):
         W = self.num_windows
-        okays = np.zeros(W, dtype=np.bool)
+        okays = np.zeros(W, dtype=bool)
         idxs = []
         check_idx = self.p-1
         COV_UNSTABLE = 2
