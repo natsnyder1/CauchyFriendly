@@ -223,6 +223,55 @@ def get_python_lib_path(os_type):
             print(RED_START+"[ERROR get_python_lib_path:] libpython_so_name extension {} not (.a,.so,.dylib). Debug here. Exiting!"+RED_END)
             exit(1)
         return libpython_path, libpython_so_name, libpython_so_tag
+    
+def check_and_install_glpk():
+    os_name = get_operating_sys()
+    glpk_include_path, glpk_lib_path = None, None
+    
+    try:
+        subprocess.run(["glpsol", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        print("GLPK is already installed.")
+        # Set the paths based on the OS for installed GLPK
+        if os_name == "mac":
+            glpk_include_path = "/opt/homebrew/Cellar/glpk/5.0/include/"
+            glpk_lib_path = "/opt/homebrew/Cellar/glpk/5.0/lib -lm -lglpk -lpthread"
+        elif os_name == "linux":
+            # Default paths for GLPK on Linux (this may need to be adjusted if not found)
+            glpk_include_path = "/usr/include/"
+            glpk_lib_path = "/usr/lib -lm -lglpk -lpthread"
+    except FileNotFoundError:
+        print("GLPK is not installed. Attempting to install...")
+        try:
+            if os_name == "mac":
+                subprocess.run(["brew", "install", "glpk"], check=True)
+                glpk_include_path = "/opt/homebrew/Cellar/glpk/5.0/include/"
+                glpk_lib_path = "/opt/homebrew/Cellar/glpk/5.0/lib -lm -lglpk -lpthread"
+            elif os_name == "linux":
+                distro = subprocess.run(["lsb_release", "-is"], capture_output=True, text=True).stdout.strip().lower()
+                if "ubuntu" in distro or "debian" in distro:
+                    subprocess.run(["sudo", "apt", "install", "-y", "glpk-utils", "libglpk-dev"], check=True)
+                    glpk_include_path = "/usr/include/"
+                    glpk_lib_path = "/usr/lib -lm -lglpk -lpthread"
+                elif "arch" in distro:
+                    subprocess.run(["sudo", "pacman", "-S", "--noconfirm", "glpk"], check=True)
+                    glpk_include_path = "/usr/include/"
+                    glpk_lib_path = "/usr/lib -lm -lglpk -lpthread"
+                elif "fedora" in distro or "redhat" in distro:
+                    subprocess.run(["sudo", "dnf", "install", "-y", "glpk"], check=True)
+                    glpk_include_path = "/usr/include/"
+                    glpk_lib_path = "/usr/lib -lm -lglpk -lpthread"
+                else:
+                    print(f"Unsupported Linux distribution: {distro}. Install GLPK manually.")
+                    return None, None
+            else:
+                print(f"Unsupported OS: {os_name}. Install GLPK manually.")
+                return None, None
+            print("GLPK installation successful.")
+        except subprocess.CalledProcessError:
+            print("GLPK installation failed. Please install it manually.")
+            return None, None
+    
+    return glpk_include_path, glpk_lib_path
 
 def download_file(url, local_filename, allow_redirects=True):
     # Send a GET request to the URL
@@ -704,6 +753,7 @@ def unix_setup_python_wrapper():
     py_lib_path, py_lib_so_name, py_lib_so_tag = get_python_lib_path(os_name)
     # Get Numpy include path 
     np_include_path = get_numpy_include_path() 
+    glpk_include_path, glpk_lib_path = check_and_install_glpk()
     print(GREEN_START+"--- Auto Configuration Script Found The Following Paths: ---"+GREEN_END)
     print("  Auto Config Path: ", auto_config_path)
     print("  Python Include Path: ", py_include_path)
@@ -711,6 +761,8 @@ def unix_setup_python_wrapper():
     print("  Python Shared Object Name: ", py_lib_so_name)
     print("  Python Shared Object Tag: ", py_lib_so_tag)
     print("  Numpy Include Path: ", np_include_path)
+    print("  GLPK Include Path: ", glpk_include_path)
+    print("  GLPK Lib Path: ", glpk_lib_path)
     print(GREEN_START+"---------------------------------------------------"+GREEN_END)
 
     # Configure swigit_unix.sh
@@ -747,6 +799,32 @@ def unix_setup_python_wrapper():
                 exit(1)
         np_include_swigit = "INC_NUMPY=-I" + "\"" + np_include_path + "\"" + "\n"
         lines[count] = np_include_swigit
+
+        # Add GLPK paths
+        if glpk_include_path and glpk_lib_path:
+            # Change INC_GLPK
+            count = 0
+            while "INC_GLPK" != lines[count][0:8]:
+                count += 1
+                if count == num_lines:
+                    print(RED_START+"[ERROR unix_setup_python_wrapper:] INC_GLPK variable could not be found in swigit_{}.sh...indicating file corruption...please redownload this file and rerun auto_config.py...Exiting!".format(os_name) + RED_END)
+                    exit(1)
+            glpk_include_swigit = "INC_GLPK=-I" + "\"" + glpk_include_path + "\"" + "\n"
+            lines[count] = glpk_include_swigit
+            
+            # Change LIB_GLPK
+            count = 0
+            while "LIB_GLPK" != lines[count][0:8]:
+                count += 1
+                if count == num_lines:
+                    print(RED_START+"[ERROR unix_setup_python_wrapper:] LIB_GLPK variable could not be found in swigit_{}.sh...indicating file corruption...please redownload this file and rerun auto_config.py...Exiting!".format(os_name) + RED_END)
+                    exit(1)
+            glpk_lib_swigit = "LIB_GLPK=-L" + "\"" + glpk_lib_path + "\"" + "\n"
+            lines[count] = glpk_lib_swigit
+        else:
+            print(RED_START+"[ERROR unix_setup_python_wrapper:] GLPK paths could not be found. Exiting!" + RED_END)
+            exit(1)
+
         # Change g++ line 
         for i in range(num_lines):
             if os_name == "mac":
