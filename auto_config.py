@@ -919,17 +919,9 @@ def unix_setup_python_wrapper():
         lines = handle.readlines()
         num_lines = len(lines)
     # Change swig executable location
-    count = 0
-    while True:
-        if "swig -c++ -python" in lines[count]:
-            if lines[count][0:8] != "[ERROR:]":
-                break
-        count += 1
-        if count == num_lines:
-            print(RED_START+"[ERROR unix_setup_python_wrapper:] swig executable could not be found in swigit_{}.sh...indicating file corruption...please redownload this file and rerun auto_config.py...Exiting!".format(os_name) + RED_END)
-            exit(1)
-    swig_exec_swigit = swig_exec + " -c++ -python ${SWIG_FILE}\n"
-    lines[count] = swig_exec_swigit
+    for i in range(num_lines):
+        if "swig -c++ -python" in lines[i] and "[ERROR:]" not in lines[i]:
+            lines[i] = swig_exec + " -c++ -python ${SWIG_FILE}\n"
     with open(swigit_path, 'w') as handle:
         handle.writelines(lines)
     
