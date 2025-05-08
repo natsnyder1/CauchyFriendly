@@ -6,3 +6,4 @@ includePath = '-I/Users/nishadelias/Documents/GitHub/CauchyFriendly/scripts/swig
 libraryPath = '-lm -lpthread';
 
 eval(['mex -g ', includePath, ' ', libraryPath, ' test_4d_cpdf.cpp']);
+eval(['mex -g ', includePath, ' ', libraryPath, ' test_4d_marginal_cpdf.cpp']);
