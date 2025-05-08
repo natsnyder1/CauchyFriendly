@@ -5,64 +5,53 @@
 
 // CauchyEstimator, PointWiseNDimCauchyCPDF, and C_COMPLEX_TYPE are defined in included headers
 
-void run_test_4d_cpdf(std::vector<double>& real_out, std::vector<double>& imag_out) {
+void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
+    if (nrhs != 10) {
+        mexErrMsgTxt("Expected 10 input arguments: Phi, Gamma, H, beta, gamma, A0, p0, b0, zs, grid4D");
+    }
+
     const int n = 4;
-    const int cmcc = 0;
-    const int pncc = 1;
-    const int p = 1;
     const int steps = 6;
     const int grid_points = 9;
 
-    // Same as original function
-    double Phi[n*n] = {1.4, -0.6, -1.0, 0.0, -0.2, 1.0, 0.5, 0.0, 0.6, -0.6, -0.2, 0.0, 0, 0, 0, 0.5};
-    double Gamma[n*pncc] = {.1, 0.3, -0.2, 0.4};
-    double H[n] = {2.0, 0.5, 0.2, -0.1};
-    double beta[pncc] = {0.1};
-    double gamma[p] = {0.2};
-    double A0[n*n] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    double p0[n] = {0.1, 0.08, 0.05, 0.2};
-    double b0[n] = {0, 0, 0, 0};
-    double zs[steps] = {-0.26300165310514712, -0.98289343232730964, -0.93317363235517392, -0.81311530427193779, 
-            -0.24140673945883995, 0.013971096637110103};
-    double grid4D[grid_points][4] = 
-        {
-            {0,0,0,0}, 
-            {-0.05,0,0,0}, 
-            {0.05,0,0,0}, 
-            {0,-0.05,0,0}, 
-            {0,0.05,0,0}, 
-            {0,0,-0.05,0},
-            {0,0,0.05,0}, 
-            {0,0,0,0.05}, 
-            {0,0,0,-0.05}
-        };
+    double* Phi = mxGetPr(prhs[0]);
+    double* Gamma = mxGetPr(prhs[1]);
+    double* H = mxGetPr(prhs[2]);
+    double* beta = mxGetPr(prhs[3]);
+    double gamma = mxGetScalar(prhs[4]);
+    double* A0 = mxGetPr(prhs[5]);
+    double* p0 = mxGetPr(prhs[6]);
+    double* b0 = mxGetPr(prhs[7]);
+    double* zs = mxGetPr(prhs[8]);
+    double* grid4D = mxGetPr(prhs[9]);
+
+    const int cmcc = 0;
+    const int pncc = 1;
+    const int p = 1;
 
     CauchyEstimator cauchyEst(A0, p0, b0, steps, n, cmcc, pncc, p, false);
     PointWiseNDimCauchyCPDF cpdf_ndim(&cauchyEst);
 
-    for (int i = 0; i < steps - 1; i++) {
-        cauchyEst.step(zs[i], Phi, Gamma, beta, H, gamma[0], NULL, NULL);
-        for (int j = 0; j < grid_points; j++) {
-            double* xk = grid4D[j];
-            C_COMPLEX_TYPE fx = cpdf_ndim.evaluate_cpdf(xk, false);
-            real_out.push_back(creal(fx));
-            imag_out.push_back(cimag(fx));
-        }
-    }
-}
-
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     std::vector<double> real_fx;
     std::vector<double> imag_fx;
 
-    run_test_4d_cpdf(real_fx, imag_fx);
+    for (int i = 0; i < steps - 1; i++) {
+        cauchyEst.step(zs[i], Phi, Gamma, beta, H, gamma, NULL, NULL);
+        for (int j = 0; j < grid_points; j++) {
+            double xk[4];
+            for (int d = 0; d < n; d++) {
+                xk[d] = grid4D[d * grid_points + j];
+            }
+            C_COMPLEX_TYPE fx = cpdf_ndim.evaluate_cpdf(xk, false);
+            real_fx.push_back(creal(fx));
+            imag_fx.push_back(cimag(fx));
+        }
+    }
 
     size_t len = real_fx.size();
     plhs[0] = mxCreateDoubleMatrix(len, 1, mxREAL);
     plhs[1] = mxCreateDoubleMatrix(len, 1, mxREAL);
 
-    double* real_ptr = mxGetPr(plhs[0]);
-    double* imag_ptr = mxGetPr(plhs[1]);
-    std::copy(real_fx.begin(), real_fx.end(), real_ptr);
-    std::copy(imag_fx.begin(), imag_fx.end(), imag_ptr);
+    std::copy(real_fx.begin(), real_fx.end(), mxGetPr(plhs[0]));
+    std::copy(imag_fx.begin(), imag_fx.end(), mxGetPr(plhs[1]));
 }
