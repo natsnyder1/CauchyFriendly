@@ -14,6 +14,10 @@ target_include_directories(CauchyLibrary
 add_subdirectory(src)
 add_subdirectory(main)
 
+# Testing
+include(CTest)
+add_subdirectory(test)
+
 # ## Source Directory
 # set(SRC_DIR ${PROJECT_SOURCE_DIR}/src)
 
