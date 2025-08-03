@@ -1,0 +1,13 @@
+# add_library(CauchyLibrary INTERFACE)
+
+add_executable(homing_missile homing_missile.cpp)
+add_executable(leo_satellite_5state_gps leo_satellite_5state_gps.cpp)
+add_executable(leo_satellite_5state leo_satellite_5state.cpp)
+add_executable(leo_satellite_7state_gps leo_satellite_7state_gps.cpp)
+add_executable(leo_satellite_7state leo_satellite_7state.cpp)
+
+target_link_libraries(homing_missile PUBLIC CauchyLibrary)
+target_link_libraries(leo_satellite_5state_gps PUBLIC CauchyLibrary)
+target_link_libraries(leo_satellite_5state PUBLIC CauchyLibrary)
+target_link_libraries(leo_satellite_7state_gps PUBLIC CauchyLibrary)
+target_link_libraries(leo_satellite_5state_gps PUBLIC CauchyLibrary)

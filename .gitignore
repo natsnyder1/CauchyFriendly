@@ -1,3 +1,9 @@
 .vscode
 .DS_Store
 __pycache__
+
+# CMake build dirs
+/build
+
+# Ignore Andrew's codestack notes/ideas
+andrew_notes.txt
