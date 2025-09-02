@@ -13,6 +13,7 @@ target_include_directories(CauchyLibrary
 
 add_subdirectory(src)
 add_subdirectory(main)
+add_subdirectory(api)
 
 # Testing
 include(CTest)

@@ -7,3 +7,9 @@
  * This is a test and example program for the Cauchy Estimator API 
  * 
  *******************************************************************/
+
+#include "cauchy_estimator_api.hpp"
+
+ int main() {
+    return true;
+ }

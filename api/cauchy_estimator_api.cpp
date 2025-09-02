@@ -8,9 +8,10 @@
  * 
  *******************************************************************/
 
-#include <cauchy_estimator_api.hpp>
+#include "cauchy_estimator_api.hpp"
 
-Status CauchyAPI::initialize()
+Status CauchyAPI::initialize(CauchyEstimatorConfig cfg)
 {
+    if (!cfg.valid) {return Status::error(StatusCode::InitializeError, "Failed to initialize CauchyAPI");}
     return Status();
 }
