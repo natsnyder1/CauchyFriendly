@@ -7,3 +7,8 @@ __pycache__
 
 # Ignore Andrew's codestack notes/ideas
 andrew_notes.txt
+
+# Ignore all callgrind
+main/callgrind.*
+main/perf*
+src/callgrind.*
