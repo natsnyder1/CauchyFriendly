@@ -11,12 +11,15 @@
 #pragma once
 
 #include "cauchy_estimator.hpp"
+#include "cauchy_windows.hpp"
 #include <vector>
 #include <string>
+// #include <nlohmann/json.hpp>
 
 enum class StatusCode : uint8_t {
     Ok = 0,
-    InitializeError = 1
+    ConfigError = 1,
+    InitializeError = 2
 };
 
 struct Status {
@@ -29,7 +32,11 @@ struct Status {
 
 struct CauchyEstimatorConfig {
     bool valid = false;
+    void validate() const {
+        if (!valid) throw std::runtime_error("Invalid config");
+    }
 
+    // private: TODO: Should this be private to avoid config changes?
     int state_dim_n;
     int msmt_dim_p;
     int process_noise_dim_q;
@@ -38,15 +45,50 @@ struct CauchyEstimatorConfig {
     int num_steps;
     int num_windows;
 
-    std::vector<double> Phi, Gamma, H, beta, gamma, A0, p0, b0;    
+    std::vector<double> Phi, Gamma, H, beta, gamma, A0, p0, b0;
+    std::vector<double> B, u;
+
+    // TODO: Figure out what these do (keeping example settings for now)
+    char* log_dir = NULL;
+    const bool WINDOW_PRINT_DEBUG = false;
+    const bool WINDOW_LOG_SEQUENTIAL = false;
+    const bool WINDOW_LOG_FULL = false;
+    const bool is_extended = false;
+    double* window_var_boost = NULL;
+
 };
 
 class CauchyAPI {
-    Status initialize(CauchyEstimatorConfig cfg); // configure estimator: dimensions, time step, intial CF/mean/covariance, noise stuff
-    Status intializeFromJSON();
+    // Private fields
+    private:
+    bool initialized_ = false;
+    // Care declaration order for member init lsit
+    CauchyEstimatorConfig cfg_;
+    CauchyDynamicsUpdateContainer duc_;
+    SlidingWindowManager swm_;
+
+    static CauchyDynamicsUpdateContainer makeCDUC(CauchyEstimatorConfig& cfg);
+    static SlidingWindowManager makeSWM(CauchyEstimatorConfig& cfg, CauchyDynamicsUpdateContainer& duc);
+    
+    /***
+     * TODO:
+     * Kalman settings, KalmanDynamicsUpdateContainer, SimulationLogger*,
+     * KF Simulation and Logging
+     ***/
+
+    // Public functions
+    public:
+    // API Constructor from config
+    explicit CauchyAPI(CauchyEstimatorConfig cfg);
+
+    // General API functions
+    static CauchyAPI initialize(CauchyEstimatorConfig& cfg); // configure estimator: dimensions, time step, intial CF/mean/covariance, noise stuff
+    static CauchyAPI intializeFromJSON();
     Status step(); // advances estimator by one time-step, take in new measurements (and optionally controls)
     Status getConditionals(); // get conditional mean/covariance after update
     Status reset(); // discard/reinitialize state for sliding windows
+
+    const CauchyEstimatorConfig& config() noexcept;
 };
 
 /**********************
