@@ -40,7 +40,7 @@ SlidingWindowManager CauchyAPI::makeSWM(CauchyEstimatorConfig& cfg, CauchyDynami
 {
     return SlidingWindowManager(cfg.num_windows, cfg.num_steps+1, cfg.A0.data(), cfg.p0.data(), cfg.b0.data(),
         &duc, cfg.WINDOW_PRINT_DEBUG, cfg.WINDOW_LOG_SEQUENTIAL, cfg.WINDOW_LOG_FULL, 
-        cfg.is_extended, NULL, NULL, NULL, cfg.window_var_boost, cfg.log_dir);
+        cfg.is_extended, NULL, NULL, NULL, cfg.window_var_boost.empty() ? nullptr : cfg.window_var_boost.data(), cfg.log_dir.empty() ? nullptr: cfg.log_dir.c_str());
 }
 
 CauchyAPI::CauchyAPI(CauchyEstimatorConfig cfg)
@@ -55,9 +55,54 @@ CauchyAPI CauchyAPI::initialize(CauchyEstimatorConfig& cfg)
     return CauchyAPI(cfg);
 }
 
-CauchyAPI CauchyAPI::intializeFromJSON()
+CauchyAPI CauchyAPI::intializeFromJSON(std::string path)
 {
-    return Status();
+    using json = nlohmann::json;
+    try {
+        std::ifstream f(path);
+        if (!f) throw std::runtime_error("Could not open JSON");
+
+        json j;
+        f >> j;
+        
+        CauchyEstimatorConfig cfg;
+        
+        // Populate config from JSON
+        cfg.state_dim_n = j["state_dim_n"];
+        cfg.msmt_dim_p = j["msmt_dim_p"];
+        cfg.process_noise_dim_q = j["process_noise_dim_q"];
+        cfg.control_dim = j["control_dim"];
+        cfg.num_steps = j["num_steps"];
+        cfg.Phi = j["Phi"].get<std::vector<double>>();
+        cfg.Gamma = j["Gamma"].get<std::vector<double>>();
+        cfg.H = j["H"].get<std::vector<double>>();
+        cfg.beta = j["beta"].get<std::vector<double>>();
+        cfg.gamma = j["gamma"].get<std::vector<double>>();
+        cfg.A0 = j["A0"].get<std::vector<double>>();
+        cfg.p0 = j["p0"].get<std::vector<double>>();
+        cfg.b0 = j["b0"].get<std::vector<double>>();
+        cfg.WINDOW_PRINT_DEBUG = j["WINDOW_PRINT_DEBUG"];
+        cfg.WINDOW_LOG_SEQUENTIAL = j["WINDOW_LOG_SEQUENTIAL"];
+        cfg.WINDOW_LOG_FULL = j["WINDOW_LOG_FULL"];
+        cfg.is_extended = j["is_extended"];
+
+        if (j.contains("log_dir") && !j["log_dir"].is_null()) {
+            cfg.log_dir = j["log_dir"].get<std::string>();
+        }
+        else {
+            cfg.log_dir.clear();
+        }
+        if (j.contains("window_var_boost") && !j["window_var_boost"].is_null()) {
+            cfg.window_var_boost = j["window_var_boost"].get<std::vector<double>>();
+        }
+        else {
+            cfg.window_var_boost.clear();
+        }
+        return CauchyAPI(cfg);
+    }
+    catch (const std::exception& e) {
+        std::runtime_error("Failed to load from JSON");
+    }
 }
 
 Status CauchyAPI::step()

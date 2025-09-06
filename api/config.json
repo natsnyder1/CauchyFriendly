@@ -19,7 +19,8 @@
 
     "WINDOW_PRINT_DEBUG": false,
     "WINDOW_LOG_SEQUENTIAL": false,
-    "WINDOW_LOG_FULL": false
-
-
+    "WINDOW_LOG_FULL": false,
+    "is_extended": false,
+    "log_dir": null,
+    "window_var_boost": null
 }

@@ -824,7 +824,7 @@ struct SlidingWindowManager
                         void (*_nonlinear_msmt_model)(CauchyDynamicsUpdateContainer* _duc, double* _zbar), // used for extenedd estimator
                         void (*_extended_msmt_update_callback)(CauchyDynamicsUpdateContainer* _duc), // used for extended estimator
                         double* _window_var_boost, // boosts the diagonal of the variance of the initializee window, reduces initial correlation
-                        char* _log_dir // if set to NULL, no logging occurs
+                        const char* _log_dir // if set to NULL, no logging occurs
                         )
     {
         num_windows = _num_windows;
@@ -1192,7 +1192,7 @@ struct SlidingWindowManager
     }
 
     // Creates the logging directory if one has not been created already
-    void check_make_log_dir(char* _log_dir)
+    void check_make_log_dir(const char* _log_dir)
     {
         if(_log_dir == NULL)
         {

@@ -12,9 +12,11 @@
 
 #include "cauchy_estimator.hpp"
 #include "cauchy_windows.hpp"
+#include "json.hpp"
 #include <vector>
 #include <string>
-// #include <nlohmann/json.hpp>
+#include <fstream>
+#include <optional>
 
 enum class StatusCode : uint8_t {
     Ok = 0,
@@ -49,12 +51,12 @@ struct CauchyEstimatorConfig {
     std::vector<double> B, u;
 
     // TODO: Figure out what these do (keeping example settings for now)
-    char* log_dir = NULL;
-    const bool WINDOW_PRINT_DEBUG = false;
-    const bool WINDOW_LOG_SEQUENTIAL = false;
-    const bool WINDOW_LOG_FULL = false;
-    const bool is_extended = false;
-    double* window_var_boost = NULL;
+    bool WINDOW_PRINT_DEBUG = false;
+    bool WINDOW_LOG_SEQUENTIAL = false;
+    bool WINDOW_LOG_FULL = false;
+    bool is_extended = false;
+    std::string log_dir; // Should not set this to NULL apparently?
+    std::vector<double> window_var_boost;
 
 };
 
@@ -83,7 +85,7 @@ class CauchyAPI {
 
     // General API functions
     static CauchyAPI initialize(CauchyEstimatorConfig& cfg); // configure estimator: dimensions, time step, intial CF/mean/covariance, noise stuff
-    static CauchyAPI intializeFromJSON();
+    static CauchyAPI intializeFromJSON(std::string path = "config.json");
     Status step(); // advances estimator by one time-step, take in new measurements (and optionally controls)
     Status getConditionals(); // get conditional mean/covariance after update
     Status reset(); // discard/reinitialize state for sliding windows
