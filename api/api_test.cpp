@@ -11,13 +11,15 @@
 #include "cauchy_estimator_api.hpp"
 
  int main() {
-   // Setup config
+  // Setup config
 
-   // NOTE: Config must a named lvalue, do not pass rvalues into initializers or constructor
-   CauchyEstimatorConfig config;
-   // Test initialize from CauchyEstimatorConfig struct
+  // NOTE: Config must a named lvalue, do not pass rvalues into initializers or constructor
+  CauchyEstimatorConfig config;
+  
+  // Test initialize from CauchyEstimatorConfig struct
+  auto testAPI = CauchyAPI::initializeFromJSON("./config.json");
 
-   // Test initialize from JSON
+  // Test initialize from JSON
 
-    return true;
+  return 0;
  }

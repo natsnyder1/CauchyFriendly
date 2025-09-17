@@ -6,6 +6,8 @@
  * 
  * This class defines the functions and class methods for the Cauchy Estimator API
  * 
+ * TEMPORARILY REMOVE. KEEP EVERYTHING HEADER ONLY
+ * 
  *******************************************************************/
 
 #include "cauchy_estimator_api.hpp"
@@ -55,7 +57,7 @@ CauchyAPI CauchyAPI::initialize(CauchyEstimatorConfig& cfg)
     return CauchyAPI(cfg);
 }
 
-CauchyAPI CauchyAPI::intializeFromJSON(std::string path)
+CauchyAPI CauchyAPI::initializeFromJSON(std::string path)
 {
     using json = nlohmann::json;
     try {
