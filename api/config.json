@@ -4,7 +4,7 @@
     "process_noise_dim_q": 1,
     "control_dim": 0,
 
-    "num_steps": 0,
+    "num_steps": 10,
     "num_windows": 4,
 
     "Phi": [1.4, -0.6, -1.0, -0.2, 1.0, 0.5, 0.6, -0.6, -0.2],

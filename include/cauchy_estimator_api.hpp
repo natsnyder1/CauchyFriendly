@@ -17,6 +17,7 @@
 #include <string>
 #include <fstream>
 #include <optional>
+#include <span>
 
 /*******************************************************************
  * StatusCode and Status structs for communication with API
@@ -24,7 +25,8 @@
 enum class StatusCode : uint8_t {
     Ok = 0,
     ConfigError = 1,
-    InitializeError = 2
+    InitializeError = 2,
+    StepError = 3
 };
 
 struct Status {
@@ -72,6 +74,10 @@ struct CauchyEstimatorConfig {
 class CauchyAPI {
     // Private fields
     private:
+
+    // TEMPORARY MEMBER WHILE I FIGURE OUT child_window_loop and malloc for num_steps
+    int curr_step_ = 0;
+
     bool initialized_ = false;
     // Care declaration order for member init list
     CauchyEstimatorConfig cfg_;
@@ -177,7 +183,7 @@ class CauchyAPI {
     }
 
     // Advances estimator by one time-step, take in new measurements (and optionally controls)
-    Status step() {
+    Status step(std::span<double> z, std::span<double> u = {}) {
         // TODO: Write step, based on window_manager.cpp
         // MAIN QUESTION: What if we don't have a total step? SWM is constructed with it
         // but what if we don't want one? see how to edit SWM i guess...
@@ -188,7 +194,18 @@ class CauchyAPI {
         //     swm.step(zs, NULL);
         // }
         // swm.shutdown();
-        return Status();
+        if (z.size() != static_cast<size_t>(cfg_.msmt_dim_p)) {
+            return Status::error(StatusCode::StepError, "check measurement size");
+        }
+        if (!u.empty() && u.size() != static_cast<size_t>(cfg_.control_dim)) {
+            return Status::error(StatusCode::StepError, "check control size");
+        }
+        if (curr_step_ > cfg_.num_steps) {
+            return Status::error(StatusCode::StepError, "Outside the number of possible steps (WILL BE PATCHED)");
+        }
+        swm_.step(z.data(), u.empty() ? nullptr : u.data());
+        ++curr_step_;
+        return Status::ok();
     } 
 
 

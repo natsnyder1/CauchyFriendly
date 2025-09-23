@@ -18,7 +18,15 @@
   
   // Test initialize from CauchyEstimatorConfig struct
   auto testAPI = CauchyAPI::initializeFromJSON("./config.json");
+  auto cfg = testAPI.config();
 
+  std::vector<double> one_msmt(cfg.msmt_dim_p, 2); // size of vector is p for p measurements and all values are 2
+
+  testAPI.step(one_msmt);
+
+  std::cout << "TEST HAS COMPLETED" << std::endl;
+
+  
   // Test initialize from JSON
 
   return 0;
