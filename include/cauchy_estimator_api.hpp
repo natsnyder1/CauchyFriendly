@@ -18,6 +18,8 @@
 #include <fstream>
 #include <optional>
 #include <span>
+#include <iostream>
+#include <iomanip>
 
 /*******************************************************************
  * StatusCode and Status structs for communication with API
@@ -69,6 +71,18 @@ struct CauchyEstimatorConfig {
 };
 
 /*******************************************************************
+ * Statistics Struct for storing data from estimator and using in control
+ *******************************************************************/
+struct CauchyStatistics {
+    std::span<const double> mean;
+    std::span<const double> covariance;
+    int n = 0;
+    int window_index = -1;
+    int step_index = -1;
+
+};
+
+/*******************************************************************
  * CauchyAPI class declarations and definitions
  *******************************************************************/
 class CauchyAPI {
@@ -83,6 +97,8 @@ class CauchyAPI {
     CauchyEstimatorConfig cfg_;
     CauchyDynamicsUpdateContainer duc_;
     SlidingWindowManager swm_;
+
+    CauchyStatistics latest_stats_;
 
     static CauchyDynamicsUpdateContainer makeCDUC(CauchyEstimatorConfig& cfg) {
         CauchyDynamicsUpdateContainer duc;
@@ -112,7 +128,27 @@ class CauchyAPI {
             &duc, cfg.WINDOW_PRINT_DEBUG, cfg.WINDOW_LOG_SEQUENTIAL, cfg.WINDOW_LOG_FULL, 
             cfg.is_extended, NULL, NULL, NULL, cfg.window_var_boost.empty() ? nullptr : cfg.window_var_boost.data(), cfg.log_dir.empty() ? nullptr: cfg.log_dir.c_str());
     }
-    
+
+    void updateStatistics() noexcept {
+        latest_stats_ = CauchyStatistics{};
+
+        const int i = swm_.msmt_count - 1;
+        const int n = swm_.n;
+
+        // Compute pointers into the “selected/winner” buffers at step i
+        const double* mean_i = swm_.full_window_means
+                            + static_cast<size_t>(i) * static_cast<size_t>(n);
+        const double* cov_i  = swm_.full_window_variances
+                            + static_cast<size_t>(i) * static_cast<size_t>(n) * static_cast<size_t>(n);
+
+        // Fill the view (no copies)
+        latest_stats_.n           = n;
+        latest_stats_.step_index  = i;
+        latest_stats_.window_index = swm_.full_window_idxs ? swm_.full_window_idxs[i] : -1;
+        latest_stats_.mean        = std::span<const double>(mean_i, static_cast<size_t>(n));
+        latest_stats_.covariance  = std::span<const double>(cov_i,  static_cast<size_t>(n) * static_cast<size_t>(n));
+    }
+
 /*******************************************************************
  *  TODO:
  *  Kalman settings, KalmanDynamicsUpdateContainer, SimulationLogger*,
@@ -205,12 +241,22 @@ class CauchyAPI {
         }
         swm_.step(z.data(), u.empty() ? nullptr : u.data());
         ++curr_step_;
+
+        updateStatistics();
         return Status::ok();
     } 
 
 
-    Status getConditionals(); // get conditional mean/covariance after update
-    Status reset(); // discard/reinitialize state for sliding windows
+    // get conditional mean/covariance after update
+    const CauchyStatistics& getStatistics() const noexcept {
+        return latest_stats_;
+    } 
+    const CauchyStatistics* getStatisticsPtr() const noexcept {
+        return &latest_stats_;
+    }
+
+    // TODO: Write reset for the API
+    Status reset(); 
 
     const CauchyEstimatorConfig& config() noexcept {
         return cfg_;
@@ -229,3 +275,31 @@ class CauchyAPI {
  *  -> simulation: timestep stuff, dynamics ("nonlin", "lin" flag), initial condition
  *  -> logging/data plotting: logging flags, plotting flags
  */
+
+
+
+inline void printStatistics(const CauchyStatistics& stats) {
+    std::cout << std::endl;
+    std::cout << "Step: " << stats.step_index
+              << " | Best Window Number: " << stats.window_index
+              << " | Dimension n = " << stats.n << "\n";
+
+    // Print mean
+    std::cout << "Mean: [ ";
+    for (int i = 0; i < stats.n; ++i) {
+        std::cout << std::fixed << std::setprecision(4) << stats.mean[i];
+        if (i < stats.n - 1) std::cout << ", ";
+    }
+    std::cout << " ]\n";
+
+    // Print covariance as a matrix
+    std::cout << "Covariance:\n";
+    for (int r = 0; r < stats.n; ++r) {
+        for (int c = 0; c < stats.n; ++c) {
+            std::cout << std::setw(10) << std::setprecision(4)
+                      << stats.covariance[r * stats.n + c] << " ";
+        }
+        std::cout << "\n";
+    }
+    std::cout << std::endl;
+}
