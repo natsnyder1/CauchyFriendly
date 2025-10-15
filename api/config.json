@@ -22,5 +22,10 @@
     "WINDOW_LOG_FULL": false,
     "is_extended": false,
     "log_dir": null,
-    "window_var_boost": null
+    "window_var_boost": null,
+
+
+    "nonlin_flag": true,
+    "nonlin_dynamics": 0,
+    "sampling_time": 0
 }

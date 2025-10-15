@@ -68,10 +68,11 @@ struct CauchyEstimatorConfig {
     std::string log_dir; // Should not set this to NULL apparently?
     std::vector<double> window_var_boost;
 
+    // TODO: Timestep and nonlinear dynamics???
 };
 
 /*******************************************************************
- * Statistics Struct for storing data from estimator and using in control
+ * Statistics Struct for storing data from estimator to use in control
  *******************************************************************/
 struct CauchyStatistics {
     std::span<const double> mean;
@@ -86,18 +87,17 @@ struct CauchyStatistics {
  * CauchyAPI class declarations and definitions
  *******************************************************************/
 class CauchyAPI {
+
     // Private fields
     private:
-
     // TEMPORARY MEMBER WHILE I FIGURE OUT child_window_loop and malloc for num_steps
     int curr_step_ = 0;
-
     bool initialized_ = false;
-    // Care declaration order for member init list
+    // Careful of declaration order for member init list
     CauchyEstimatorConfig cfg_;
     CauchyDynamicsUpdateContainer duc_;
     SlidingWindowManager swm_;
-
+    // Statistics storage WARNING: WILL BE OVERRIDDEN AT EVERY STEP
     CauchyStatistics latest_stats_;
 
     static CauchyDynamicsUpdateContainer makeCDUC(CauchyEstimatorConfig& cfg) {
@@ -152,7 +152,7 @@ class CauchyAPI {
 /*******************************************************************
  *  TODO:
  *  Kalman settings, KalmanDynamicsUpdateContainer, SimulationLogger*,
- *  KF Simulation and Logging
+ *  KF Simulation and Logging. Basically all KF stuff and simulation stuff
  *******************************************************************/
 
     // Public functions
@@ -265,6 +265,7 @@ class CauchyAPI {
 
 /**********************
  * TODO: 
+ * 
  *  -> simulink plugin
  *  -> LTV matlab
  *  -> noise models conversion (uniform, gaussian, cauchy)
