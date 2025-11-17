@@ -453,6 +453,9 @@ struct CauchyTerm
             matvecmul(B, u, work, d, cmcc);
             add_vecs(b, work, d, 1);
         }
+
+        // std::cout << "A: " << A[0] << " "<< A[1] << " "<< A[2] <<" "<<A[3] <<" "<<A[4]<<" "<<A[5]<< std::endl;
+        print_hyperplanes_("time_prop", true);
     }
 
     void normalize_hps(const bool set_q)
@@ -767,7 +770,74 @@ struct CauchyTerm
         c_map = NULL;
         cs_map = NULL;
     }
+    
+    private:
+        void print_hyperplanes_(const char* where_tag, bool as_julia = false) const;
 };
+
+#ifndef CAUCHY_DEBUG_TERMS
+#define CAUCHY_DEBUG_TERMS 1   // set to 0 to silence prints
+#endif
+
+#include <iomanip>
+
+inline void CauchyTerm::print_hyperplanes_(const char* where_tag,
+                                                 bool as_julia /*=false*/) const {
+#if CAUCHY_DEBUG_TERMS
+    using std::cout;
+
+    if (!A || !p || m <= 0 || d <= 0) {
+        cout << "[" << where_tag << "] term@" << (const void*)this
+             << " INVALID (m=" << m << ", n=" << d << ")\n";
+        return;
+    }
+
+    if (!as_julia) {
+        // ======== HUMAN READABLE MODE ========
+        cout << "[" << where_tag << "] term@" << (const void*)this
+             << "  m=" << m << "  n=" << d << "\n";
+        for (int ell = 0; ell < m; ++ell) {
+            const double* a = A + (size_t)ell * (size_t)d;
+            cout << "  H =" << ell << ": a=[ ";
+            for (int j = 0; j < d; ++j) {
+                cout << a[j];
+                if (j + 1 < d) cout << ", ";
+            }
+            cout << " ]  p=" << p[(size_t)ell] << "\n";
+        }
+        if (b) {
+            cout << "  b=[ ";
+            for (int j = 0; j < d; ++j) {
+                cout << b[j] << (j + 1 < d ? ", " : "");
+            }
+            cout << " ]\n";
+        }
+        return;
+    }
+
+    // ======== JULIA MODE ========
+    cout << std::setprecision(20);
+    cout << "[" << where_tag << "] term@" << (const void*)this
+            << "  m=" << m << "  n=" << d << "\n";
+    cout << "A = [";
+    for (int i = 0; i < m; ++i) {
+        const double* row = A + (size_t)i * (size_t)d;
+        for (int j = 0; j < d; ++j) {
+            cout << row[j];
+            if (j + 1 < d) cout << " ";
+        }
+        if (i + 1 < m) cout << "; ";
+    }
+    cout << "]\n";
+
+    cout << "c = [";
+    for (int i = 0; i < m; ++i) {
+        cout << p[i];
+        if (i + 1 < m) cout << ", ";
+    }
+    cout << "]\n";
+#endif
+}
 
 void setup_first_term(ChildTermWorkSpace* workspace, CauchyTerm* first_term, double* A0, double* p0, double* b0, const int d)
 {

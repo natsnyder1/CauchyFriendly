@@ -43,7 +43,7 @@
         std::vector<double> curr_msmt(cfg.msmt_dim_p, zs[i]);
         testAPI.step(curr_msmt);
         const auto& stats = testAPI.getStatistics();
-        std::cout << stats.mean[0] << std::endl;
+        // std::cout << stats.mean[0] << std::endl;
     }
 
   
