@@ -8,11 +8,11 @@ SWIG_FILE=${FILE_NAME}.i
 
 # Include + Library path symbols
 LIB_MATH_PTHREAD="-lm -lpthread"
-INC_PYTHON=-I"/usr/local/include/python3.7m"
-LIB_PYTHON=-L"/usr/local/lib -lpython3.7m"
-INC_NUMPY=-I"/usr/local/lib/python3.7/site-packages/numpy/core/include"
-INC_GLPK=-I"/path/to/glpk/include"
-LIB_GLPK=-L"/path/to/glpk/lib -lm -lglpk -lpthread"
+INC_PYTHON=-I"/usr/include/python3.12"
+LIB_PYTHON=-L"/usr/lib/x86_64-linux-gnu -lpython3.12"
+INC_NUMPY=-I"/usr/lib/python3/dist-packages/numpy/core/include"
+INC_GLPK=-I"/usr/include/"
+LIB_GLPK=-L"/usr/lib -lm -lglpk -lpthread"
 
 rm _${FILE_NAME}.so
 rm ${FILE_NAME}_wrap.cxx
@@ -23,7 +23,7 @@ rm -rf __pycache__
 echo "All temp files / libraries initially deleted"
 echo "Creating new temp files / libraries..."
 
-swig -c++ -python ${SWIG_FILE}
+/home/agao0/Documents/research/CauchyRepo/CauchyFriendly/scripts/swig/swig_download/install_swig/bin/swig -c++ -python ${SWIG_FILE}
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] swig -c++ -python ${SWIG_FILE} command returned with failure!"
     exit 1
@@ -57,7 +57,7 @@ rm -rf __pycache__
 echo "All temp files / libraries initially deleted"
 echo "Creating new temp files / libraries..."
 
-swig -c++ -python ${SWIG_FILE}
+/home/agao0/Documents/research/CauchyRepo/CauchyFriendly/scripts/swig/swig_download/install_swig/bin/swig -c++ -python ${SWIG_FILE}
 if [ $? -eq 1 ]; then 
     echo "[ERROR:] swig -c++ -python ${SWIG_FILE} command returned with failure!"
     exit 1

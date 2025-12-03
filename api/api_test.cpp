@@ -9,6 +9,7 @@
  *******************************************************************/
 
 #include "cauchy_estimator_api.hpp"
+#include "count_chambers.hpp"
 
  int main() {
   // Setup config
@@ -46,6 +47,16 @@
         // std::cout << stats.mean[0] << std::endl;
     }
 
+    Arrangement A(2, 4);
+    A(0,0) = -1; A(1,0) = 1; 
+    A(0,1) = 1;  A(1,1) = 0;
+    A(0,2) = 1;  A(1,2) = 1;
+    A(0,3) = 0;  A(1,3) = 1;
+
+    std::int64_t chambers = count_chambers(A);
+    std::cout << "Test 3 (Julia): expected 8, got " << chambers << "\n";
+
+    A.print();
   
   std::cout << "TEST HAS COMPLETED" << std::endl;
 

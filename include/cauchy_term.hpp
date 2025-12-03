@@ -455,7 +455,7 @@ struct CauchyTerm
         }
 
         // std::cout << "A: " << A[0] << " "<< A[1] << " "<< A[2] <<" "<<A[3] <<" "<<A[4]<<" "<<A[5]<< std::endl;
-        print_hyperplanes_("time_prop", true);
+        print_hyperplanes_("time_prop", false);
     }
 
     void normalize_hps(const bool set_q)
