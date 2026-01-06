@@ -306,6 +306,7 @@ struct CauchyTerm
             }
             */
         }
+        print_hyperplanes_("meas_update", false);
         return num_integrable_terms; // new children + old child
     }
 
@@ -836,6 +837,16 @@ inline void CauchyTerm::print_hyperplanes_(const char* where_tag,
         if (i + 1 < m) cout << ", ";
     }
     cout << "]\n";
+
+    cout << "b = [";
+    for (int i = 0; i < m; ++i) {
+        cout << b[i];
+        if (i + 1 < m) cout << ", ";
+    }
+    cout << "]\n";
+
+    
+
 #endif
 }
 

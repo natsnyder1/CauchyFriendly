@@ -393,9 +393,12 @@ def test_3state_marginal_cpdfs():
     p0 = np.array([0.10, 0.08, 0.05]) # Initial state uncertainty cauchy scaling parameter(s)
     b0 = np.zeros(ndim) # Initial median of system state
 
-    zs = [0.022172011200334241, -0.11943271347277583, -1.22353301003957098, 
-            -1.4055389648301792, -1.34053610027255954, 0.4580483915838776, 
-            0.65152999529515989, 0.52378648722334, 0.75198272983]
+    zs = [0.022172011200334241, -0.11943271347277583, -1.22353301003957098,
+            -1.4055389648301792] #, -1.34053610027255954, 0.4580483915838776]
+    #         0.65152999529515989, 0.52378648722334, 0.75198272983]
+    # zs = [0.022172011200334241, -0.11943271347277583, -1.22353301003957098, 
+    #         -1.4055389648301792, -1.34053610027255954, 0.4580483915838776, 
+    #         0.65152999529515989, 0.52378648722334, 0.75198272983]
     num_steps = len(zs)
     
     # 2D Grid Params
@@ -668,8 +671,8 @@ if __name__ == "__main__":
     #test_2state_lti_single_window()
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
-    test_3state_lti_window_manager()
-    #test_3state_marginal_cpdfs()
+    #test_3state_lti_window_manager()
+    test_3state_marginal_cpdfs()
     #test_3state_reset()
     #test_2state_smoothing()
     #test_no_proc_noise()
