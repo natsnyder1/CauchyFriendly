@@ -72,6 +72,8 @@ def test_2state_lti_single_window():
     x0_truth = p0 * np.random.randn(ndim)
     (xs, zs, ws, vs) = ce.simulate_cauchy_ltiv_system(num_steps, x0_truth, us, Phi, B, Gamma, beta, H, gamma, with_zeroth_step_msmt=True, dynamics_update_callback=None, other_params=None)
     
+    zs = [0.0338, 0.2049, -2.3543, -0.6042, -0.2662, 0.1307, -0.2250, 0.1951, -0.2191, 0.0996]
+
     # Run Cauchy Estimator
     ce.set_tr_search_idxs_ordering([1,0])
     cauchyEst = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
@@ -476,6 +478,64 @@ def test_3state_marginal_cpdfs():
         ax3.set_ylabel("CPDF Probability")
         plt.show()
         plt.close()
+
+# Runs the 4-state dummy problem and looks at their marginals
+def test_4state_marginal_cpdfs():
+    ndim = 4
+    Phi = np.array([ [1.4, -0.6, -1.0, 0], 
+                     [-0,  1.0,  0.5, 0],  
+                     [0.6, -0.6, -0.2, 0],
+                     [0.0, 0.0, 0.0, 0.5]] )
+    Gamma = np.array([.1, 0.3, -0.2, 0.4])
+    H = np.array([2.0, 0.5, 0.2, -0.1])
+    beta = np.array([0.1]) # Cauchy process noise scaling parameter(s)
+    gamma = np.array([0.1]) # Cauchy measurement noise scaling parameter(s)
+    A0 = np.eye(ndim) # Unit directions of the initial state uncertainty
+    p0 = np.array([0.10, 0.08, 0.05, 0.10]) # Initial state uncertainty cauchy scaling parameter(s)
+    b0 = np.zeros(ndim) # Initial median of system state
+
+    zs = [-0.363, -1.4829, -0.6332, -0.5131] #, -0.4414, 0.3140, -0.4, -0.3]
+    num_steps = len(zs)
+    
+    # 2D Grid Params
+    g2lx = -2
+    g2hx = 2
+    g2rx = 0.025
+    g2ly = -2
+    g2hy = 2
+    g2ry = 0.025
+
+    # 1D Grid Params
+    g1lx = -4
+    g1hx = 4
+    g1rx = 0.001
+    
+    # Testing Single Cauchy Estimator Instance
+    cauchyEst = ce.PyCauchyEstimator("lti", num_steps+1, debug_print=True)
+    cauchyEst.initialize_lti(A0, p0, b0, Phi, None, Gamma, beta, H, gamma)
+    for i in range(len(zs)-2):
+        print(f"measurement: {i}")
+        zk1 = zs[i]
+        xs, Ps = cauchyEst.step(zk1, None)
+        X01, Y01, Z01 = cauchyEst.get_marginal_2D_pointwise_cpdf(0, 1, g2lx, g2hx, g2rx, g2ly, g2hy, g2ry)
+
+        # set up a figure three times as wide as it is tall
+        fig1 = plt.figure(figsize = (18,5))
+        ax12 = fig1.add_subplot(1,3,1,projection='3d')
+        plt.tight_layout()
+        # Marg 2D
+        # Marg (0,1)
+        ax12.set_title("Marginal of States 1 and 2", pad=-15)
+        ax12.plot_wireframe(X01, Y01, Z01, zorder=2, color='b')
+        ax12.set_xlabel("x-axis (State-1)")
+        ax12.set_ylabel("y-axis (State-2)")
+        ax12.set_zlabel("z-axis (CPDF Probability)")
+
+        plt.show()
+
+        plt.close()
+  
+
         
 # Runs the 3-state dummy problem and looks at their marginals
 def test_3state_reset():
@@ -668,11 +728,12 @@ def test_no_proc_noise():
 if __name__ == "__main__":
     #test_1state_lti()
     #test_2state_cpdfs()
-    #test_2state_lti_single_window()
+    test_2state_lti_single_window()
     #test_3state_lti_single_window()
     #test_2state_lti_window_manager()
     #test_3state_lti_window_manager()
-    test_3state_marginal_cpdfs()
+    #test_3state_marginal_cpdfs()
     #test_3state_reset()
     #test_2state_smoothing()
     #test_no_proc_noise()
+    #test_4state_marginal_cpdfs()

@@ -792,7 +792,7 @@ struct CauchyEstimator
                 for(int m = 1; m < shape_range; m++)
                     if(terms_per_shape[m] > 0)
                         printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
-                print_conditional_mean_variance();
+                // print_conditional_mean_variance();
                 //stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
                 //stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
             }
@@ -822,7 +822,7 @@ struct CauchyEstimator
                 for(int m = 1; m < shape_range; m++)
                     if(terms_per_shape[m] > 0)
                         printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
-                print_conditional_mean_variance();
+                // print_conditional_mean_variance();
                 //stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
             }
         }
@@ -969,7 +969,7 @@ struct CauchyEstimator
             for(int m = 1; m < shape_range; m++)
                 if(terms_per_shape[m] > 0)
                     printf("Shape %d has %d terms\n", m, terms_per_shape[m]);
-            print_conditional_mean_variance();
+            // print_conditional_mean_variance();
             //stats.print_total_estimator_memory(gb_tables, coalign_store, reduce_store, Nt, true, num_threads_tp_to_muc, num_threads_make_gtables);
             //stats.print_cell_count_histograms(terms_dp, shape_range, terms_per_shape, dce_helper->cell_counts_cen);
         }

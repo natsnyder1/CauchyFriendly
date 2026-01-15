@@ -42,18 +42,18 @@ class Term:
                 mu[l,:] = -1 * self.A_hplane_arr[l,0:self.ndim-1]/self.A_hplane_arr[l,-1]
         return mu
 
-    def findChildArrangementZeros(self,ind_child,zero_inds): # ind child is 1,2,3,4
+    def findChildArrangementZeros(self,child_t,zero_inds): # ind child is 1,2,3,4
         child_dim = self.ndim-1
         A_child = np.empty((self.m_hyperplanes-1,child_dim))
         mu = self.calcMuZero(zero_inds)
-        mu_t = mu[ind_child-1,:]
+        mu_t = mu[child_t-1,:]
         for l in range(self.m_hyperplanes): # indexes from 0 to 1
             if l in zero_inds:
                 A_child[l,:] = self.A_hplane_arr[l,0:-1]
             else:
-                if l < ind_child-1:   
+                if l < child_t-1:   
                     A_child[l,:] = mu[l,:] - mu_t
-                elif l > ind_child-1:
+                elif l > child_t-1:
                     A_child[l-1,:] = mu[l,:] - mu_t
         return A_child,mu_t
     
@@ -64,7 +64,7 @@ class Term:
         return A_tild,zero_inds
         
 
-    def generateChildEnumerationWithZeros(self,ind_child):
+    def generateChildEnumerationWithZeros(self,child_t):
         """
         for i in enumeration length
         make g bundles
@@ -81,10 +81,10 @@ class Term:
         G = self.enumeration_G
         B_to_G_dict = dict(zip(B,G))
         
-        if ind_child-1 in zero_inds:
+        if child_t-1 in zero_inds:
             return "child index cannot be a row that has a_tild = 0"
         
-        childA,mu_t = self.findChildArrangementZeros(ind_child,zero_inds)
+        childA,mu_t = self.findChildArrangementZeros(child_t,zero_inds)
 
         #A_tild_sign = [copysign(1,a_til) for a_til in A_tild]
         A_tild_sign = [copysign(1,a_til) if a_til != 0 else 0 for a_til in A_tild]
@@ -110,14 +110,14 @@ class Term:
         new_Q = Q[0:-1,:]+np.outer(mu_t,comp_q)
         
         # childB
-        childB = self.generateChildB(child_ind=ind_child)
+        childB = self.generateChildB(child_t=child_t,lambda_tild=A_tild_bin)
 
         # generate p's that will be in the denominator of the new g's 
         p_il = [p[i] * A_tild_abs[i] for i in range(len(A_tild_abs))]
-        p_it = p_il[ind_child-1]
-        new_p = p_il[:ind_child-1] + p_il[ind_child:]
+        p_it = p_il[child_t-1]
+        new_p = p_il[:child_t-1] + p_il[child_t:]
 
-        new_p_ign0 = [p_il[i] if p_il[i] != 0 else p[i] for i in range(len(p_il[:ind_child-1]))] + [p_il[ind_child+i] if p_il[ind_child+i] != 0 else p[ind_child+i] for i in range(len(p_il[ind_child:]))]
+        new_p_ign0 = [p_il[i] if p_il[i] != 0 else p[i] for i in range(len(p_il[:child_t-1]))] + [p_il[child_t+i] if p_il[child_t+i] != 0 else p[child_t+i] for i in range(len(p_il[child_t:]))]
         
         # for this child, construct enumeration table
         G_child = []
@@ -133,8 +133,8 @@ class Term:
                     p_sum -= new_p[index]
                 
             # find the sgn sequence for the numerators (for parents)
-            sgn_plus = insert(lam_child_bin,'0',ind_child-1)
-            sgn_minus = insert(lam_child_bin,'1',ind_child-1)
+            sgn_plus = insert(lam_child_bin,'0',child_t-1)
+            sgn_minus = insert(lam_child_bin,'1',child_t-1)
             
             # generate sgn sequence for numerators, and access the associated G row from parent
             parent_enum_plus_ind = int(sgn_plus,2) ^ int(A_tild_bin,2)
@@ -166,15 +166,21 @@ class Term:
                 #first integration step: g's are values, not bundles
 
                 # calculate components of new bundles
-                plus_denom_qt0 = (p_it+p_sum+1j*comp_b)/parent_enum_plus[0][0]
-                plus_denom_qt = -1j*comp_q/parent_enum_plus[0][0]
-
-                minus_denom_qt0 = -(-p_it+p_sum+1j*comp_b)/parent_enum_minus[0][0]
-                minus_denom_qt = 1j*comp_q/parent_enum_minus[0][0]
-            
-                # make these two into bundles to be added to the enumeration table
-                plus_bundle = Bundle(1,plus_denom_qt0,plus_denom_qt)
-                minus_bundle = Bundle(1,minus_denom_qt0,minus_denom_qt)
+                if parent_enum_plus[0][0] == 0: 
+                    plus_bundle = Bundle(0,1,0*comp_q)
+                else: 
+                    plus_denom_qt0 = (p_it+p_sum+1j*comp_b)/parent_enum_plus[0][0]
+                    plus_denom_qt = -1j*comp_q/parent_enum_plus[0][0]
+                    # make this into bundle to be added to the enumeration table
+                    plus_bundle = Bundle(1,plus_denom_qt0,plus_denom_qt)
+                
+                if parent_enum_minus[0][0] == 0: 
+                    minus_bundle = Bundle(0,1,0*comp_q)
+                else:
+                    minus_denom_qt0 = -(-p_it+p_sum+1j*comp_b)/parent_enum_minus[0][0]
+                    minus_denom_qt = 1j*comp_q/parent_enum_minus[0][0]
+                    # make this into bundle to be added to the enumeration table
+                    minus_bundle = Bundle(1,minus_denom_qt0,minus_denom_qt)
 
                 # plus bundle should be added to the list of list of bundles from parent +
                 # minus bundle should be added to the list of list of bundles from parent - 
@@ -273,22 +279,34 @@ class Term:
         child_inds = [ind + 1 for ind in all_inds if ind not in zero_inds]
         return child_inds
     
-    def generateChildB(self,child_ind):
+    def generateChildB(self,child_t,lambda_tild):
         # CHECK CHILD IND
-        ind_child = child_ind-1
+        ind_child = child_t-1
 
         B = self.enumeration_B
         m = self.m_hyperplanes
         B_bin = [f'{{0:0{m}b}}'.format(lam_base10) for lam_base10 in B]
         B_bin_child_removed = [lamda[0:ind_child]+lamda[ind_child+1:] for lamda in B_bin]
-        for enum_index,enum_bin in enumerate(B_bin_child_removed):
-            if B_bin_child_removed.count(enum_bin) == 2: 
-                pass
+        newB_bin_try2 = []
+        enum_used = []
+        for enum_index,enum_t_removed in enumerate(B_bin_child_removed):
+            if B_bin_child_removed.count(enum_t_removed) == 2 and enum_t_removed not in enum_used: 
+                enum_used.append(enum_t_removed)
+                lambda_a = B_bin[enum_index]
+                lambda_hprod= int(lambda_a,2) ^ int(lambda_tild,2)
+                lambda_hprod_bin = f'{{0:0{m}b}}'.format(lambda_hprod)
+                lambda_plus = lambda_hprod_bin[0:ind_child] + '0' + lambda_hprod_bin[ind_child+1:]
+                lambda_minus = lambda_hprod_bin[0:ind_child] + '1' + lambda_hprod_bin[ind_child+1:]
+                lambda_bar = lambda_plus[:ind_child] + lambda_plus[ind_child+1:]
+                newB_bin_try2.append(lambda_bar)
+
+        newB_try2 = [int(lam_bin,2) for lam_bin in newB_bin_try2]
+
         counter_dict = Counter(B_bin_child_removed)
         newB_bin = [key for key in counter_dict if counter_dict[key]==2]
         newB = [int(lam_bin,2) for lam_bin in newB_bin]
 
-        return newB
+        return newB_try2
     
     def coalignmentCheck(self):
         m = self.m_hyperplanes
@@ -392,7 +410,8 @@ def getPDFPerTerm(term):
         res = []
         for child_num in child_inds:
             childTerm = term.generateChildEnumerationWithZeros(child_num)
-            res.append(*getPDFPerTerm(childTerm))
+            # res.append(*getPDFPerTerm(childTerm))
+            res.append(getPDFPerTerm(childTerm)[0])
         return res
 
 def evaluateAtX(symbolic_UCPDF,x_vec,fz):
@@ -485,6 +504,45 @@ def plot2d_from_3d_pdf(symbolicPDF_3d):# set up a figure three times as wide as 
     ax23.set_ylabel("y-axis (State-3)")
     ax23.set_zlabel("z-axis (CPDF Probability)")
     
+def plot2d_from_4d(symbolic_UCPDF_4d,fz):
+     # 2D Grid Params
+    g2lx = -2
+    g2hx = 2
+    g2rx = 0.025
+    g2ly = -2
+    g2hy = 2
+    g2ry = 0.025
+
+    x_grid = np.arange(g2lx,g2hx,g2rx)
+    y_grid = np.arange(g2ly, g2hy, g2ry)
+
+    pdf = np.empty((len(x_grid),len(y_grid)))
+    pdf1 = np.empty(len(x_grid))
+    pdf2 = np.empty(len(y_grid))
+
+    x_grid_2d = np.empty((len(x_grid),len(y_grid)))
+    y_grid_2d = np.empty((len(x_grid),len(y_grid)))
+
+    for i_x,x in enumerate(x_grid):
+        for i_y,y in enumerate(y_grid): 
+            pdf[i_x,i_y] = evaluateAtX(symbolic_UCPDF_4d,[x,y,0,0],fz)
+            if abs(pdf[i_x,i_y].imag) > 1e-3:
+                print(pdf[i_x,i_y])
+            x_grid_2d[i_x,i_y] = x
+            y_grid_2d[i_x,i_y] = y     
+
+    fig1 = plt.figure(figsize = (5,5))
+    ax = fig1.subplots(1,1,subplot_kw={'projection': '3d'})
+
+    # Marg (0,1)
+    ax.set_title("States 1 and 2", pad=-15)
+    ax.plot_wireframe(x_grid_2d, y_grid_2d, pdf, zorder=2, color='b')
+    ax.set_xlabel("x-axis (State-1)")
+    ax.set_ylabel("y-axis (State-2)")
+    ax.set_zlabel("z-axis (CPDF Probability)")
+
+    plt.show()
+    plt.close()
 
 def plot2d_from_2d(symbolic_UCPDF_2d,fz):
      # 2D Grid Params
@@ -707,11 +765,13 @@ def test_4d():
     term4 = Term(parent=0,ndim=n_dim,m_hyperplanes=m_i,A_hplane_arr=A4,expnt_b=b4,expnt_Q = Q,expnt_p = p4,enumeration_B=new_B4,enumeration_G=convertListGToTableG(new_G4,n_dim))  
     term5 = Term(parent=0,ndim=n_dim,m_hyperplanes=m_i,A_hplane_arr=A5,expnt_b=b5,expnt_Q = Q,expnt_p = p5,enumeration_B=new_B5,enumeration_G=convertListGToTableG(new_G5,n_dim))  
 
-    pdf = findSymbolic_UCPDF([term1]) #,term2,term3,term4,term5])
+    pdf = findSymbolic_UCPDF([term1,term2,term3,term4,term5])
+    fz = calcfz([term1,term2,term3,term4,term5])
 
-     
+    print(fz)
 
-    
+    plot2d_from_4d(pdf,fz)
+
 
 
 def test_coalignment():
