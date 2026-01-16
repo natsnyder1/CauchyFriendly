@@ -1178,9 +1178,12 @@ struct CauchyEstimator
 
     void step_first(double msmt, double* H, double gamma)
     {
+        std::cout << " INSIDE STEP FIRST " << std::endl;
         CauchyTerm* terms = terms_dp[d];
         Nt = terms[0].msmt_update(terms+1, msmt, H, gamma, true, false, &childterms_workspace) + 1;
         terms_per_shape[d] = Nt;
+        std::cout << " AFTER STEP_FIRST MSMT_UPDATE" << std::endl;
+
         compute_moments(true);
         for(int i = 0; i < Nt; i++)
         {
@@ -1192,7 +1195,14 @@ struct CauchyEstimator
                 terms[i].enc_B = B_dense;
             gb_tables->set_term_gtable_pointer(&(terms[i].gtable), terms[i].cells_gtable, true);
             make_gtable_first(terms + i, G_SCALE_FACTOR);
+            std::cout << "--------------------------------------------------------------" << std::endl;
+            std::cout << "-------------------- TERM SEPARATION -------------------------" << std::endl;
+            std::cout << "--------------------------------------------------------------" << std::endl;
+            terms[i].print_hyperplanes_("step first");
+            terms[i].print_btable_("step first");
+            terms[i].print_gtable_("step first");
             terms[i].become_parent();
+            std::cout << "--------------------------------------------------------------" << std::endl;
         }
         gb_tables->swap_gtables();
         if(print_basic_info)
@@ -1210,6 +1220,8 @@ struct CauchyEstimator
     // Main function that is called
     int step(double msmt, double* Phi, double* Gamma, double* beta, double* H, double gamma, double* B, double* u)
     {
+        std::cout << "************************************************************ " << std::endl;
+        std::cout << " STEP " << master_step << std::endl;
         set_function_pointers();
         if( numeric_moment_errors & (1<<ERROR_FZ_NEGATIVE) )
         {

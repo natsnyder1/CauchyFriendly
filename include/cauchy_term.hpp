@@ -6,6 +6,7 @@
 #include "cauchy_linalg.hpp"
 #include "gtable.hpp"
 #include <complex.h>
+#include <iomanip>
 
 struct ChildTermWorkSpace
 {
@@ -307,6 +308,9 @@ struct CauchyTerm
             }
             */
         }
+        std::cout << "#############################################################" << std::endl;
+        // print_hyperplanes_("msmt_update", false);
+        // print_btable_("msmt_update");
         return num_integrable_terms; // new children + old child
     }
 
@@ -456,9 +460,10 @@ struct CauchyTerm
         }
 
         // std::cout << "A: " << A[0] << " "<< A[1] << " "<< A[2] <<" "<<A[3] <<" "<<A[4]<<" "<<A[5]<< std::endl;
-        print_hyperplanes_("time_prop", false);
-        print_btable_("time_prop");
-        print_gtable_("time_prop");    
+        // std::cout << "#############################################################" << std::endl;
+        // print_hyperplanes_("time_prop", false);
+        // print_btable_("time_prop");
+        // print_gtable_("time_prop");    
     }
 
     void normalize_hps(const bool set_q)
@@ -773,158 +778,105 @@ struct CauchyTerm
         c_map = NULL;
         cs_map = NULL;
     }
-    
-    private:
-        void print_hyperplanes_(const char* where_tag, bool as_julia = false) const;
-        void print_gtable_(const char* where_tag) const;
-        void print_btable_(const char* where_tag) const;
+
+    void print_gtable_(const char* where_tag) const {
+        using std::cout;
+
+        cout << "[" << where_tag << "] term@" << (const void*)this
+            << " m=" << m << " d=" << d
+            << " cells_gtable=" << cells_gtable
+            << " gtable=" << (const void*)gtable
+            << " gtable_p=" << (const void*)gtable_p
+            << "\n";
+
+        if (cells_gtable <= 0) {
+            cout << "  (no entries)\n";
+            return;
+        }
+
+        // IMPORTANT: In your code you sometimes keep data in gtable_p after pointer swaps.
+        GTABLE gt = gtable ? gtable : gtable_p;
+        cout << "  using gt=" << (const void*)gt << "\n";
+
+        if (!gt) {
+            cout << "  gt is NULL -> would segfault\n";
+            return;
+        }
+
+        auto f = cout.flags();
+        cout.setf(std::ios::dec, std::ios::basefield);
+        cout.unsetf(std::ios::showbase);
+
+        int n = cells_gtable; // or * GTABLE_SIZE_MULTIPLIER if that's correct for your storage
+        cout << "  GTABLE entries: " << n << "\n";
+
+        for (int i = 0; i < n; ++i) {
+            const KeyCValue& kv = gt[i];
+            double re = __real__ kv.value;
+            double im = __imag__ kv.value;
+
+            cout << "  i=" << i
+                << " key=" << kv.key
+                << " value=(" << re << (im >= 0 ? " + " : " - ") << (im >= 0 ? im : -im) << "i)\n";
+        }
+
+        cout.flags(f);
+    }
+
+    void print_btable_(const char* where_tag) const {
+        using std::cout;
+
+        cout << "[" << where_tag << "] term@" << (const void*)this
+                << "  m=" << m << "  n=" << d << "\n";
+        cout << std::dec;
+        cout << "  Enc_B = ";
+        for (int i = 0; i < cells_gtable; i++) {
+            cout << " " << enc_B[i];
+        }
+        cout << "\n";
+        return;
+    }
+
+
+    void print_hyperplanes_(const char* where_tag) const {
+        using std::cout;
+        
+        cout << std::dec;
+        if (!A || !p || m <= 0 || d <= 0) {
+            cout << "[" << where_tag << "] term@" << (const void*)this
+                << " INVALID (m=" << m << ", n=" << d << ")\n";
+            return;
+        }
+
+        {
+            // ======== HUMAN READABLE MODE ========
+            cout << "[" << where_tag << "] term@" << (const void*)this
+                << "  m=" << m << "  n=" << d << "\n";
+            for (int ell = 0; ell < m; ++ell) {
+                const double* a = A + (size_t)ell * (size_t)d;
+                cout << "  H =" << ell << ": a=[ ";
+                for (int j = 0; j < d; ++j) {
+                    cout << a[j];
+                    if (j + 1 < d) cout << ", ";
+                }
+                cout << " ]  p=" << p[(size_t)ell] << "\n";
+            }
+            if (b) {
+                cout << "  b=[ ";
+                for (int j = 0; j < d; ++j) {
+                    cout << b[j] << (j + 1 < d ? ", " : "");
+                }
+                cout << " ]\n";
+            }
+            return;
+        }
+    }
+        // void print_hyperplanes_(const char* where_tag, bool as_julia = false) const;
+        // void print_gtable_(const char* where_tag) const;
+        // void print_btable_(const char* where_tag) const;
 };
 
-#ifndef CAUCHY_DEBUG_TERMS
-#define CAUCHY_DEBUG_TERMS 1   // set to 0 to silence prints
-#endif
 
-#include <iomanip>
-
-inline void CauchyTerm::print_hyperplanes_(const char* where_tag,
-                                                 bool as_julia /*=false*/) const {
-#if CAUCHY_DEBUG_TERMS
-    using std::cout;
-    
-    cout << std::dec;
-    if (!A || !p || m <= 0 || d <= 0) {
-        cout << "[" << where_tag << "] term@" << (const void*)this
-             << " INVALID (m=" << m << ", n=" << d << ")\n";
-        return;
-    }
-
-    if (!as_julia) {
-        // ======== HUMAN READABLE MODE ========
-        cout << "[" << where_tag << "] term@" << (const void*)this
-             << "  m=" << m << "  n=" << d << "\n";
-        for (int ell = 0; ell < m; ++ell) {
-            const double* a = A + (size_t)ell * (size_t)d;
-            cout << "  H =" << ell << ": a=[ ";
-            for (int j = 0; j < d; ++j) {
-                cout << a[j];
-                if (j + 1 < d) cout << ", ";
-            }
-            cout << " ]  p=" << p[(size_t)ell] << "\n";
-        }
-        if (b) {
-            cout << "  b=[ ";
-            for (int j = 0; j < d; ++j) {
-                cout << b[j] << (j + 1 < d ? ", " : "");
-            }
-            cout << " ]\n";
-        }
-        return;
-    }
-
-    // ======== JULIA MODE ========
-    cout << std::setprecision(20);
-    cout << "[" << where_tag << "] term@" << (const void*)this
-            << "  m=" << m << "  n=" << d << "\n";
-    cout << "A = [";
-    for (int i = 0; i < m; ++i) {
-        const double* row = A + (size_t)i * (size_t)d;
-        for (int j = 0; j < d; ++j) {
-            cout << row[j];
-            if (j + 1 < d) cout << " ";
-        }
-        if (i + 1 < m) cout << "; ";
-    }
-    cout << "]\n";
-
-    cout << "p = [";
-    for (int i = 0; i < m; ++i) {
-        cout << p[i];
-        if (i + 1 < m) cout << ", ";
-    }
-    cout << "]\n";
-#endif
-}
-
-inline void CauchyTerm::print_gtable_(const char* where_tag) const {
-    using std::cout;
-
-    cout << "[" << where_tag << "] term@" << (const void*)this
-         << " m=" << m << " d=" << d
-         << " cells_gtable=" << cells_gtable
-         << " gtable=" << (const void*)gtable
-         << " gtable_p=" << (const void*)gtable_p
-         << "\n";
-
-    if (cells_gtable <= 0) {
-        cout << "  (no entries)\n";
-        return;
-    }
-
-    // IMPORTANT: In your code you sometimes keep data in gtable_p after pointer swaps.
-    GTABLE gt = gtable ? gtable : gtable_p;
-    cout << "  using gt=" << (const void*)gt << "\n";
-
-    if (!gt) {
-        cout << "  gt is NULL -> would segfault\n";
-        return;
-    }
-
-    auto f = cout.flags();
-    cout.setf(std::ios::dec, std::ios::basefield);
-    cout.unsetf(std::ios::showbase);
-
-    int n = cells_gtable; // or * GTABLE_SIZE_MULTIPLIER if that's correct for your storage
-    cout << "  GTABLE entries: " << n << "\n";
-
-    for (int i = 0; i < n; ++i) {
-        const KeyCValue& kv = gt[i];
-        double re = __real__ kv.value;
-        double im = __imag__ kv.value;
-
-        cout << "  i=" << i
-             << " key=" << kv.key
-             << " value=(" << re << (im >= 0 ? " + " : " - ") << (im >= 0 ? im : -im) << "i)\n";
-    }
-
-    cout.flags(f);
-}
-
-
-inline void CauchyTerm::print_btable_(const char* where_tag) const {
-    using std::cout;
-
-    cout << "[" << where_tag << "] term@" << (const void*)this
-            << "  m=" << m << "  n=" << d << "\n";
-    cout << std::dec;
-    cout << "  Enc_B = ";
-    for (int i = 0; i < cells_gtable; i++) {
-        cout << " " << enc_B[i];
-    }
-    cout << "\n";
-    return;
-}
-    // int m;
-    // int d;
-    // double* A;
-    // double* p;
-    // double* q;
-    // double* b;
-    // double c_val;
-    // double d_val;
-    // int cells_gtable_p;
-    // GTABLE gtable_p;
-    // int cells_gtable;
-    // BKEYS enc_B;
-    // GTABLE gtable;
-    // int enc_lhp;
-    // uint Horthog_flag;
-    // uint8_t* c_map;
-    // int8_t* cs_map;
-    // int8_t phc;
-    // uint8_t pbc;
-    // uint8_t z;
-    // bool is_new_child;
-   
     
 void setup_first_term(ChildTermWorkSpace* workspace, CauchyTerm* first_term, double* A0, double* p0, double* b0, const int d)
 {
