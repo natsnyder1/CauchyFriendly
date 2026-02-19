@@ -19,14 +19,14 @@ def advance_simulation_measurement(H,xk,gamma):
 
     return zk,vk
 
-def run_simulation_MC(runs=200,time=200,print_individ_plots=False):
+def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_on = True):
     
-    Phi = 0.9
+    Phi = 0.95
     B = 1
     Gamma = 1
     H = 1
 
-    alpha = 0.1 # x initilization 
+    alpha = 1 # x initilization 
     gamma = 0.1 # meas noise
     beta = 0.1 # process noise
 
@@ -44,8 +44,9 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False):
 
     saved_lyap_all = np.zeros(shape=(runs,time,2))
     for run in range(0,runs):
-        saved_lyap_func = define_simulation(time,Phi,B,Gamma,H,alpha,gamma,beta,P,print_individ_plots)
+        saved_lyap_func = define_simulation(time,Phi,B,Gamma,H,alpha,gamma,beta,P,print_individ_plots,control_on = control_on,print_control_cost=False)
         saved_lyap_all[run,:,:] = saved_lyap_func
+        print(run)
 
     lyap_avg = np.mean(saved_lyap_all,axis=0)
 
@@ -73,7 +74,7 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False):
     plt.show()
 
 
-def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=0.1,P=1,print_individ_plots=True):
+def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=0.1,P=1,print_individ_plots=True,control_on = True,print_control_cost = True):
     
     #check parameters
     if (abs(Phi) < 1):
@@ -84,7 +85,7 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
     x0_bar = 0
     x0_tild = cauchy.rvs(loc=0,scale=alpha,size=1)[0]
 
-    saved_data = np.zeros((time,5)) #x_bar, x_tild, zk, vk, wk 
+    saved_data = np.zeros((time,6)) #x_bar, x_tild, zk, vk, wk, ul
     saved_estimator = np.zeros([time,2]) #xk_hat, fyk
     saved_lyap_functions = np.zeros([time,2]) 
     
@@ -101,6 +102,8 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
     saved_lyap_functions[0,0] = lyap_val0
 
     u0 = 0
+    saved_data[0,5] = u0
+
     xp1_bar,xp1_tild,wk = advance_simulation_truth(Phi,B,Gamma,beta,x0_bar,x0_tild,u0)
     saved_data[0,4] = wk
     list_of_estimator_terms_1_0 = estimator_tp(Phi,beta,list_of_estimator_terms_0_0)
@@ -117,7 +120,8 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
     xk_bar = xp1_bar
     xk_tild = xp1_tild
 
-    eta_r = 0.2
+    eta_r = 0.5
+    theta_i = 8
 
     for k in range(1,time):
         
@@ -142,8 +146,12 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
         saved_lyap_functions[k,0] = lyap_val
 
         #Control
-        uk = calc_control(1,k,Phi,B,eta_r,xk_bar,fyk,list_of_mu_terms_k_k,show=True)
-        uk = 0
+        if control_on:
+            uk = calc_control(1,k,Phi,B,beta,Gamma,eta_r,theta_i,xk_bar,fyk,list_of_mu_terms_k_k,show=print_control_cost)
+            saved_data[k,5] = uk
+            #print(uk)
+        else: 
+            uk = 0
 
 
         #Advance truth k -> k+1
@@ -167,36 +175,51 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
     show = print_individ_plots
     if show:
         plt.figure()
-        plt.subplot(611)
+        plt.subplot(711)
         plt.plot(range(0,time),saved_data[:,0]+saved_data[:,1],color='blue',label="truth")
         plt.plot(range(0,time),saved_data[:,2],color='red',label="measurement")
         plt.plot(range(0,time),saved_estimator[:,0],color='green',label = "estimate")
+        plt.plot(range(0,time),np.zeros((len(range(0,time)))),linestyle="dashed")
         plt.legend()
         plt.xlabel('time')
         plt.ylabel('xk, zk, xk_hat')
 
-        plt.subplot(612)
-        plt.plot(range(0,time),saved_estimator[:,0]-(saved_data[:,0]+saved_data[:,1]),color='blue',label="estimate - truth")
+        # plt.subplot(712)
+        # plt.plot(range(0,time),saved_estimator[:,0]-(saved_data[:,0]+saved_data[:,1]),color='blue',label="estimate - truth")
+        # plt.legend()
+        # plt.xlabel('time')
+
+        plt.subplot(712)
+        plt.plot(range(0,time),saved_data[:,3],color='blue',label="meas noise")
+        plt.plot(range(0,time),saved_data[:,4],color='green',label="proc noise")
+        plt.plot(range(0,time),np.zeros((len(range(0,time)))),linestyle="dashed")
         plt.legend()
         plt.xlabel('time')
 
-        plt.subplot(613)
+
+        plt.subplot(713)
         plt.plot(range(0,time),saved_lyap_functions[:,0],color='blue',label="E[V(xk)|y(k)]")
         plt.legend()
         plt.xlabel('time')
 
-        plt.subplot(614)
+        plt.subplot(714)
         plt.plot(range(0,time-1),saved_lyap_functions[:-1,1],color='red',label="E[V(xk+1)|y(k)]")
         plt.legend()
         plt.xlabel('time')
 
-        plt.subplot(615)
+        plt.subplot(715)
         plt.plot(range(0,time-1),saved_lyap_functions[:-1,1]-saved_lyap_functions[:-1,0],color='green',label="E[V(xk+1)|y(k)]-E[V(xk)|y(k)]")
         plt.legend()
         plt.xlabel('time')
 
-        plt.subplot(616)
+        plt.subplot(716)
         plt.plot(range(0,time),saved_estimator[:,1],color='blue',label="fyk")
+        plt.legend()
+        plt.xlabel('time')
+
+        plt.subplot(717)
+        plt.plot(range(0,time),saved_data[:,5],color='blue',label="uk")
+        plt.plot(range(0,time),np.zeros((len(range(0,time)))),linestyle="dashed")
         plt.legend()
         plt.xlabel('time')
         
@@ -318,9 +341,9 @@ def calc_estimate_from_listofterms(k,list_of_terms):
 
     return xk_hat/fyk, fyk
 
-def calc_control(n,k,Phi,B,eta_r,xk_bar,fyk,list_of_terms,show):
-    len_u = 200
-    u_arr = np.linspace(-5,5,len_u)
+def calc_control(n,k,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_of_terms,show):
+    len_u = 400
+    u_arr = np.linspace(-10,10,len_u)
     cost_val = np.zeros((len_u,len(list_of_terms)))
     cost_val_der = np.zeros((len_u,len(list_of_terms)))
 
@@ -333,12 +356,19 @@ def calc_control(n,k,Phi,B,eta_r,xk_bar,fyk,list_of_terms,show):
 
         for j in range(0,len_u):
             u = u_arr[j]
-            num = ci*(2*omegai*Phi+2*eta_r) + di*(-2*sigmai*Phi - 2*(Phi*xk_bar + B*u))
-            den = omegai**2*Phi**2+2*omegai*Phi*eta_r+sigmai**2*Phi**2 + 2*sigmai*Phi*(Phi*xk_bar+B*u) +eta_r**2+(Phi*xk_bar+B*u)**2
-            cost_val[j,i] = num/den
+            num = ci*(2*omegai*Phi+2*eta_r+2*beta*Gamma) + di*(-2*sigmai*Phi - 2*(Phi*xk_bar + B*u))
+            den = omegai**2*Phi**2+2*omegai*Phi*eta_r+2*omegai*Phi*beta*Gamma+sigmai**2*Phi**2 + 2*sigmai*Phi*(Phi*xk_bar+B*u) +eta_r**2+2*eta_r*beta*Gamma+(Phi*xk_bar+B*u)**2+beta**2*Gamma**2
+            term_cost = num/den 
+            term_cost_2 = (ci-1j*di)/(omegai*Phi+1j*sigmai*Phi+eta_r+1j*(Phi*xk_bar+B*u)+beta*Gamma) + (ci+1j*di)/(omegai*Phi-1j*sigmai*Phi+eta_r-1j*(Phi*xk_bar+B*u)+beta*Gamma)
 
-            cost_val_der[j,i] = (ci-1j*di)*(1j*B)/(omegai*Phi+1j*sigmai*Phi+eta_r+1j*(Phi*xk_bar+B*u))**2+ (ci+1j*di)*(-1j*B)/(omegai*Phi-1j*sigmai*Phi+eta_r-1j*(Phi*xk_bar+B*u))**2
-        
+            M_cost = theta/pi /(u**2+theta**2)
+            
+            cost_val[j,i] = term_cost * M_cost
+
+            der_term = (ci-1j*di)*(1j*B)/(omegai*Phi+1j*sigmai*Phi+eta_r+1j*(Phi*xk_bar+B*u)+beta*Gamma)**2+ (ci+1j*di)*(-1j*B)/(omegai*Phi-1j*sigmai*Phi+eta_r-1j*(Phi*xk_bar+B*u)+beta*Gamma)**2
+            der_M = theta/pi * 2*u /(u**2+theta**2)**2
+            
+            cost_val_der[j,i] = der_M* term_cost + der_term*M_cost
     cost = np.sum(cost_val,axis=1) /((2*pi)**n * fyk)
     ind_max = np.argmax(cost)
 
@@ -401,9 +431,8 @@ def calc_second_Lyap_function(k,p,list_of_tp_terms,xk1_bar,fyk):
 
 if __name__ == "__main__":
     np.random.seed(seed=233423)    
-    #rs = RandomState(MT19937(SeedSequence(123456789)))
     #run_simulation()
     #og_set = np.seterr({'divide': 'warn', 'over': 'warn', 'under': 'ignore', 'invalid': 'warn'})
     np.seterr(over='raise')
-    define_simulation(time=10,Phi=0.9, H=1)
-    #run_simulation_MC(runs=200,time=200,print_individ_plots=False)
+    define_simulation(time=10,Phi=0.95, H=1,alpha=1)
+    #run_simulation_MC(runs=30,time=100,print_individ_plots=False)
