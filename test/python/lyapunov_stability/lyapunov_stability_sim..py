@@ -5,9 +5,12 @@ import math
 from term import Term
 pi=math.pi
 import random
+import scipy
 
-def advance_simulation_truth(Phi,B,Gamma,beta,xk_bar,xk_tild,uk):
+def advance_simulation_truth(k,Phi,B,Gamma,beta,xk_bar,xk_tild,uk):
     wk = cauchy.rvs(loc=0,scale=beta,size=1)[0]
+    if k == 20:
+        wk = 50
     xk1_bar = Phi*xk_bar + B*uk
     xk1_tild = Phi*xk_tild + Gamma*wk
 
@@ -19,7 +22,7 @@ def advance_simulation_measurement(H,xk,gamma):
 
     return zk,vk
 
-def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=1,save_data_to_text=False):
+def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=1,save_data_to_text=False,plot_all_runs=False):
     
     Phi = 0.95
     B = 1
@@ -39,7 +42,7 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=
 
         rho_kp1 = abs(Phi)*rhok + Gamma*beta
         saved_expec[k,1] = 2*math.log(1+rho_kp1*math.sqrt(P))
-        saved_expec[k,2] = math.log((1+rho_kp1*math.sqrt(P))/(1+rhok*math.sqrt(P)))
+        saved_expec[k,2] = math.log(((1+rho_kp1*math.sqrt(P))/(1+rhok*math.sqrt(P)))**2)
         rhok = rho_kp1
 
     saved_lyap_all = np.zeros(shape=(runs,time,2))
@@ -58,19 +61,46 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=
 
         # Read the text file back into a NumPy array
         #loaded_array = np.loadtxt(text_file_path, delimiter=' ')
+    
+    if plot_all_runs:
+        plt.figure()
+        plt.title("Lyapunov Functions for all runs")
+        plt.subplot(211)
+        plt.plot(range(0,time),np.transpose(saved_lyap_all[:,:,0]),color='blue')
+        plt.minorticks_on()
+        plt.grid(which="minor")
+        plt.grid(which="major")
+        plt.xlabel('time')
+        plt.ylabel("E[V(xk)|y(k)]")
+    
+        plt.subplot(212)
+        plt.plot(range(0,time),np.transpose(saved_lyap_all[:,:,1]),color='blue')
+        plt.minorticks_on()
+        plt.grid(which="minor")
+        plt.grid(which="major")
+        plt.xlabel('time')
+        plt.ylabel("E[V(xk+1)|y(k)]")
 
+    plt.figure()
+    plt.title("Averaged Lyapunov Functions")
     plt.subplot(311)
-    plt.plot(range(0,time),lyap_avg[:,0],color='blue',label="E[V(xk)|y(k)]")
+    plt.plot(range(0,time),lyap_avg[:,0],color='green',label="E[V(xk)|y(k)]")
     if control_steps ==0: 
         plt.plot(range(0,time-1),saved_expec[:-1,0],color='red',label="E[V(xk)]")
     plt.legend()
+    plt.minorticks_on()
+    plt.grid(which="minor")
+    plt.grid(which="major")
     plt.xlabel('time')
 
     plt.subplot(312)
-    plt.plot(range(0,time-1),lyap_avg[:-1,1],color='blue',label="E[V(xk+1)|y(k)]")
+    plt.plot(range(0,time-1),lyap_avg[:-1,1],color='green',label="E[V(xk+1)|y(k)]")
     if control_steps ==0:
         plt.plot(range(0,time-1),saved_expec[:-1,1],color='red',label="E[V(xk+1)]")
     plt.legend()
+    plt.minorticks_on()
+    plt.grid(which="minor")
+    plt.grid(which="major")
     plt.xlabel('time')
 
     plt.subplot(313)
@@ -79,6 +109,9 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=
     if control_steps ==0:
         plt.plot(range(0,time-1),saved_expec[:-1,2],color='red',label="deltV")
     plt.legend()
+    plt.minorticks_on()
+    plt.grid(which="minor")
+    plt.grid(which="major")
     plt.xlabel('time')
 
     plt.show()
@@ -110,15 +143,24 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
     lyap_val0 = calc_Lyap_function(0,P,list_of_estimator_terms_0_0,x0_bar,fy0)
     saved_lyap_functions[0,0] = lyap_val0
 
+    high_wk_ind = -5
+    high_wk = 0
+    if  abs(x0_tild) > 5:
+        high_wk_ind=0
+        high_wk = x0_tild
+
     if control_steps>0:
-        u0 = calc_control(1,0,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,x0_bar,fy0,list_of_estimator_terms_0_0,show=print_control_cost)
+        u0 = calc_control(1,0,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,x0_bar,fy0,list_of_estimator_terms_0_0,high_wk_ind,high_wk,show=print_control_cost)
         #print(uk)
     else: 
         u0 = 0
     saved_data[0,5] = u0
 
-    xp1_bar,xp1_tild,wk = advance_simulation_truth(Phi,B,Gamma,beta,x0_bar,x0_tild,u0)
+    xp1_bar,xp1_tild,wk = advance_simulation_truth(0,Phi,B,Gamma,beta,x0_bar,x0_tild,u0)
     saved_data[0,4] = wk
+    if abs(wk)> 5: 
+        high_wk_ind = 0
+        high_wk = wk
     list_of_estimator_terms_1_0 = estimator_tp(Phi,beta,list_of_estimator_terms_0_0,xp1_bar)
     lyap_val_k1_0 = calc_second_Lyap_function(0,P,list_of_estimator_terms_1_0,xp1_bar,fy0)
     saved_lyap_functions[0,1] = lyap_val_k1_0
@@ -158,7 +200,7 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
 
         #Control
         if control_steps>0:
-            uk = calc_control(1,k,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,xk_bar,fyk,list_of_mu_terms_k_k,show=print_control_cost)
+            uk = calc_control(1,k,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,xk_bar,fyk,list_of_mu_terms_k_k,high_wk_ind,high_wk,show=print_control_cost)
             saved_data[k,5] = uk
             #print(uk)
         else: 
@@ -166,8 +208,11 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
 
 
         #Advance truth k -> k+1
-        xkp1_bar,xkp1_tild,wk = advance_simulation_truth(Phi,B,Gamma,beta,xk_bar,xk_tild,uk)
+        xkp1_bar,xkp1_tild,wk = advance_simulation_truth(k,Phi,B,Gamma,beta,xk_bar,xk_tild,uk)
         saved_data[k,4] = wk
+        if abs(wk) > 5:
+            high_wk_ind = k
+            high_wk = wk
 
         #Estimator time propogation (k|k) -> (k+1 | k)
         list_of_tp_terms_kp1_k = estimator_tp(Phi,beta,list_of_mu_terms_k_k,xk_bar)
@@ -363,9 +408,13 @@ def calc_estimate_from_listofterms(k,list_of_terms):
 
     return xk_hat/fyk, fyk
 
-def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_of_terms,show):
-    len_u = 300
-    range = 5
+def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_of_terms,high_wk_ind,high_wk,show):
+    if k-high_wk_ind < 10:
+        len_u = max(1000,3*int(high_wk))
+        range = max(50,1.5*abs(high_wk))
+    else:
+        len_u = 200
+        range = 10
     
     if control_steps==1:
         u_arr = np.linspace(-range,range,len_u)
@@ -433,8 +482,11 @@ def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_
 
         cost = np.sum(cost_val,axis=2) /((2*pi)**n * fyk)
         ind_max = np.unravel_index(np.argmax(cost, axis=None), cost.shape)
+        
+        uk_ballpark = uk_arr[ind_max]
+        uk1_ballpark = uk1_arr[ind_max]
 
-        if show and k>45:
+        if show and k>20:
             fig = plt.figure()
             ax = fig.add_subplot(projection='3d')
             ax.plot_wireframe(uk_arr, uk1_arr, cost, rstride=10, cstride=10)
@@ -445,6 +497,67 @@ def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_
             plt.show()
 
         return uk_arr[ind_max]
+
+def accelerated_grad(list_of_terms, u_start_search, Phi,eta_r,xk_bar,B,beta,Gamma,theta,num_control=2):
+    # intialize
+    H = np.identity(num_control)
+    g = eval_gradient(list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta,u_start_search)
+    si = -H*g
+    lambda_range = np.arange(0,10,0.1)
+    u_test_range_i = u_start_search+lambda_range*si
+
+    J = eval_cost(list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta,u_test_range_i)
+
+    
+
+    return
+
+def eval_cost(u_vec,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
+    uk = u_vec[0,:]
+    uk1 = u_vec[1,:]
+    cost_vec = np.zeros((len(list_of_terms),uk.shape(1)))
+    for i,term in enumerate(list_of_terms):
+        omegai = term.omegai
+        sigmai = term.sigmai
+        ci = term.ci
+        di = term.di
+            
+        term_cost = (ci-1j*di)/(omegai*Phi**2 + 1j*sigmai*Phi**2 + eta_r + 1j*(Phi**2*xk_bar + Phi*B*uk + B*uk1) + beta*Gamma + beta*Phi*Gamma) + (ci+1j*di)/(omegai*Phi**2-1j*sigmai*Phi**2+eta_r-1j*(Phi**2*xk_bar+Phi*B*uk+B*uk1)+beta*Gamma+beta*Phi*Gamma)
+        M_cost = theta/pi /(uk**2+theta**2) * theta/pi /(uk1**2+theta**2)
+
+        cost_vec[i,:] = term_cost*M_cost
+    cost = np.sum(cost_vec,axis=0)
+
+    return cost
+
+def eval_gradient(u_vec,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
+
+    cost_vec = np.zeros((len(list_of_terms)))
+    g_vec = np.zeros((2,len(list_of_terms)))
+    uk = u_vec[0]
+    uk1 =  u_vec[1]
+    for i,term in enumerate(list_of_terms):
+        omegai = term.omegai
+        sigmai = term.sigmai
+        ci = term.ci
+        di = term.di
+            
+        term_cost = (ci-1j*di)/(omegai*Phi**2 + 1j*sigmai*Phi**2 + eta_r + 1j*(Phi**2*xk_bar + Phi*B*uk + B*uk1) + beta*Gamma + beta*Phi*Gamma) + (ci+1j*di)/(omegai*Phi**2-1j*sigmai*Phi**2+eta_r-1j*(Phi**2*xk_bar+Phi*B*uk+B*uk1)+beta*Gamma+beta*Phi*Gamma)
+        M_cost = theta/pi /(uk**2+theta**2) * theta/pi /(uk1**2+theta**2)
+
+        dM_duk = theta/pi*-2*uk /(uk**2+theta**2)**2 * theta/pi /(uk1**2+theta**2)
+        dM_duk1 = theta/pi /(uk**2+theta**2) * theta/pi *-2*uk1/(uk1**2+theta**2)**2
+
+        dterm_duk = (-1j*Phi*B)*(ci-1j*di)/(omegai*Phi**2 + 1j*sigmai*Phi**2 + eta_r + 1j*(Phi**2*xk_bar + Phi*B*uk + B*uk1) + beta*Gamma + beta*Phi*Gamma)**2 + (1j*Phi*B)*(ci+1j*di)/(omegai*Phi**2-1j*sigmai*Phi**2+eta_r-1j*(Phi**2*xk_bar+Phi*B*uk+B*uk1)+beta*Gamma+beta*Phi*Gamma)**2
+        dterm_duk1 = (-1j*B)*(ci-1j*di)/(omegai*Phi**2 + 1j*sigmai*Phi**2 + eta_r + 1j*(Phi**2*xk_bar + Phi*B*uk + B*uk1) + beta*Gamma + beta*Phi*Gamma)**2 + (1j*B)*(ci+1j*di)/(omegai*Phi**2-1j*sigmai*Phi**2+eta_r-1j*(Phi**2*xk_bar+Phi*B*uk+B*uk1)+beta*Gamma+beta*Phi*Gamma)**2
+
+        g_vec[0,i] = dM_duk*term_cost+M_cost*dterm_duk
+        g_vec[1,i] = dM_duk1*term_cost+M_cost*dterm_duk1
+        cost_vec[i] = term_cost*M_cost
+
+    cost = np.sum(cost_vec)
+    g_vec = np.sum(g_vec,axis=1)
+    return g_vec
 
 
 def calc_Lyap_function(k,p,list_of_terms,xk_bar,fyk):
@@ -487,13 +600,13 @@ def calc_second_Lyap_function(k,p,list_of_tp_terms,xk1_bar,fyk):
 
 if __name__ == "__main__":
     np.seterr(over='raise')
-    multiple_sim = True
+    multiple_sim = False
     
     if multiple_sim:
-        run_simulation_MC(runs=2,time=100,print_individ_plots=False,control_steps=2,save_data_to_text=True)
+        run_simulation_MC(runs=200,time=100,print_individ_plots=False,control_steps=2,save_data_to_text=False,plot_all_runs=True)
     else:
         np.random.seed(seed=233423) 
-        define_simulation(time=100,Phi=0.95, H=1,alpha=0.5,beta=0.02,gamma=0.1,eta_r=0.7,control_steps=2,print_control_cost=False)
+        define_simulation(time=32,Phi=0.95, H=1,alpha=0.5,beta=0.02,gamma=0.1,eta_r=0.7,control_steps=1,print_control_cost=False)
    
     #og_set = np.seterr({'divide': 'warn', 'over': 'warn', 'under': 'ignore', 'invalid': 'warn'})
     
