@@ -1,16 +1,16 @@
 import numpy as np
 from scipy.stats import cauchy 
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import figure
 import math
 from term import Term
 pi=math.pi
 import random
-import scipy
+from scipy.optimize import minimize
 
 def advance_simulation_truth(k,Phi,B,Gamma,beta,xk_bar,xk_tild,uk):
     wk = cauchy.rvs(loc=0,scale=beta,size=1)[0]
-    if k == 20:
-        wk = 50
+
     xk1_bar = Phi*xk_bar + B*uk
     xk1_tild = Phi*xk_tild + Gamma*wk
 
@@ -22,7 +22,7 @@ def advance_simulation_measurement(H,xk,gamma):
 
     return zk,vk
 
-def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=1,save_data_to_text=False,plot_all_runs=False):
+def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=1,save_data_to_text=False,plot_all_runs=False,filename="saved_MC"):
     
     Phi = 0.95
     B = 1
@@ -49,6 +49,11 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=
     for run in range(0,runs):
         saved_lyap_func = define_simulation(time,Phi,B,Gamma,H,alpha,gamma,beta,P,print_individ_plots=print_individ_plots,control_steps = control_steps,print_control_cost=False)
         saved_lyap_all[run,:,:] = saved_lyap_func
+
+        if save_data_to_text:
+            file = f"{filename}_allruns.npy"
+            np.save(file,saved_lyap_all[:run+1,:,:])
+        
         print(run)
 
     lyap_avg = np.mean(saved_lyap_all,axis=0)
@@ -56,8 +61,11 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=
     if save_data_to_text:
         lyap_diff = lyap_avg[:-1,1]-lyap_avg[:-1,0]
         lyap_to_save = np.append(lyap_avg[:-1,:],lyap_diff.reshape(len(lyap_diff),1),axis=1)
-        file = "saved_MC.txt"
+        file = f"{filename}_avg.txt"
         np.savetxt(file, lyap_to_save, delimiter=' ')
+
+        file = f"{filename}_expectation.txt"
+        np.savetxt(file,saved_expec,delimiter=' ')
 
         # Read the text file back into a NumPy array
         #loaded_array = np.loadtxt(text_file_path, delimiter=' ')
@@ -92,6 +100,7 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=
     plt.grid(which="minor")
     plt.grid(which="major")
     plt.xlabel('time')
+    plt.ylim(0,1)
 
     plt.subplot(312)
     plt.plot(range(0,time-1),lyap_avg[:-1,1],color='green',label="E[V(xk+1)|y(k)]")
@@ -102,6 +111,7 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=
     plt.grid(which="minor")
     plt.grid(which="major")
     plt.xlabel('time')
+    plt.ylim(0,1)
 
     plt.subplot(313)
     plt.plot(range(0,time-1),np.zeros(len(range(0,time-1))),color='red',linestyle="dashed")
@@ -125,6 +135,7 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
             return 
 
     x0_bar = 0
+    #x0_tild = 100 #cauchy.rvs(loc=0,scale=alpha,size=1)[0]
     x0_tild = cauchy.rvs(loc=0,scale=alpha,size=1)[0]
 
     saved_data = np.zeros((time,6)) #x_bar, x_tild, zk, vk, wk, ul
@@ -230,68 +241,94 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
         
     show = print_individ_plots
     if show:
-        plt.figure()
-        plt.subplot(311)
-        plt.plot(range(0,time),saved_data[:,0]+saved_data[:,1],color='blue',label="truth")
+        lw = 5
+        lfz = 20
+        lfzl = 15
+        lt = 20
+
+        plt.figure(figsize=(13,20)).subplots(5,1,height_ratios=[4,2.5,2,4,3])
+        plt.subplot(511)
+        plt.plot(range(0,time),saved_data[:,0]+saved_data[:,1],color='midnightblue',label="truth",lw=lw)
         # plt.plot(range(0,time),saved_data[:,0],color='purple',label="xk_bar")
-        plt.plot(range(0,time),saved_data[:,2],color='red',label="measurement")
-        plt.plot(range(0,time),saved_estimator[:,0],color='green',label = "estimate k|k ")
+        plt.plot(range(0,time),saved_data[:,2],color='red',label="measurement",lw=lw-1)
+        plt.plot(range(0,time),saved_estimator[:,0],color='green',label = "estimate k|k ",lw=lw-2)
         # plt.plot(range(0,time),saved_estimator[:,2],color='orange',label = "estimate k+1|k",linestyle="dashed")
         # plt.plot(range(0,time),np.zeros((len(range(0,time)))),linestyle="dashed")
-        plt.legend()
+        plt.legend(fontsize=lfzl,frameon=False,loc=3,bbox_to_anchor=(0,-0.1))
         plt.minorticks_on()
-        plt.grid(which="minor")
+        plt.grid(which="minor",color="gainsboro")
         plt.grid(which="major")
-        plt.xlabel('time')
-        plt.ylabel('xk, zk, xk_hat')
+        plt.ylabel(r'$ x_k, z_k, \hat{x}_{k|k} $',fontsize=lfz)
+        plt.xlim(0,100)
+        plt.ylim(-6.1,3.4)
+        plt.tick_params(axis='y', which='major', labelsize=lt)
+        plt.tick_params(axis='x',labelbottom='off')
+        plt.gca().axes.xaxis.set_ticklabels([])
 
 
-        plt.subplot(312)
-        plt.plot(range(0,time),saved_data[:,3],color='blue',label="meas noise")
-        plt.plot(range(0,time),saved_data[:,4],color='green',label="proc noise")
-        plt.plot(range(0,time),np.zeros((len(range(0,time)))),linestyle="dashed")
-        plt.legend()
+        plt.subplot(512)
+        plt.plot(range(0,time),saved_data[:,3],color='midnightblue',label=r"$w_k$",lw=lw)
+        plt.plot(range(0,time),saved_data[:,4],color='red',label=r"$v_k$",lw=lw-1.5)
+        #plt.plot(range(0,time),np.zeros((len(range(0,time)))),linestyle="dashed")
+        plt.legend(fontsize=lfzl,frameon=False,loc=3,bbox_to_anchor=(0,-0.15))
         plt.minorticks_on()
-        plt.grid(which="minor")
+        plt.grid(which="minor",color="gainsboro")
         plt.grid(which="major")
-        plt.xlabel('time')
-
-        plt.subplot(313)
-        plt.plot(range(0,time),saved_data[:,5],color='blue',label="uk")
-        plt.plot(range(0,time),np.zeros((len(range(0,time)))),linestyle="dashed")
-        plt.legend()
-        plt.minorticks_on()
-        plt.grid(which="minor")
-        plt.grid(which="major")
-        plt.xlabel('time')
+        plt.ylabel(r"$w_k, v_k$",fontsize=lfz)
+        plt.xlim(0,100)
+        plt.ylim(-6,3)
+        plt.tick_params(axis='y', which='major', labelsize=lt,labelbottom=False,)
+        plt.gca().axes.xaxis.set_ticklabels([])
         
 
-        plt.figure()
-        plt.subplot(311)
-        plt.plot(range(0,time),saved_lyap_functions[:,0],color='blue',label="E[V(xk)|y(k)]")
-        plt.legend()
+        plt.subplot(513)
+        plt.plot(range(0,time),saved_data[:,5],color='midnightblue',lw=lw)
+        plt.legend(fontsize=lfzl,frameon=False)
         plt.minorticks_on()
-        plt.grid(which="minor")
+        plt.grid(which="minor",color="gainsboro")
         plt.grid(which="major")
-        plt.xlabel('time')
+        #plt.xlabel('Time step (k)',fontsize=lt)
+        plt.ylabel(r"$u_k$",fontsize=lfz)
+        plt.xlim(0,100)
+        plt.tick_params(axis='y', which='major', labelsize=lt,labelbottom=False,)
+        plt.gca().axes.xaxis.set_ticklabels([])
+        
 
-        plt.subplot(312)
-        plt.plot(range(0,time-1),saved_lyap_functions[:-1,1],color='red',label="E[V(xk+1)|y(k)]")
-        plt.legend()
+        #plt.figure()
+        plt.subplot(514)
+        plt.plot(range(0,time),saved_lyap_functions[:,0],color='midnightblue',lw=lw,label=r"$E[V(x_k)|y_k]$")
+        plt.plot(range(0,time-1),saved_lyap_functions[:-1,1],color='red',lw=lw-1.5,label=r"$E[V(x_{k+1})|y_k]$")
+        plt.legend(fontsize=lfzl,frameon=False)
         plt.minorticks_on()
-        plt.grid(which="minor")
+        plt.grid(which="minor",color="gainsboro")
         plt.grid(which="major")
-        plt.xlabel('time')
+        plt.ylabel("Lyapunov \n Expectation",fontsize=lfz-2)
+        plt.tick_params(axis='y', which='major', labelsize=lt,labelbottom=False,)
+        plt.xlim(0,100)
+        plt.gca().axes.xaxis.set_ticklabels([])
 
-        plt.subplot(313)
-        plt.plot(range(0,time-1),saved_lyap_functions[:-1,1]-saved_lyap_functions[:-1,0],color='green',label="E[V(xk+1)|y(k)]-E[V(xk)|y(k)]")
-        plt.legend()
+        # plt.subplot(615)
+        # plt.plot(range(0,time-1),saved_lyap_functions[:-1,1],color='midnightblue',lw=lw)
+        # plt.legend(fontsize=lfzl,frameon=False)
+        # plt.minorticks_on()
+        # plt.grid(which="minor",color="gainsboro")
+        # plt.grid(which="major")
+        # plt.ylabel(r"$E[V(x_{k+1})|y_k]$",fontsize=lfz-2)
+        # plt.tick_params(axis='y', which='major', labelsize=lt)
+
+        plt.subplot(515)
+        plt.plot(range(0,time-1),saved_lyap_functions[:-1,1]-saved_lyap_functions[:-1,0],color='midnightblue',lw=lw)
+        plt.legend(fontsize=lfzl,frameon=False)
         plt.minorticks_on()
-        plt.grid(which="minor")
+        plt.grid(which="minor",color="gainsboro")
         plt.grid(which="major")
-        plt.xlabel('time')
+        plt.xlabel('Time step (k)',fontsize=lt)
+        #plt.ylabel(r"$E[V(x_{k+1})|y_k]-E[V(x_k)|y_k]$",fontsize=lfz)
+        plt.ylabel("Drift",fontsize=lfz)
+        plt.tick_params(axis='both', which='major', labelsize=lt)
+        plt.xlim(0,100)
 
-
+        #plt.figure(figsize=(10,6))
         plt.show()
 
     return saved_lyap_functions
@@ -408,9 +445,15 @@ def calc_estimate_from_listofterms(k,list_of_terms):
 
     return xk_hat/fyk, fyk
 
+def calc_secondmoment_from_listofterms(k,list_of_terms,fyk,xk_hat):
+
+    E2 = sum([t1.ci*(t1.sigmai**2-t1.omegai**2)-2*t1.di*t1.sigmai*t1.omegai for t1 in list_of_terms])
+
+    return E2/fyk - xk_hat**2
+
 def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_of_terms,high_wk_ind,high_wk,show):
     if k-high_wk_ind < 10:
-        len_u = max(1000,3*int(high_wk))
+        len_u = min(max(1000,3*int(high_wk)),10000)
         range = max(50,1.5*abs(high_wk))
     else:
         len_u = 200
@@ -439,17 +482,22 @@ def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_
             der_term = (ci-1j*di)*(1j*B)/(omegai*Phi+1j*sigmai*Phi+eta_r+1j*(Phi*xk_bar+B*u_arr)+beta*Gamma)**2+ (ci+1j*di)*(-1j*B)/(omegai*Phi-1j*sigmai*Phi+eta_r-1j*(Phi*xk_bar+B*u_arr)+beta*Gamma)**2
             der_M = theta/pi * 2*u_arr /(u_arr**2+theta**2)**2
                 
-            cost_val_der[:,i] = der_M* term_cost + der_term*M_cost
+            cost_val_der[:,i] = np.real(der_M* term_cost + der_term*M_cost)
             
         cost = np.sum(cost_val,axis=1) /((2*pi)**n * fyk)
         ind_max = np.argmax(cost)
 
         cost_der = np.sum(cost_val_der,axis=1)
 
-        if show:
+        u_guess = u_arr[ind_max]
+
+        res = optimize_1d(u_guess,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta)
+
+        if show :
             plt.figure()
             plt.subplot(211)
             plt.plot(u_arr,cost,color='blue',label="cost")
+            plt.scatter(res.x,-res.fun/(2*pi*fyk),c='r',marker='o')
             plt.legend()
             plt.xlabel('u')
 
@@ -460,7 +508,8 @@ def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_
 
             plt.show
         
-        return u_arr[ind_max]
+        
+        return res.x
     
     elif control_steps ==2:
 
@@ -486,36 +535,38 @@ def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_
         uk_ballpark = uk_arr[ind_max]
         uk1_ballpark = uk1_arr[ind_max]
 
-        if show and k>20:
+        u_guess = np.array([uk_ballpark,uk1_ballpark])
+        res=optimize_2d(u_guess,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta)
+
+        if show:
             fig = plt.figure()
             ax = fig.add_subplot(projection='3d')
             ax.plot_wireframe(uk_arr, uk1_arr, cost, rstride=10, cstride=10)
+            ax.scatter(res.x[0],res.x[1],-res.fun/((2*pi)**n * fyk),marker='o',c='r')
             ax.set_xlabel("u k")
             ax.set_ylabel("u k+1")
             ax.set_zlabel("cost")
 
             plt.show()
 
-        return uk_arr[ind_max]
+        return res.x[0]
 
-def accelerated_grad(list_of_terms, u_start_search, Phi,eta_r,xk_bar,B,beta,Gamma,theta,num_control=2):
-    # intialize
-    H = np.identity(num_control)
-    g = eval_gradient(list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta,u_start_search)
-    si = -H*g
-    lambda_range = np.arange(0,10,0.1)
-    u_test_range_i = u_start_search+lambda_range*si
 
-    J = eval_cost(list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta,u_test_range_i)
-
+def optimize_2d(u_guess,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
+    #res = minimize(eval_cost, u0, method='nelder-mead',args=(list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta), options={'xatol': 1e-8, 'disp': True})
+    #rest = minimize(eval_2dcost, u_guess, method='BFGS', jac=eval_2dgradient, args = (list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta),options={'disp': False})
+    rest = minimize(eval_2dgradient, u_guess, method='BFGS', jac=True, args = (list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta),options={'disp': False})
     
+    return rest
 
-    return
+def optimize_1d(u_guess,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
+    rest = minimize(eval_1dcostandgradient, u_guess, method='BFGS', jac=True, args = (list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta),options={'disp': False})
+    return rest
 
-def eval_cost(u_vec,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
-    uk = u_vec[0,:]
-    uk1 = u_vec[1,:]
-    cost_vec = np.zeros((len(list_of_terms),uk.shape(1)))
+def eval_2dcost(u_vec,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
+    uk = u_vec[0]
+    uk1 = u_vec[1]
+    cost_vec = np.zeros((len(list_of_terms)))
     for i,term in enumerate(list_of_terms):
         omegai = term.omegai
         sigmai = term.sigmai
@@ -525,12 +576,40 @@ def eval_cost(u_vec,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
         term_cost = (ci-1j*di)/(omegai*Phi**2 + 1j*sigmai*Phi**2 + eta_r + 1j*(Phi**2*xk_bar + Phi*B*uk + B*uk1) + beta*Gamma + beta*Phi*Gamma) + (ci+1j*di)/(omegai*Phi**2-1j*sigmai*Phi**2+eta_r-1j*(Phi**2*xk_bar+Phi*B*uk+B*uk1)+beta*Gamma+beta*Phi*Gamma)
         M_cost = theta/pi /(uk**2+theta**2) * theta/pi /(uk1**2+theta**2)
 
-        cost_vec[i,:] = term_cost*M_cost
+        cost_vec[i] = np.real(term_cost)*M_cost
     cost = np.sum(cost_vec,axis=0)
 
-    return cost
+    return -cost
 
-def eval_gradient(u_vec,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
+def eval_1dcostandgradient(u,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
+    cost_vec = np.zeros((len(list_of_terms)))
+    g_vec = np.zeros((len(list_of_terms)))
+    for i,term in enumerate(list_of_terms):
+        omegai = term.omegai
+        sigmai = term.sigmai
+        ci = term.ci
+        di = term.di
+            
+        num = ci*(2*omegai*Phi+2*eta_r+2*beta*Gamma) + di*(-2*sigmai*Phi - 2*(Phi*xk_bar + B*u))
+        den = omegai**2*Phi**2+2*omegai*Phi*eta_r+2*omegai*Phi*beta*Gamma+sigmai**2*Phi**2 + 2*sigmai*Phi*(Phi*xk_bar+B*u) +eta_r**2+2*eta_r*beta*Gamma+(Phi*xk_bar+B*u)**2+beta**2*Gamma**2
+        term_cost = num/den 
+        term_cost_2 = (ci-1j*di)/(omegai*Phi+1j*sigmai*Phi+eta_r+1j*(Phi*xk_bar+B*u)+beta*Gamma) + (ci+1j*di)/(omegai*Phi-1j*sigmai*Phi+eta_r-1j*(Phi*xk_bar+B*u)+beta*Gamma)
+
+        M_cost = theta/pi /(u**2+theta**2)
+                
+        cost_vec[i] = np.real(term_cost * M_cost)[0]
+            
+        der_term = (ci-1j*di)*(1j*B)/(omegai*Phi+1j*sigmai*Phi+eta_r+1j*(Phi*xk_bar+B*u)+beta*Gamma)**2+ (ci+1j*di)*(-1j*B)/(omegai*Phi-1j*sigmai*Phi+eta_r-1j*(Phi*xk_bar+B*u)+beta*Gamma)**2
+        der_M = theta/pi * 2*u /(u**2+theta**2)**2
+                
+        g_vec[i] = np.real(der_M* term_cost + der_term*M_cost)[0]
+        
+    cost = np.sum(cost_vec)
+    cost_der = np.sum(g_vec)
+
+    return (-cost,-cost_der)
+
+def eval_2dgradient(u_vec,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
 
     cost_vec = np.zeros((len(list_of_terms)))
     g_vec = np.zeros((2,len(list_of_terms)))
@@ -553,11 +632,11 @@ def eval_gradient(u_vec,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
 
         g_vec[0,i] = dM_duk*term_cost+M_cost*dterm_duk
         g_vec[1,i] = dM_duk1*term_cost+M_cost*dterm_duk1
-        cost_vec[i] = term_cost*M_cost
+        cost_vec[i] = np.real(term_cost)*M_cost
 
     cost = np.sum(cost_vec)
     g_vec = np.sum(g_vec,axis=1)
-    return g_vec
+    return (-cost,-g_vec)
 
 
 def calc_Lyap_function(k,p,list_of_terms,xk_bar,fyk):
@@ -603,10 +682,10 @@ if __name__ == "__main__":
     multiple_sim = False
     
     if multiple_sim:
-        run_simulation_MC(runs=200,time=100,print_individ_plots=False,control_steps=2,save_data_to_text=False,plot_all_runs=True)
+        run_simulation_MC(runs=10000,time=100,print_individ_plots=False,control_steps=0,save_data_to_text=True,plot_all_runs=True,filename = 'MC_nocontrol_stable')
     else:
-        np.random.seed(seed=233423) 
-        define_simulation(time=32,Phi=0.95, H=1,alpha=0.5,beta=0.02,gamma=0.1,eta_r=0.7,control_steps=1,print_control_cost=False)
-   
+        np.random.seed(seed=233423)
+        define_simulation(time=100,Phi=1.05, H=1,alpha=0.5,beta=0.02,gamma=0.1,eta_r=0.7,control_steps=2,print_control_cost=False)
+
     #og_set = np.seterr({'divide': 'warn', 'over': 'warn', 'under': 'ignore', 'invalid': 'warn'})
     
