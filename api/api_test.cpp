@@ -28,9 +28,10 @@
   // One measurement
   std::vector<double> one_msmt(cfg.msmt_dim_p, 2); // size of vector is p for p measurements and all values are 2
   // Many measurements
-  double zs[10] = {-1.2172011200334241, -0.35943271347277583, -0.52353301003957098, 0.5855389648301792, 
-  -0.8048243525901404, 0.34053610027255954, 1.0580483915838776, -0.55152999529515989,
-  -0.72879029737003309}; 
+  double zs[6] = {-0.3630, -1.4829, -0.6332, -0.5131, -0.4414, 0.3140};
+  // double zs[10] = {-1.2172011200334241, -0.35943271347277583, -0.52353301003957098, 0.5855389648301792, 
+  // -0.8048243525901404, 0.34053610027255954, 1.0580483915838776, -0.55152999529515989,
+  // -0.72879029737003309}; 
 
 //   // IN A LOOP
 //   // Some get measurement function
@@ -40,27 +41,15 @@
 //   // Print statistics
 //   printStatistics(testAPI.getStatistics());
 
-    for(int i = 0; i < 10; i++) {
+    for(int i = 0; i < 6; i++) {
         std::vector<double> curr_msmt(cfg.msmt_dim_p, zs[i]);
         testAPI.step(curr_msmt);
         const auto& stats = testAPI.getStatistics();
         // std::cout << stats.mean[0] << std::endl;
+        printStatistics(stats);
     }
-
-    Arrangement A(2, 4);
-    A(0,0) = -1; A(1,0) = 1; 
-    A(0,1) = 1;  A(1,1) = 0;
-    A(0,2) = 1;  A(1,2) = 1;
-    A(0,3) = 0;  A(1,3) = 1;
-
-    std::int64_t chambers = count_chambers(A);
-    std::cout << "Test 3 (Julia): expected 8, got " << chambers << "\n";
-
-    A.print();
   
   std::cout << "TEST HAS COMPLETED" << std::endl;
-
-  
 
   return 0;
  }

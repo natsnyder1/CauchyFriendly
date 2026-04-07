@@ -427,7 +427,7 @@ int child_window_loop(CauchyWindow cw,
     
     // Setup the Estimator 
     int _cmcc = is_extended ? 0 : cmcc; // do not allow controls for the nonlinear problems in the stochastic part, user must update in deterministic part
-    CauchyEstimator cauchyEst(A0, p0, b0, num_windows, n, _cmcc, pncc, p, false); 
+    CauchyEstimator cauchyEst(A0, p0, b0, num_windows, n, _cmcc, pncc, p, true); 
     cauchyEst.set_win_num(cw.window_number);
 
     WindowMessage win_msg;

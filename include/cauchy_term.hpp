@@ -308,7 +308,7 @@ struct CauchyTerm
             }
             */
         }
-        std::cout << "#############################################################" << std::endl;
+        // std::cout << "#############################################################" << std::endl;
         // print_hyperplanes_("msmt_update", false);
         // print_btable_("msmt_update");
         return num_integrable_terms; // new children + old child

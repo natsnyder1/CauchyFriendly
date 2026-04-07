@@ -77,6 +77,7 @@ struct CauchyEstimatorConfig {
 struct CauchyStatistics {
     std::span<const double> mean;
     std::span<const double> covariance;
+    double f_y;
     int n = 0;
     int window_index = -1;
     int step_index = -1;
@@ -135,18 +136,22 @@ class CauchyAPI {
         const int i = swm_.msmt_count - 1;
         const int n = swm_.n;
 
-        // Compute pointers into the “selected/winner” buffers at step i
-        const double* mean_i = swm_.full_window_means
-                            + static_cast<size_t>(i) * static_cast<size_t>(n);
-        const double* cov_i  = swm_.full_window_variances
-                            + static_cast<size_t>(i) * static_cast<size_t>(n) * static_cast<size_t>(n);
+        // Always read from window 0 so f_y matches the global accumulated value
+        // (window 0 is never reset within the first num_windows measurements).
+        const int win_idx = 0;
+        const int step_in_window = swm_.window_step_counts[win_idx] - 1;
 
-        // Fill the view (no copies)
+        const double* mean_i = swm_.window_means[win_idx]
+                            + static_cast<size_t>(step_in_window) * static_cast<size_t>(n);
+        const double* cov_i  = swm_.window_variances[win_idx]
+                            + static_cast<size_t>(step_in_window) * static_cast<size_t>(n) * static_cast<size_t>(n);
+
         latest_stats_.n           = n;
         latest_stats_.step_index  = i;
-        latest_stats_.window_index = swm_.full_window_idxs ? swm_.full_window_idxs[i] : -1;
+        latest_stats_.window_index = win_idx;
         latest_stats_.mean        = std::span<const double>(mean_i, static_cast<size_t>(n));
         latest_stats_.covariance  = std::span<const double>(cov_i,  static_cast<size_t>(n) * static_cast<size_t>(n));
+        latest_stats_.f_y         = swm_.window_norm_factors[win_idx][step_in_window];
     }
 
 /*******************************************************************
@@ -285,6 +290,7 @@ inline void printStatistics(const CauchyStatistics& stats) {
               << " | Best Window Number: " << stats.window_index
               << " | Dimension n = " << stats.n << "\n";
 
+    std::cout << "f_y: " << std::scientific << std::setprecision(6) << stats.f_y << "\n";
     // Print mean
     std::cout << "Mean: [ ";
     for (int i = 0; i < stats.n; ++i) {
