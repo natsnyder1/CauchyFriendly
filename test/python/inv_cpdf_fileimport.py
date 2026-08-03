@@ -7,6 +7,7 @@ from inv_cpdf_fullscript import convertListGToTableG
 
 def import_bigtxt():
     filename = "cauchy_run.txt"
+    filename = "naina_run.txt"
     cd = os.getcwd()
     filepath = f"{cd}/test/python/{filename}"
     with open (filepath) as run:
@@ -28,7 +29,7 @@ def splitMUtxt(MUfilename):
         MUfileread = run.read()
     numterms = int(find_in_string(MUfileread,"Current Number of Terms")[0][0])
     split_MU = re.split("-----------------------------------------------------------\n",MUfileread)
-    if int(MUfilename[2]) == 6:
+    if int(MUfilename[2]) == 6: # CHANGE THIS CHANGE THIS MAKE IT == 6
         list_of_terms = split_MU[1:-2]
     else:
         list_of_terms = split_MU[1:-4]
@@ -106,11 +107,12 @@ def find_in_string(wholestring,find):
     return found
 
 if __name__ == "__main__":
-    #import_bigtxt()
+    import_bigtxt()
 
-    print(splitMUtxt("MU1.txt"))
-    # print(splitMUtxt("MU2.txt"))
-    # print(splitMUtxt("MU3.txt"))
+    print(len(splitMUtxt("MU1.txt")))
+    print(len(splitMUtxt("MU2.txt")))
+    print(len(splitMUtxt("MU3.txt")))
+    print(len(splitMUtxt("MU6.txt")))
 
     #splitMUtxt("MU6.txt")
 

@@ -81,6 +81,7 @@ def test_2d():
     #resultingint2 = findSymbolicMarginal_UCPDF([term1,term2,term3],[0,1])
     #print(resultingint)
     fz = calcfz([term1,term2,term3])
+    fz,x_hat,P = calc_fz_moment([term1,term2,term3])
 
 
 
@@ -94,9 +95,9 @@ def test_2d():
 
     # print(evaluateAtX(resultingint,[0.2,0.1],fz))
     # plot2d_from_2d(try1,fz,orig_dim=0)
-    #plot2d_from_2d(try1b,fz)
-    # plot2d_from_2d(try2,fz)
-    # plot2d_from_2d(try3,fz)
+    plot2d_from_2d(try1,fz,orig_dim=2)
+    plot2d_from_2d(try2,fz,orig_dim=2)
+    plot2d_from_2d(try3,fz,orig_dim=2)
     plot2d_from_2d(resultingint,fz,orig_dim=2)
     # plot2d_from_2d(resultingint2,fz)
 
@@ -538,68 +539,106 @@ def test_indices_rearr():
     priority_indicies = [0,2]
     rearrangeIndices(MU1_terms[0:2],priority_indicies)
 
-def test_4d_fz():
-    #print(splitMUtxt("MU2.txt"))
-    #print(splitMUtxt("MU3.txt"))
 
-    if False:
-        MU1_terms = splitMUtxt("MU1.txt")
-        fz1=calcfz(MU1_terms)
-        ucpdf1 = findSymbolic_UCPDF(MU1_terms)
-        
-        plot2d_from_4d(ucpdf1,fz1)
+def test_compare():
+    file1 = "nainaMU1.npy"
+    file2 = "natMU1.npy"
+
+    arr1 = np.load(file1)
+    arr2 = np.load(file2)
+
+    print(arr1-arr2)
+
+
+
+def test_4d_fz():
     
-    if False: 
+    if True: 
         MU1_terms = splitMUtxt("MU1.txt")
         print(f"number of terms after MU1: {len(MU1_terms)}")
-        MU1_term = MU1_terms[0]
+        MU1_term = MU1_terms[3:4]
         fz1=calcfz(MU1_terms)
-        ucpdf1 = findSymbolicMarginal_UCPDF(MU1_terms,[0,1])
+        mult_d = True
+        if mult_d:
+            ucpdf1 = findSymbolicMarginal_UCPDF(MU1_terms,[0,1])
+            ucpdf11 = findSymbolicMarginal_UCPDF_eti(MU1_terms,[0,1])
+            plot2d_from_2d(ucpdf1,fz1,orig_dim=4)
+            plot2d_from_2d(ucpdf11,fz1,orig_dim=2)
+        else:
+            ucpdf1_1d_x1 = findSymbolicMarginal_UCPDF_1d(MU1_terms,[0,1])
+            ucpdf1_1d_x0 = findSymbolicMarginal_UCPDF_1d(MU1_terms,[1,0])
+            plot1d_from_2d(ucpdf1_1d_x1,fz1,4)
+            plot1d_from_2d(ucpdf1_1d_x0,fz1,4)
+
         print("now start plotting MU1")
-        plot2d_from_2d(ucpdf1,fz1,orig_dim=4)
+        # plot2d_from_2d(ucpdf1,fz1,orig_dim=4)
+        # plot2d_from_2d(ucpdf11,fz1,orig_dim=2)
+        # plot1d_from_2d(ucpdf1_1d_x1,fz1,4)
+        # plot1d_from_2d(ucpdf1_1d_x0,fz1,4)
 
-    if False: 
-        for term in MU1_terms:
-            ucpdf1 = findSymbolic_UCPDF([term])
-            plot2d_from_4d(ucpdf1,fz1)
 
-    if False:
+    if True:
         MU2_terms = splitMUtxt("MU2.txt")
         print(f"number of terms after MU2: {len(MU2_terms)}")
         fz2=calcfz(MU2_terms)
         #ucpdf2 = findSymbolic_UCPDF(MU2_terms)
-        MU2_term = MU2_terms[14:15]
+        MU2_term = MU2_terms[0:1]
         ucpdf2 = findSymbolicMarginal_UCPDF(MU2_terms,[0,1])
-        print("now start plotting MU2")
+        ucpdf22 = findSymbolicMarginal_UCPDF_eti(MU2_term,[0,1])
+        ucpdf2_1d = findSymbolicMarginal_UCPDF_1d(MU2_terms,[0,1])
+        print("now start plotting MU1")
         plot2d_from_2d(ucpdf2,fz2,orig_dim=4)
+        plot2d_from_2d(ucpdf22,fz2,orig_dim=2)
+        plot1d_from_2d(ucpdf2_1d,fz2,4)
 
-    if True:
+
+    if False:
         MU3_terms = splitMUtxt("MU3.txt")
         print(f"number of terms after MU3: {len(MU3_terms)}")
         fz3 = calcfz(MU3_terms)
-        MU3_term = MU3_terms[2:3]
-        ucpdf3 = findSymbolicMarginal_UCPDF(MU3_term,[0,1])
-        print("now start plotting MU2")
+        MU3_term = MU3_terms[-3:-2]
+        ucpdf3 = findSymbolicMarginal_UCPDF(MU3_terms,[0,1])
+        print("now start plotting MU3")
         plot2d_from_2d(ucpdf3,fz3,orig_dim=4)
 
+    if False:
+        MU4_terms = splitMUtxt("MU4.txt")
+        print(f"number of terms after MU3: {len(MU4_terms)}")
+        fz4 = calcfz(MU4_terms)
+        MU4_term = MU4_terms[-3:-2]
+        ucpdf4 = findSymbolicMarginal_UCPDF(MU4_terms,[0,1])
+        print("now start plotting MU4")
+        plot2d_from_2d(ucpdf4,fz4,orig_dim=4)
 
-    # MU4_terms = splitMUtxt("MU4.txt")
-    # print(calcfz(MU4_terms))
-
-    # MU5_terms = splitMUtxt("MU5.txt")
-    # print(calcfz(MU5_terms))
-
-    # MU6_terms = splitMUtxt("MU6.txt")
-    # print(calcfz(MU6_terms))
+    if False:
+        MU5_terms = splitMUtxt("MU5.txt")
+        print(f"number of terms after MU5: {len(MU5_terms)}")
+        fz5 = calcfz(MU5_terms)
+        MU5_term = MU5_terms[-3:-2]
+        ucpdf5 = findSymbolicMarginal_UCPDF(MU5_terms,[0,1])
+        print("now start plotting MU5")
+        plot2d_from_2d(ucpdf5,fz5,orig_dim=4)
+    
+    if False:
+        MU6_terms = splitMUtxt("MU6.txt")
+        print(f"number of terms after MU6: {len(MU6_terms)}")
+        # fz6 = calcfz(MU6_terms)
+        # MU6_term = MU6_terms[-3:-2]
+        # ucpdf6 = findSymbolicMarginal_UCPDF(MU6_terms,[0,1])
+        # print("now start plotting MU6")
+        # plot2d_from_2d(ucpdf6,fz6,orig_dim=4)
 
 
 if __name__ == "__main__":
     #test_1D()
-    # test_2d()
+    test_2d()
     #test_4d()
     #test_2d_new()
     #test_2d_diffH()
     #test_enumerating()
 
-    test_4d_fz()
+    # test_4d_fz()
     #test_indices_rearr()
+
+    # test_compare()
+

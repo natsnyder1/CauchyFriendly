@@ -9,6 +9,8 @@ import copy
 import random
 import matplotlib
 import matplotlib.pyplot as plt
+import time
+from matplotlib.ticker import MaxNLocator
 
 
 """ 
@@ -103,6 +105,7 @@ class Term:
         
         childA,mu_t = self.findChildArrangementZeros(child_t,zero_inds)
 
+        """
         if abs(childA[0,0]-1.13295728e1)<1e-3:
             pass
         
@@ -111,6 +114,8 @@ class Term:
 
         if abs(self.A_hplane_arr[0,0]+0.68388) < 1e-3:
             pass
+        """
+
 
         #A_tild_sign = [copysign(1,a_til) for a_til in A_tild]
         A_tild_sign = [copysign(1,a_til) if a_til != 0 else 0 for a_til in A_tild]
@@ -341,7 +346,10 @@ class Term:
         A = self.A_hplane_arr
         p = self.expnt_p
 
-        if abs(A[0,0]+4.5909006) < 1e-3:
+        norm = np.linalg.norm(A,axis=1,ord=1)
+        A_normed = A / norm[:,None]
+
+        if abs( 2.22269627 - A[0,0]) < 1e-3:
             pass
 
         #coaligned_indices = []
@@ -349,12 +357,12 @@ class Term:
         coalignment_tracker = []
         for i_hyplane in range(m):
             for j_hyplane in range(m):
-                a_i = A[i_hyplane,:]
-                a_j = A[j_hyplane,:]
                 if i_hyplane < j_hyplane:
+                    a_i = A[i_hyplane,:]
+                    a_j = A[j_hyplane,:]
                     inner_prod = np.inner(a_i,a_j)
                     check = 1-abs(inner_prod)/(np.linalg.norm(a_i)*np.linalg.norm(a_j))
-                    if check < 1e-15: #the planes are co-aligned
+                    if check < 1e-12: #the planes are co-aligned
                         if i_hyplane not in coalignment_tracker or j_hyplane not in coalignment_tracker:
                             coalignment_tracker.append(i_hyplane)
                             coalignment_tracker.append(j_hyplane)
@@ -403,7 +411,7 @@ class Term:
         indices_to_delete.sort(reverse=True)
         [p.pop(ind) for ind in indices_to_delete]
         for ind in indices_to_delete:
-            enum_seq_in_bin = [enum_b[:coaligned_index]+enum_b[coaligned_index+1:] for enum_b in enum_seq_in_bin]
+            enum_seq_in_bin = [enum_b[:ind]+enum_b[ind+1:] for enum_b in enum_seq_in_bin]
         # for index in coaligned_indices:
         #     enum_seq_in_bin = [enum_b[:index]+enum_b[index+1:] for enum_b in enum_seq_in_bin]
         #     A = np.delete(A, (index), axis=0)
@@ -462,11 +470,15 @@ def findSymbolic_UCPDF(listofterms):
 
 
 def findSymbolicMarginal_UCPDF(listofterms,pdf_indices):
+    start = time.time()
     newtermlist = rearrangeIndices(listofterms,pdf_indices)
     orig_dim = newtermlist[0].ndim
     intermediateIntegral = []
+    counter = 0
     for term in newtermlist:
-
+        counter +=1 
+        if counter % 500 == 0:
+            print(counter)
         # check coalignment
         coaligned_ind,p_adj_fullen = term.coalignmentCheck()
         if len(coaligned_ind) != 0:
@@ -478,7 +490,220 @@ def findSymbolicMarginal_UCPDF(listofterms,pdf_indices):
     # send remaining indices to zero
     g_coeff_list = calc_marginal(intermediateIntegral,orig_dim)
 
+    end = time.time()
+    length = end - start
+    print("PDF took", length, "seconds!")
     return g_coeff_list 
+
+def findSymbolicMarginal_UCPDF_1d(listofterms,pdf_indices):
+    start = time.time()
+    newtermlist = rearrangeIndices(listofterms,pdf_indices)
+    orig_dim = newtermlist[0].ndim
+    intermediateIntegral = []
+    counter = 0
+    for term in newtermlist:
+        # check coalignment
+        coaligned_ind,p_adj_fullen = term.coalignmentCheck()
+        if len(coaligned_ind) != 0:
+            term = term.coalignmentAdjustment(coaligned_ind,p_adj_fullen)
+
+        bundlelist = getPDFPerTermMarginal(term,orig_dim-1)
+        # [intermediateIntegral.append(productbundle) for allproducts in bundlelist for productbundle in allproducts ]
+        [intermediateIntegral.append(productbundle) for productbundle in bundlelist]
+    
+    # send remaining indices to zero
+    g_coeff_list = calc_marginal_1d(intermediateIntegral,orig_dim)
+
+    end = time.time()
+    length = end - start
+    print("PDF took", length, "seconds!")
+    return g_coeff_list 
+
+def findSymbolicMarginal_UCPDF_eti(listofterms,pdf_indices):
+    start = time.time()
+    newtermlist = rearrangeIndices(listofterms,pdf_indices)
+    n = newtermlist[0].ndim
+    evaluated_terms = evaluate_first_indices(newtermlist,n-len(pdf_indices))
+    finalIntegral = []
+    for term in evaluated_terms:
+
+        # check coalignment
+        coaligned_ind,p_adj_fullen = term.coalignmentCheck()
+        if len(coaligned_ind) != 0:
+            term = term.coalignmentAdjustment(coaligned_ind,p_adj_fullen)
+
+        bundlelist = getPDFPerTerm(term)
+        [finalIntegral.append(productbundle) for allproducts in bundlelist for productbundle in allproducts ]
+    end = time.time()
+    length = end - start
+    print("PDF took", length, "seconds!")
+    return finalIntegral
+
+def evaluate_first_indices(listofterms,len_to_evaluate):
+    newlistofterms = []
+    nu_hat = np.array([random.uniform(-1,1) for i in range(len_to_evaluate)])#.reshape(len_to_evaluate,1)
+    new_n = listofterms[0].ndim-len_to_evaluate
+    for term in listofterms: 
+        oldA = term.A_hplane_arr
+        oldB = term.enumeration_B
+        oldb = term.expnt_b
+        oldp = term.expnt_p
+        m = term.m_hyperplanes
+        oldG = term.enumeration_G
+        B_to_G_dict = dict(zip(oldB,oldG))
+
+        cutdownA = oldA[:,len_to_evaluate:]
+        newb = oldb[len_to_evaluate:]
+        oldB_bin = [f'{{0:0{m}b}}'.format(B_val) for B_val in oldB]
+        newB = [int(B_val_bin[len_to_evaluate:],2) for B_val_bin in oldB_bin]
+
+        coalignedIndices,coaligned_hplane_signs, all_coaligned_indices = coalignmentCheckA(cutdownA,m)
+        if len(coalignedIndices.keys()) > 0:
+            shortA,shortp = coalignmentAdjustmentA(cutdownA,m,oldp,coalignedIndices)
+        else:
+            shortA = cutdownA
+            shortp = oldp
+
+        # find singular hyperplanes
+        sign_tracking = {}
+        max_parallel_counter = 0
+        for row_i in range(m):
+            a_hyplane = cutdownA[row_i,:]
+            if np.linalg.norm(a_hyplane) < 1e-12:
+                sign = np.copysign(1,np.inner(nu_hat,a_hyplane))
+                sign_tracking[row_i] = term.convertSignToBin(sign)
+
+        shortB = list(set(newB))
+        
+        singular_indices = sign_tracking.keys()
+        
+        # generate new A
+        if len(list(singular_indices))>0:
+            newA = np.delete(cutdownA,list(singular_indices),axis=0)
+        else: 
+            newA = shortA
+        
+        shortB = list(range(2**(m-len(singular_indices)-len(all_coaligned_indices))))
+        # find new G table
+        longB = []
+        newG = []
+        for B_val in shortB: 
+            long_B_val = ''
+            B_val_bin = f'{{0:0{m-len(singular_indices)-len(all_coaligned_indices)}b}}'.format(B_val) 
+            base_string_tracking = 0
+            for position in range(m): 
+                if position in singular_indices:
+                    long_B_val += sign_tracking[position]
+                elif position in all_coaligned_indices:
+                    match_pos = [key for key,value in coalignedIndices.items() if position in value]
+                    remain_sign = long_B_val[match_pos[0]]
+                    sign_match = coaligned_hplane_signs[position]
+                    if remain_sign == '0' and sign_match == 1:
+                        new_sign = '0'
+                    elif remain_sign == '0' and sign_match == -1:
+                        new_sign = '1'
+                    elif remain_sign == '1' and sign_match == 1: 
+                        new_sign = '1'
+                    else: # remain sign = '1' and sign_match == -1
+                        new_sign = '0'
+                    long_B_val += new_sign # CHANGE THIS CHANGE THIS
+                else: 
+                    long_B_val += B_val_bin[base_string_tracking]
+                    base_string_tracking +=1
+            
+            int_long_B_val = int(long_B_val,2)
+            longB.append(int_long_B_val)
+            newG.append(B_to_G_dict[int_long_B_val])
+        
+        # remove singular indices from p
+        newp = shortp
+        for sing_ind in reversed(list(singular_indices)):
+            shortp.pop(sing_ind)
+        
+        # make new term
+        adjustedTerm = Term(term.parent,new_n,m-len(singular_indices)-len(all_coaligned_indices),newA,newb,np.identity(new_n),newp,shortB,newG)
+        
+        # add it to the list
+        newlistofterms.append(adjustedTerm)
+
+    return newlistofterms
+        
+
+def coalignmentCheckA(A,m):
+    coaligned_indices = {} # tracks which hyplanes are coaligned which which other ones
+    coalignment_tracker = []
+    all_coaligned_indices = []
+
+    coaligned_hplane_signs = {}
+    coalignment_sign_tracker = []
+    for i_hyplane in range(m):
+        for j_hyplane in range(m):
+            if i_hyplane < j_hyplane:
+                a_i = A[i_hyplane,:]
+                a_j = A[j_hyplane,:]
+                inner_prod = np.inner(a_i,a_j)
+                check = 1-abs(inner_prod)/(np.linalg.norm(a_i)*np.linalg.norm(a_j))
+                if check < 1e-12: #the planes are co-aligned
+                    if i_hyplane not in coalignment_tracker or j_hyplane not in coalignment_tracker:
+                        coalignment_tracker.append(i_hyplane)
+                        coalignment_tracker.append(j_hyplane)
+                        if i_hyplane not in coaligned_indices:
+                            coaligned_indices[i_hyplane] = [j_hyplane]
+                            coaligned_hplane_signs[j_hyplane] = np.copysign(1,np.inner(a_i,a_j))
+                            all_coaligned_indices.append(j_hyplane)
+                        else:
+                            if j_hyplane not in coaligned_indices[i_hyplane]: 
+                                coaligned_indices[i_hyplane].append(j_hyplane)
+                                coaligned_hplane_signs[j_hyplane] = np.copysign(1,np.inner(a_i,a_j))
+                                all_coaligned_indices.append(j_hyplane)
+    
+    return coaligned_indices, coaligned_hplane_signs, all_coaligned_indices
+    
+def coalignmentAdjustmentA(A,m,p,coaligned_indices):
+        # make binary string out of all enumerations 
+        # remove all indices in coaligned pairs
+        # regenerate 
+        # G = self.enumeration_G
+        # B = self.enumeration_B
+
+        # B_to_G_dict = dict(zip(B,G))
+        # enum_seq_in_bin = [f'{{0:0{m}b}}'.format(lam_child) for lam_child in B]
+
+        norm = np.linalg.norm(A,axis=1,ord=1)
+        A_normed = A / norm[:,None]
+
+        newp = list(np.multiply(np.array(p.copy()),norm))
+        old_enum_list = []
+        num_deleted_hplanes = 0
+        indices_to_delete = []
+        for key in reversed(coaligned_indices.keys()):
+            newp_key = newp[key]
+            for coaligned_index in reversed(coaligned_indices[key]):
+                newp_key += newp[coaligned_index]
+                num_deleted_hplanes +=1
+                indices_to_delete.append(coaligned_index)
+            newp[key] = newp_key
+        
+        A = np.delete(A_normed,indices_to_delete,axis=0)
+        indices_to_delete.sort(reverse=True)
+        
+        [newp.pop(ind) for ind in indices_to_delete]
+        # for ind in indices_to_delete:
+        #     enum_seq_in_bin = [enum_b[:ind]+enum_b[ind+1:] for enum_b in enum_seq_in_bin]
+
+        # short_to_ful_len_dict = dict(zip(enum_seq_in_bin,B))
+
+        # dedup_enum_seq_in_bin = list(dict.fromkeys(enum_seq_in_bin))
+        # dedup_enum_seq = [int(enum,2) for enum in dedup_enum_seq_in_bin]
+
+        # new_enum_leng = len(dedup_enum_seq_in_bin)
+        # # make new G with 
+        # new_G = []
+        # for ind in dedup_enum_seq_in_bin:
+        #     new_G.append(B_to_G_dict[short_to_ful_len_dict[ind]])
+
+        # newTerm = Term(self.parent,self.ndim,self.m_hyperplanes-num_deleted_hplanes,A,self.expnt_b,self.expnt_Q,p,dedup_enum_seq,new_G)
+        return A,newp
 
 
 def rearrangeIndices(listofterms,priority_indicies): 
@@ -532,10 +757,12 @@ def getPDFPerTermMarginal(term,goalLenb):
         return res
 
 def evaluateAtX(symbolic_UCPDF,x_vec,fz):
+    numBundles = 0
     sumPDF = 0
     for productList in symbolic_UCPDF:
         product = 1
         for bundle in productList:
+            numBundles+=1
             dot_prod = sum([x*y for x,y in zip(x_vec,bundle.coeff_den)])
             val = bundle.const_num/ (bundle.const_den + dot_prod)
             product *= val
@@ -554,7 +781,7 @@ def calcfz(listofterms):
     fz = 0
     n_dim = listofterms[0].ndim
     rand_x = np.array([random.uniform(-1,1) for i in range(n_dim)]).reshape(n_dim,1)
-    #rand_x = np.array([-0.38,-0.6,-0.59,-0.66]).reshape(n_dim,1)
+    # rand_x = np.array([0.44,0.33,-0.32]).reshape(n_dim,1)
     for term in listofterms:
         A = term.A_hplane_arr
         sign_seq =  np.copysign(1,np.matmul(A,rand_x)).reshape(term.m_hyperplanes)
@@ -564,10 +791,60 @@ def calcfz(listofterms):
         g_coeff = B_to_G_dict[int(sign_bin,2)][0][0].const_num if isinstance(B_to_G_dict[int(sign_bin,2)][0][0], Bundle) else B_to_G_dict[int(sign_bin,2)][0][0]
         
         fz += g_coeff
+    if np.imag(fz) > 0.000001:
+        pass
     return fz
+
+def calc_fz_moment(listofterms):
+    fz = 0
+    x_hat_sum = 0
+    P_sum = 0
+
+    n_dim = listofterms[0].ndim
+    rand_x = np.array([random.uniform(-1,1) for i in range(n_dim)]).reshape(n_dim,1)
+    # rand_x = np.array([0.44,0.33,-0.32]).reshape(n_dim,1)
+    for term in listofterms:
+        A = term.A_hplane_arr
+        p = np.array(term.expnt_p)
+        m = term.m_hyperplanes
+        b = np.array(term.expnt_b)
+        sign_seq =  np.copysign(1,np.matmul(A,rand_x)).reshape(term.m_hyperplanes)
+        ye_to_sum = 0
+        for l in range(m):
+            pl = p[l]
+            lambda_l = sign_seq[l]
+            al = A[l,:]
+            ye_to_sum -= pl*lambda_l*al
+        ye_full = ye_to_sum + 1j*b
+        sign_bin_list = [term.convertSignToBin(sign) for sign in sign_seq]
+        sign_bin = ''.join(sign_bin_list)
+        B_to_G_dict = dict(zip(term.enumeration_B,term.enumeration_G))
+        g_coeff = B_to_G_dict[int(sign_bin,2)][0][0].const_num if isinstance(B_to_G_dict[int(sign_bin,2)][0][0], Bundle) else B_to_G_dict[int(sign_bin,2)][0][0]
+        
+        fz += g_coeff
+        x_hat_sum += g_coeff * ye_full
+        P_sum += g_coeff * np.outer(ye_full,ye_full)
+
+    x_hat = x_hat_sum/(1j*fz)
+    P = -1/fz * P_sum - np.outer(x_hat,x_hat)
+    return fz, x_hat,P
 
 def calc_marginal(listofterms,ndim):
     remain_nu = ndim-2
+    rand_nu = np.array([random.uniform(-1,1) for i in range(remain_nu)]).reshape(remain_nu,1)
+    marg_pdf = []
+    for term in listofterms:
+        A = term.A_hplane_arr
+        sign_seq =  np.copysign(1,np.matmul(A,rand_nu)).reshape(term.m_hyperplanes)
+        sign_bin_list = [term.convertSignToBin(sign) for sign in sign_seq]
+        sign_bin = ''.join(sign_bin_list)
+        B_to_G_dict = dict(zip(term.enumeration_B,term.enumeration_G))
+        g_coeff = B_to_G_dict[int(sign_bin,2)]
+        marg_pdf.extend(g_coeff)
+    return marg_pdf
+
+def calc_marginal_1d(listofterms,ndim):
+    remain_nu = ndim-1
     rand_nu = np.array([random.uniform(-1,1) for i in range(remain_nu)]).reshape(remain_nu,1)
     marg_pdf = []
     for term in listofterms:
@@ -641,8 +918,8 @@ def plot2d_from_4d(symbolic_UCPDF_4d,fz):
     g2hy = 2
     g2ry = 0.025
 
-    x_grid = np.arange(g2lx,g2hx,g2rx)
-    y_grid = np.arange(g2ly, g2hy, g2ry)
+    x_grid = np.arange(g2lx,g2hx+g2rx,g2rx)
+    y_grid = np.arange(g2ly, g2hy+g2ry, g2ry)
 
     pdf = np.empty((len(x_grid),len(y_grid)))
     pdf1 = np.empty(len(x_grid))
@@ -653,7 +930,7 @@ def plot2d_from_4d(symbolic_UCPDF_4d,fz):
 
     for i_x,x in enumerate(x_grid):
         for i_y,y in enumerate(y_grid): 
-            evaluated = evaluateAtX(symbolic_UCPDF_4d,[x,y,0,0],fz)
+            evaluated = evaluateAtX(symbolic_UCPDF_4d,[x,y,0,0],fz) * (2*pi)**2
             if evaluated.imag > 1e-3:
                 print(evaluated)
             pdf[i_x,i_y] = evaluated
@@ -671,22 +948,68 @@ def plot2d_from_4d(symbolic_UCPDF_4d,fz):
     ax.set_xlabel("x1-axis (State-1)")
     ax.set_ylabel("x2-axis (State-2)")
     ax.set_zlabel("z-axis (CPDF Probability)")
+    ax.set_zlim(0,15)
     
 
     plt.show()
-    plt.close()
+    # plt.close()
 
-def plot2d_from_2d(symbolic_UCPDF_2d,fz,orig_dim):
+def plot1d_from_2d(symbolic_UCPDF_1d,fz,orig_dim):
+    start = time.time()
      # 2D Grid Params
     g2lx = -1
     g2hx = 1
     g2rx = 0.01
+
+    x_grid = np.arange(g2lx,g2hx+g2rx,g2rx)
+
+    pdf1 = np.empty(len(x_grid))
+
+    for i_x,x in enumerate(x_grid):
+        if orig_dim == 2:
+            pass
+            # pdf[i_x,i_y] = evaluateAtX(symbolic_UCPDF_1d,[x],fz)
+        else:
+            x_vec = [0]*(orig_dim-1)
+            x_vec.extend([x])
+            evalx = evaluateAtX(symbolic_UCPDF_1d,x_vec,fz)
+            pdf1[i_x] = evalx *(2*math.pi)**3
+        
+    # Marg 1D
+    # set up a figure three times as wide as it is tall
+    fig1 = plt.figure(figsize = (12,5))
+    ax1 = fig1.add_subplot(1,1,1)
+    # Marg 1
+    ax1.set_title("1D Marg of State 1")
+    ax1.plot(x_grid,pdf1)
+    ax1.set_xlabel(r"$x_1$",fontsize=20)
+    #ax1.set_ylabel("cpdf")
+    ax1.tick_params(axis="both",which="major",labelsize=15)
+    ax1.grid(visible=True,axis="both")
+    ax1.locator_params(axis='x',nbins=5)
+    ax1.locator_params(axis='y',nbins=5)
+
+
+    end = time.time()
+    length = end-start
+    print(f"Plotting took {round(length)} seconds")
+    plt.show()
+    # plt.close()
+
+
+
+def plot2d_from_2d(symbolic_UCPDF_2d,fz,orig_dim):
+    start = time.time()
+     # 2D Grid Params
+    g2lx = -1
+    g2hx = 1
+    g2rx = 0.025
     g2ly = -1
     g2hy = 1
-    g2ry = 0.01
+    g2ry = 0.025
 
-    x_grid = np.arange(g2lx,g2hx,g2rx)
-    y_grid = np.arange(g2ly, g2hy, g2ry)
+    x_grid = np.arange(g2lx,g2hx+g2rx,g2rx)
+    y_grid = np.arange(g2ly, g2hy+g2ry, g2ry)
 
     pdf = np.empty((len(x_grid),len(y_grid)))
     pdf1 = np.empty(len(x_grid))
@@ -703,43 +1026,78 @@ def plot2d_from_2d(symbolic_UCPDF_2d,fz,orig_dim):
                 x_vec = [0]*(orig_dim-2)
                 x_vec.extend([x,y])
                 evalx = evaluateAtX(symbolic_UCPDF_2d,x_vec,fz)
-                pdf[i_x,i_y] = evalx
+                pdf[i_x,i_y] = evalx *(2*math.pi)**2
                 if abs(evalx.imag) > 1e-7:
+                    # print(evalx)
                     pass
-            x_grid_2d[i_x,i_y] = x
-            y_grid_2d[i_x,i_y] = y  
-            pdf2[i_y] = evaluateAtX(symbolic_UCPDF_2d,[0,y],fz)
-        pdf1[i_x] = evaluateAtX(symbolic_UCPDF_2d,[x,0],fz)      
+            x_grid_2d[i_x,i_y] = x 
+            y_grid_2d[i_x,i_y] = y 
 
-    fig1 = plt.figure(figsize = (5,5))
+    x_grid_1d = np.arange(g2ly,g2hy+0.01,0.01)
+    y_grid_1d = np.arange(g2lx,g2hx+0.01,0.01)
+    pdf1 = np.empty(len(x_grid_1d))
+    pdf2 = np.empty(len(y_grid_1d))
+    for i_x,x in enumerate(x_grid_1d):
+        pdf2[i_x] = evaluateAtX(symbolic_UCPDF_2d,[0,0,0,x],fz) *(2*math.pi)**3
+        pdf1[i_x] = evaluateAtX(symbolic_UCPDF_2d,[0,0,x,0],fz)  *(2*math.pi)**3    
+
+    fig1 = plt.figure(figsize = (10,10))
     ax = fig1.subplots(1,1,subplot_kw={'projection': '3d'})
 
+    save = False
+    if save:
+        file = f"nainaMU1.npy"
+        np.save(file,pdf)
     # Marg (0,1)
-    ax.set_title("States 1 and 2", pad=-15)
-    ax.plot_surface(x_grid_2d, y_grid_2d, pdf, zorder=2, color='b')
-    ax.set_xlabel("x-axis (State-1)")
-    ax.set_ylabel("y-axis (State-2)")
-    ax.set_zlabel("z-axis (CPDF Probability)")
+    ax.set_title("Step 1",fontsize = 30,x=0.5,y=1) #
+    ax.plot_surface(x_grid_2d, y_grid_2d, pdf, zorder=2, cmap = "summer",linewidth=0,antialiased=False)
+    ax.set_xlabel("\n" r"$x_1$",fontsize=20)
+    ax.set_xlim(-1,1)
+    ax.set_ylim(-1,1)
+    ax.set_ylabel("\n" r"$x_2$",fontsize = 20)
+    ax.tick_params(axis="both",which="major",labelsize=15)
+    ax.set_zlabel("\n cpdf",fontsize=20)
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    # ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.locator_params(axis='z',nbins=6)
+    ax.locator_params(axis='x',nbins=5)
+    ax.locator_params(axis='y',nbins=5)
+    ax.set_zlim(0,15)
+
 
     if False:
         # Marg 1D
         # set up a figure three times as wide as it is tall
-        fig2 = plt.figure(figsize = (18,4))
-        ax1 = fig2.add_subplot(1,3,1)
-        ax2 = fig2.add_subplot(1,3,2)
+        fig2 = plt.figure(figsize = (12,5))
+        ax1 = fig2.add_subplot(1,2,1)
+        ax2 = fig2.add_subplot(1,2,2)
         # Marg 1
         ax1.set_title("1D Marg of State 1")
-        ax1.plot(x_grid,pdf1)
-        ax1.set_xlabel("State 1")
-        ax1.set_ylabel("CPDF Probability")
+        ax1.plot(x_grid_1d,pdf1)
+        ax1.set_xlabel(r"$x_1$",fontsize=20)
+        #ax1.set_ylabel("cpdf")
+        ax1.tick_params(axis="both",which="major",labelsize=15)
+        ax1.grid(visible=True,axis="both")
+        ax1.locator_params(axis='x',nbins=5)
+        ax1.locator_params(axis='y',nbins=5)
+
         # Marg 2
         ax2.set_title("1D Marg of State 2")
-        ax2.plot(y_grid,pdf2)
-        ax2.set_xlabel("State 2")
-        ax2.set_ylabel("CPDF Probability")
+        ax2.plot(y_grid_1d,pdf2)
+        ax2.set_xlabel(r"$x_2$",fontsize=20)
+        #ax2.set_ylabel("cpdf")
+        ax2.tick_params(axis="both",which="major",labelsize=15)
+        ax2.grid(visible=True,axis="both")
+        ax2.locator_params(axis='x',nbins=5)
+        ax2.locator_params(axis='y',nbins=5)
 
+    end = time.time()
+    length = end-start
+    print(f"Plotting took {round(length)} seconds")
     plt.show()
-    plt.close()
+    # plt.close()
 
 def expand_BG_tables(m,B,G):
     newB = []

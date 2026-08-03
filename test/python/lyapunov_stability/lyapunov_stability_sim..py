@@ -127,7 +127,7 @@ def run_simulation_MC(runs=200,time=200,print_individ_plots=False,control_steps=
     plt.show()
 
 
-def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=0.1,P=1,eta_r =0.7,theta_i=8,print_individ_plots=True,control_steps = 1,print_control_cost = True):
+def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=0.1,P=1,eta_r =0.7,theta_i=8,print_individ_plots=True,control_steps = 1,print_control_cost = True,performance_cost = True):
     #check parameters
     if (abs(Phi) < 1):
         if math.pi*gamma *abs( (beta/(1-abs(Phi))* H/gamma)**2 -1) < 1:
@@ -161,7 +161,11 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
         high_wk = x0_tild
 
     if control_steps>0:
-        u0 = calc_control(1,0,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,x0_bar,fy0,list_of_estimator_terms_0_0,high_wk_ind,high_wk,show=print_control_cost)
+        if performance_cost:
+            u0 = calc_control(1,0,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,x0_bar,fy0,list_of_estimator_terms_0_0,high_wk_ind,high_wk,show=print_control_cost)
+        else: 
+            u0 = calc_control_LyapDrift(1,0,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,x0_bar,fy0,P,list_of_estimator_terms_0_0,show=False)
+
         #print(uk)
     else: 
         u0 = 0
@@ -211,15 +215,25 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
 
         #Control
         if control_steps>0:
-            uk = calc_control(1,k,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,xk_bar,fyk,list_of_mu_terms_k_k,high_wk_ind,high_wk,show=print_control_cost)
+            u_perf = calc_control(1,k,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,xk_bar,fyk,list_of_mu_terms_k_k,high_wk_ind,high_wk,show=print_control_cost)
+            u_lyap = calc_control_LyapDrift(1,k,control_steps,Phi,B,beta,Gamma,eta_r,theta_i,xk_bar,fyk,P,list_of_mu_terms_k_k,show=print_control_cost)
+            if performance_cost:
+                uk = u_perf
+            else:
+                uk = u_lyap
             saved_data[k,5] = uk
             #print(uk)
         else: 
             uk = 0
 
+        # print(f"At {k}: drift minimization picks {u_lyap}, performance cost pics {u_perf}")
 
         #Advance truth k -> k+1
-        xkp1_bar,xkp1_tild,wk = advance_simulation_truth(k,Phi,B,Gamma,beta,xk_bar,xk_tild,uk)
+        if performance_cost:
+            xkp1_bar,xkp1_tild,wk = advance_simulation_truth(k,Phi,B,Gamma,beta,xk_bar,xk_tild,uk)
+        else:
+            xkp1_bar,xkp1_tild,wk = advance_simulation_truth(k,Phi,B,Gamma,beta,xk_bar,xk_tild,uk)
+        #
         saved_data[k,4] = wk
         if abs(wk) > 5:
             high_wk_ind = k
@@ -231,6 +245,8 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
         saved_estimator[k,2] = xk1_hat
         lyap_val_k1 = calc_second_Lyap_function(k,P,list_of_tp_terms_kp1_k,xkp1_bar,fyk)
         saved_lyap_functions[k,1] = lyap_val_k1
+
+        print(f"drift at k = {k}: {lyap_val_k1 - lyap_val}")
 
         # Reset truth 
         xk_bar = xkp1_bar
@@ -267,8 +283,8 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
 
 
         plt.subplot(512)
-        plt.plot(range(0,time),saved_data[:,3],color='midnightblue',label=r"$w_k$",lw=lw)
-        plt.plot(range(0,time),saved_data[:,4],color='red',label=r"$v_k$",lw=lw-1.5)
+        plt.plot(range(0,time),saved_data[:,4],color='midnightblue',label=r"$w_k$",lw=lw)
+        plt.plot(range(0,time),saved_data[:,3],color='red',label=r"$v_k$",lw=lw-1.5)
         #plt.plot(range(0,time),np.zeros((len(range(0,time)))),linestyle="dashed")
         plt.legend(fontsize=lfzl,frameon=False,loc=3,bbox_to_anchor=(0,-0.15))
         plt.minorticks_on()
@@ -280,9 +296,13 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
         plt.tick_params(axis='y', which='major', labelsize=lt,labelbottom=False,)
         plt.gca().axes.xaxis.set_ticklabels([])
         
+        if performance_cost:
+            input_label = "performance criterion"
+        else:
+            input_label = "lyap drift minimization"
 
         plt.subplot(513)
-        plt.plot(range(0,time),saved_data[:,5],color='midnightblue',lw=lw)
+        plt.plot(range(0,time),saved_data[:,5],color='midnightblue',lw=lw,label=f"{input_label}")
         plt.legend(fontsize=lfzl,frameon=False)
         plt.minorticks_on()
         plt.grid(which="minor",color="gainsboro")
@@ -290,6 +310,7 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
         #plt.xlabel('Time step (k)',fontsize=lt)
         plt.ylabel(r"$u_k$",fontsize=lfz)
         plt.xlim(0,100)
+        plt.ylim(-5,5)
         plt.tick_params(axis='y', which='major', labelsize=lt,labelbottom=False,)
         plt.gca().axes.xaxis.set_ticklabels([])
         
@@ -325,6 +346,7 @@ def define_simulation(time=100,Phi=0.8,B=1,Gamma=1,H=1,alpha=0.1,gamma=0.1,beta=
         plt.xlabel('Time step (k)',fontsize=lt)
         #plt.ylabel(r"$E[V(x_{k+1})|y_k]-E[V(x_k)|y_k]$",fontsize=lfz)
         plt.ylabel("Drift",fontsize=lfz)
+        plt.ylim(-2,0.02)
         plt.tick_params(axis='both', which='major', labelsize=lt)
         plt.xlim(0,100)
 
@@ -416,6 +438,8 @@ def estimator_mu(k,gamma,H,zk,Phi,list_of_past_terms):
         ab_bigarr[0:2,i:i+1]=ab_arr
 
         newterm_i = Term(cd_arr[0,0],cd_arr[1,0],omegai,sigmai)
+        if k == 2 or k == 20:
+            print(f"term param for k={k}, i={i}. c = {cd_arr[0,0]: .3g}, d = {cd_arr[1,0]: .3g}, omega = {omegai: .3g}, sigma = {sigmai: .3g}")
         list_of_new_terms.append(newterm_i)
 
     ab_sum = np.sum(ab_bigarr,axis=1)
@@ -433,6 +457,8 @@ def estimator_mu(k,gamma,H,zk,Phi,list_of_past_terms):
     # print(k_truncate)
 
     newterm_k2 = Term(c_k2,d_k2,omega_k2,sigma_k2)
+    if k == 2 or k == 20:
+        print(f"term param for k={k}, i={k+2-1}. c = {c_k2: .3g}, d = {d_k2: .3g}, omega = {omega_k2: .3g}, sigma = {sigma_k2: .3g}")
     list_of_new_terms.append(newterm_k2)
 
     return list_of_new_terms
@@ -538,7 +564,7 @@ def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_
         u_guess = np.array([uk_ballpark,uk1_ballpark])
         res=optimize_2d(u_guess,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta)
 
-        if show:
+        if show and k>42:
             fig = plt.figure()
             ax = fig.add_subplot(projection='3d')
             ax.plot_wireframe(uk_arr, uk1_arr, cost, rstride=10, cstride=10)
@@ -550,6 +576,58 @@ def calc_control(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,list_
             plt.show()
 
         return res.x[0]
+    
+def calc_control_LyapDrift(n,k,control_steps,Phi,B,beta,Gamma,eta_r,theta,xk_bar,fyk,p,list_of_terms_k,show):
+    range = 10
+    len_u  = 200
+    u_arr = np.linspace(-range,range,len_u)
+
+    cost_val = np.zeros((len_u,len(list_of_terms_k)))
+    cost_val_der = np.zeros((len_u,len(list_of_terms_k)))
+
+    for i,term in enumerate(list_of_terms_k):
+        omegai = term.omegai
+        sigmai = term.sigmai
+        ci = term.ci
+        di = term.di
+
+        ci_k1 = ci
+        di_k1 = di*math.copysign(Phi,1)
+        omegai_k1 = abs(Phi)*omegai+beta
+        sigmai_k1 = Phi*sigmai
+
+        lyapk_i = 0.5*ci*np.log((1+math.sqrt(p)*omegai)**2 + p*(sigmai+xk_bar)**2) + di*math.atan(math.sqrt(p)*(sigmai+xk_bar)/(1+math.sqrt(p)*omegai))
+        xk1_bar = Phi*xk_bar+B*u_arr
+        lyapk1_i = 0.5*ci_k1*np.log((1+math.sqrt(p)*omegai_k1)**2 + p*(sigmai_k1+xk1_bar)**2) + di_k1*np.arctan(math.sqrt(p)*(sigmai_k1+xk1_bar)/(1+math.sqrt(p)*omegai_k1))
+
+        der = (ci_k1*math.sqrt(p)*(sigmai_k1+xk1_bar) + di_k1*(1+math.sqrt(p)*omegai_k1))/((1+math.sqrt(p)*omegai_k1)**2 + p*(sigmai_k1+xk1_bar)**2)
+
+        cost_val[:,i] = lyapk1_i - lyapk_i
+        cost_val_der[:,i] = der
+    
+    cost = 2*np.sum(cost_val,axis=1)/fyk
+    cost_der = 2*B*math.sqrt(p)*np.sum(cost_val_der,axis=1)/fyk
+
+    ind_max = np.argmin(cost)
+    u_guess = u_arr[ind_max]
+
+    if show and k>42:
+        plt.figure()
+        plt.subplot(211)
+        plt.title(f"k = {k}")
+        plt.plot(u_arr,cost,color='blue',label="drift")
+        # plt.scatter(res.x,-res.fun/(2*pi*fyk),c='r',marker='o')
+        plt.legend()
+        plt.xlabel('u')
+
+        plt.subplot(212)
+        plt.plot(u_arr,cost_der,color='blue',label="drift derivative")
+        # plt.scatter(res.x,-res.fun/(2*pi*fyk),c='r',marker='o')
+        plt.legend()
+        plt.xlabel('u')
+        
+    
+    return u_guess
 
 
 def optimize_2d(u_guess,list_of_terms,Phi,eta_r,xk_bar,B,beta,Gamma,theta):
@@ -685,7 +763,8 @@ if __name__ == "__main__":
         run_simulation_MC(runs=10000,time=100,print_individ_plots=False,control_steps=0,save_data_to_text=True,plot_all_runs=True,filename = 'MC_nocontrol_stable')
     else:
         np.random.seed(seed=233423)
-        define_simulation(time=100,Phi=1.05, H=1,alpha=0.5,beta=0.02,gamma=0.1,eta_r=0.7,control_steps=2,print_control_cost=False)
+        define_simulation(time=25,Phi=0.95, H=1,alpha=0.5,beta=0.02,gamma=0.1,eta_r=0.7,control_steps=2,print_control_cost=False,performance_cost=True)
+        # define_simulation(time=100,Phi=0.95, H=1,alpha=0.5,beta=0.02,gamma=0.1,eta_r=0.7,control_steps=2,print_control_cost=False,performance_cost=False)
 
     #og_set = np.seterr({'divide': 'warn', 'over': 'warn', 'under': 'ignore', 'invalid': 'warn'})
     
